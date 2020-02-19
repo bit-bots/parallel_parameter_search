@@ -1,0 +1,13 @@
+<launch>
+    <!-- opens rviz that is connected to the worker with the specified number -->
+    <arg name="number" default="0" />
+
+    <group ns="worker$(arg number)">
+        <remap from="/clock" to="/worker$(arg number)/clock"/>
+        <node name="rviz" pkg="rviz" type="rviz"
+            output="screen">
+                <remap from="/tf" to="/worker$(arg number)/tf" />
+                <remap from="/tf_static" to="/worker$(arg number)/tf_static" />
+            </node>
+    </group>
+</launch>

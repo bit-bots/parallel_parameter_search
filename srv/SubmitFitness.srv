@@ -1,0 +1,12 @@
+#request
+
+uint32 worker_number # number of the worker who is submitting this fitness evaluation
+uint32 set_number # has to be the one from the parameter_set service
+float64 fitness # a fitness value of these parameters
+float64 evaluation_time # sim time it took to evaluate these parameters. can be interesting to see if the simulation was stopped due to a fail
+uint32 times_stopped # how often it was stopped due to a break condition, e.g. falling
+
+---
+#response
+
+bool sucess # should always be true, if not you tried to submit a set twice or a set which has not been requested yet

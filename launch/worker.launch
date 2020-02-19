@@ -1,0 +1,80 @@
+<launch>
+    <!-- get arguments -->
+    <arg name="number" default="0" />
+    <arg name="gazebo_uri" default="localhost:11345"/>
+
+    <!--<arg name="world_name" value="worlds/empty.world"/>-->
+    <arg name="world_name" value="worlds/empty.world"/>
+    <!--<arg name="world_name" value="$(find humanoid_league_gazebo_world)/worlds/robocup_soccer.world" />-->
+    <arg name="paused" default="false"/>
+    <arg name="gui" default="false"/>
+    <arg name="headless" default="true"/>
+    <arg name="debug" default="false"/>
+    <arg name="verbose" default="false"/>
+    <arg name="respawn_gazebo" default="false"/>
+    <arg name="use_clock_frequency" default="false"/>
+    <arg name="pub_clock_frequency" default="100"/>
+
+    <!-- parse args for gazebo -->
+    <arg unless="$(arg paused)" name="command_arg1" value=""/>
+    <arg     if="$(arg paused)" name="command_arg1" value="-u"/>
+    <arg unless="$(arg headless)" name="command_arg2" value=""/>
+    <arg     if="$(arg headless)" name="command_arg2" value="-r"/>
+    <arg unless="$(arg verbose)" name="command_arg3" value=""/>
+    <arg     if="$(arg verbose)" name="command_arg3" value="--verbose"/>
+    <arg unless="$(arg debug)" name="script_type" value="gzserver"/>
+    <arg     if="$(arg debug)" name="script_type" value="debug"/>
+    <group if="$(arg use_clock_frequency)">
+        <param name="gazebo/pub_clock_frequency" value="$(arg pub_clock_frequency)" />
+    </group>
+
+    <!-- launch a workers with its own namespace -->
+    <group ns="worker$(arg number)">
+
+        <!-- explicit clock remapping because wont work directly -->
+        <remap from="/clock" to="/worker$(arg number)/clock"/>
+
+        <!-- start gazebo server-->
+        <env name="GAZEBO_MASTER_URI" value="$(arg gazebo_uri)"/>
+        <node name="gazebo" pkg="gazebo_ros" type="$(arg script_type)" respawn="$(arg respawn_gazebo)" output="screen"
+            args="$(arg command_arg1) $(arg command_arg2) $(arg command_arg3) $(arg world_name)">
+        </node>
+
+
+        <!-- now gazebo is running. Start your nodes here to spawn your model and your controller.
+        It is important that they are in the group. Otherwise they will be in the wrong namespace-->
+        <!-- spawn the robot -->
+        <node name="urdf_spawner" pkg="gazebo_ros" type="spawn_model" respawn="false" output="log"
+            args="-urdf -model wolfgang -param /robot_description -gazebo_namespace /worker$(arg number)/gazebo -x 0.0 -y 0.0 -z 1000 -P 0.0"/>
+
+        <!-- controller -->
+        <rosparam file="$(find wolfgang_description)/config/wolfgang_control.yaml" command="load"/>
+        <node name="controller_spawner" pkg="controller_manager" type="spawner" respawn="false" output="screen" args="joint_state_controller JointGroupController" />
+
+        <!-- state publisher / tf -->
+        <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher"
+        respawn="false" output="log">
+            <remap from="/tf" to="/worker$(arg number)/tf" />
+            <remap from="/tf_static" to="/worker$(arg number)/tf_static" />
+        </node>
+
+         <!-- launch script which creates jointgroup messages for the simulator controller -->
+        <node name="motor_viz_helper" pkg="bitbots_bringup" type="motor_goals_viz_helper.py" output="screen" args="--gazebo" >
+                <remap from="/DynamixelController/command" to="DynamixelController/command"/>
+        </node>
+
+        <!-- start walking since it is necessary -->
+        <rosparam file="$(find bitbots_quintic_walk)/config/walking_wolfgang_simulator.yaml" command="load"/>
+        <node name="walking" pkg="bitbots_quintic_walk" type="WalkNode" output="screen">
+            <remap from="walking_motor_goals" to ="DynamixelController/command"/>
+            <remap from="/clock" to="clock"/>
+            <remap from="imu/data" to="imu"/>
+        </node>
+
+        <!-- now start a node that gets a set of parameters, runs the experiment and returns the fitness to the master -->
+        <node name="walk_worker" pkg="train_worker" type="walk_worker.py" respawn="false" output="screen" args="$(arg number)" />
+
+
+
+    </group>
+</launch>
