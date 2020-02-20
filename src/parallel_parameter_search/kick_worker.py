@@ -149,11 +149,11 @@ class KickWorker:
                     fitness = 0 
                     times_stopped += 1
                     # we dont want to do anything else
+                    self.kick_wait_finished()
                     break
-                self.kick_wait_finished()
                 fitness += self.measure_fitness(1, 1, -1)
 
-                # sideward walking
+                # right kick
                 self.reinitilize_simulation()
                 self.kick_right()
                 start_time = rospy.get_time()
@@ -358,14 +358,14 @@ class KickWorker:
         while self.kicking:
             rospy.sleep(0.001)
 
-    def kick_feedback_callback(self, msg: KickActionFeedback):
-        if msg.header.stamp - self.last_kick_message_time > self.threshold:
+    def kick_feedback_callback(self, msg):
+        if msg.header.stamp.to_nsec() - self.last_kick_message_time > self.threshold:
             # We are not kicking anymore
             self.kicking = False
         else:
             # Still kicking
             self.kicking = True
-        self.last_kick_message_time = msg.header.stamp
+        self.last_kick_message_time = msg.header.stamp.to_nsec()
 
     def play_walkready(self):
         goal = PlayAnimationGoal()
