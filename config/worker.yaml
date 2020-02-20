@@ -3,7 +3,7 @@ worker:
         time_limit: 15 #[s]
         number_of_tries: 2
         use_dyn_reconf: True
-        dyn_reconf_name: "walking/engine"
+        dyn_reconf_name: "dynamic_kick"
         start_position: [0,0, 0.41] #x,y,z
         start_orientation: [0, 0.18,0] #r,p,y
         model_name: "wolfgang"

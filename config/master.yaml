@@ -5,47 +5,47 @@ master:
   number_of_sets_to_test: 10000000 # only for random search, 0 for unlimited
 
   parameters:
-    freq:   
-        min: 0.2
-        max: 3
-        step_size: 0.1
-    double_support_ratio:
-        min: 0.0
-        max: 0.5
-        step_size: 0.1
     foot_rise:
-        min: 0.07
-        max: 0.1
-        step_size: 0.01
-    trunk_swing:
-        min: 0.0
-        max: 1.0
-        step_size: 0.1
-    trunk_height:
-        min: 0.33
-        max: 0.48
-        step_size: 0.05
+      min: 0.02
+      max: 0.15
+      step_size: 0.01
+    trunk_roll:
+      min: -1
+      max: 1
+      step_size: 0.1
     trunk_pitch:
-        min: -0.2
-        max: 0.4
-        step_size: 0.1
-    trunk_phase:
-        min: -0.5
-        max: 0.5
-        step_size: 0.1
-    foot_overshoot_ratio:
-        min: 0.0
-        max: 0.5
-        step: 0.1
-    foot_overshoot_phase:
-        min: 0.7
-        max: 1.0
-        step: 0.1
-    foot_apex_phase:
-        min: 0.3
-        max: 0.7
-        step: 0.1
-    trunk_x_offset:
-        min: -0.05
-        max: 0.05
-        step: 0.0
+      min: -1
+      max: 1
+      step_size: 0.1
+    trunk_yaw:
+      min: -1
+      max: 1
+      step_size: 0.1
+    move_trunk_time:
+      min: 1
+      max: 2
+      step_size: 0.1
+    raise_foot_time:
+      min: 0.2
+      max: 1
+      step_size: 0.1
+    move_to_ball_time:
+      min: 0.3
+      max: 1.5
+      step_size: 0.1
+    kick_time:
+      min: 0
+      max: 0.5
+      step_size: 0.05
+    move_back_time:
+      min: 0
+      max: 0.5
+      step_size: 0.1
+    lower_foot_time:
+      min: 0.2
+      max: 1
+      step_size: 0.1
+    move_trunk_back_time:
+      min: 0.1
+      max: 0.7
+      step_size: 0.1
