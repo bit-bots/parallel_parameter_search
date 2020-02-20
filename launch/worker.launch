@@ -72,7 +72,6 @@
         <node name="dynamic_kick" pkg="bitbots_dynamic_kick" type="KickNode" output="screen">
             <rosparam file="$(find bitbots_dynamic_kick)/config/kick_config.yaml" command="load"/>
             <remap from="kick_motor_goals" to ="DynamixelController/command"/>
-            <remap from="/clock" to="clock"/>
             <remap from="imu/data" to="imu"/>
             <remap from="/tf" to="/worker$(arg number)/tf" />
             <remap from="/tf_static" to="/worker$(arg number)/tf_static" />
