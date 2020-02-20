@@ -64,6 +64,7 @@
         </node>
 
         <!-- start kick since it is necessary -->
+        <node name="animation_server" pkg="bitbots_animation_server" type="animation_node.py" output="screen" />
         <node name="dynamic_kick" pkg="bitbots_dynamic_kick" type="KickNode" output="screen">
             <rosparam file="$(find bitbots_dynamic_kick)/config/kick_config.yaml" command="load"/>
             <remap from="kick_motor_goals" to ="DynamixelController/command"/>
