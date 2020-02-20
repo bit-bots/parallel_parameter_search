@@ -75,7 +75,7 @@ class KickWorker:
 
         self.anim_client = actionlib.SimpleActionClient('animation_server', PlayAnimationAction)
         self.anim_client.wait_for_server()
-        self.kick_cancel_publisher = rospy.Publisher('dynamic_kick/cancel', GoalID())
+        self.kick_cancel_publisher = rospy.Publisher('dynamic_kick/cancel', GoalID)
 
         self.imu_fall_counter = 0
         #####
