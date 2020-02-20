@@ -6,7 +6,7 @@ import sys
 import roslaunch
 from geometry_msgs.msg import Twist, Pose, Point, Quaternion
 from std_srvs.srv import Empty
-from train_worker.srv import RequestParameters, SubmitFitness
+from parallel_parameter_search.srv import RequestParameters, SubmitFitness
 from gazebo_msgs.srv import GetModelState, SetModelState, SetPhysicsProperties
 from gazebo_msgs.msg import ModelStates, ModelState, LinkStates
 import gazebo_msgs

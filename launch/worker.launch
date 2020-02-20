@@ -72,8 +72,7 @@
         </node>
 
         <!-- now start a node that gets a set of parameters, runs the experiment and returns the fitness to the master -->
-        <node name="walk_worker" pkg="train_worker" type="walk_worker.py" respawn="false" output="screen" args="$(arg number)" />
-
+        <node name="kick_worker" pkg="parallel_parameter_search" type="kick_worker.py" respawn="false" output="screen" args="$(arg number)" />
 
 
     </group>

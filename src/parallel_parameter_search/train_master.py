@@ -6,7 +6,7 @@ import os
 import sys
 import rospy
 import time
-from train_worker.srv import RequestParameters, SubmitFitness, RequestParametersResponse
+from parallel_parameter_search.srv import RequestParameters, SubmitFitness, RequestParametersResponse
 
 
 class TrainMaster:

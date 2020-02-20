@@ -43,7 +43,7 @@ def main():
 
     # start worker nodes
     """rospack = rospkg.RosPack()
-    path = rospack.get_path("train_worker")
+    path = rospack.get_path("parallel_parameter_search")
     path = path + "/launch/worker.launch"
     uuid = roslaunch.rlutil.get_or_generate_uuid(None, False)
     roslaunch.configure_logging(uuid)"""
@@ -52,7 +52,7 @@ def main():
         rospy.logwarn("Starting worker with number %d", i)
         g_uri = "127.0.0.1:" + str(gazebo_starting_port + i)
         subprocess.Popen(
-            "export ROS_MASTER_URI=" + master_uri + " && roslaunch train_worker worker.launch number:=" + str(i) +
+            "export ROS_MASTER_URI=" + master_uri + " && roslaunch parallel_parameter_search worker.launch number:=" + str(i) +
             " gazebo_uri:=" + g_uri, shell=True)
 
         # launch = roslaunch.parent.ROSLaunchParent(uuid, [path])

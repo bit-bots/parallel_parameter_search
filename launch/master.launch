@@ -4,8 +4,8 @@
     <param name="/use_sim_time" value="true" />
     <param name="/simulation_active" value="true" />
 
-    <rosparam file="$(find train_worker)/config/master.yaml" command="load"/>
-    <rosparam file="$(find train_worker)/config/worker.yaml" command="load"/>
+    <rosparam file="$(find parallel_parameter_search)/config/master.yaml" command="load"/>
+    <rosparam file="$(find parallel_parameter_search)/config/worker.yaml" command="load"/>
 
     <!-- load URDF -->
     <param name="robot_description" command="$(find xacro)/xacro $(find wolfgang_description)/urdf/wolfgang_basler.urdf.xacro" />
@@ -25,7 +25,7 @@
 
 
     <!-- launch the trainMaster -->
-    <node name="train_master" pkg="train_worker" type="train_master.py" output="screen"/>
+    <node name="train_master" pkg="parallel_parameter_search" type="train_master.py" output="screen"/>
 
 
 </launch>

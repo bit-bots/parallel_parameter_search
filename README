@@ -17,7 +17,7 @@ Start Master
 ------------
 Make sure correct workspaces are sourced
 The master has to be started before the worker nodes are started. Do this with the following launch file
-roslaunch train_worker master.launch
+roslaunch parallel_parameter_search master.launch
 
 Start Worker
 ------------
@@ -25,13 +25,13 @@ Make sure correct workspaces are sourced
 The worker can run on any machine that is in a network connection to the master machine. Before starting the worker you have to set the ROS master uri to the master computer. 
 export ROS_MASTER_URI=http://MASTERPC:11311
 To start a single worker you can use the following launch file
-roslaunch train_worker worker.launch
+roslaunch parallel_parameter_search worker.launch
 To start multiple workers you can use 
-rosrun train_worker launch_workers.py 5 1 http://MASTERPC:11311
+rosrun parallel_parameter_search launch_workers.py 5 1 http://MASTERPC:11311
 
 Watching workers
 ----------------
 You can watch workers evaluating their parameter set with the following script.
 You have to set the ROS master uri first.
-rosrun train_worker watch_worker.py WORKER_NUMBER IP_OF_WORKER
+rosrun parallel_parameter_search watch_worker.py WORKER_NUMBER IP_OF_WORKER
 
