@@ -72,7 +72,7 @@ class KickWorker:
         self.kicking = False
         self.threshold = 0.1  # no feedback within threshold? -> not kicking!
 
-        self.anim_client = actionlib.SimpleActionClient('animation', PlayAnimationAction)
+        self.anim_client = actionlib.SimpleActionClient('animation_server', PlayAnimationAction)
         self.anim_client.wait_for_server()
 
         self.imu_fall_counter = 0
