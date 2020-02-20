@@ -70,6 +70,8 @@
             <remap from="kick_motor_goals" to ="DynamixelController/command"/>
             <remap from="/clock" to="clock"/>
             <remap from="imu/data" to="imu"/>
+            <remap from="/tf" to="/worker$(arg number)/tf" />
+            <remap from="/tf_static" to="/worker$(arg number)/tf_static" />
         </node>
 
         <!-- now start a node that gets a set of parameters, runs the experiment and returns the fitness to the master -->
