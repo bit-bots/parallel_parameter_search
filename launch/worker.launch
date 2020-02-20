@@ -63,10 +63,10 @@
                 <remap from="/DynamixelController/command" to="DynamixelController/command"/>
         </node>
 
-        <!-- start walking since it is necessary -->
-        <rosparam file="$(find bitbots_quintic_walk)/config/walking_wolfgang_simulator.yaml" command="load"/>
-        <node name="walking" pkg="bitbots_quintic_walk" type="WalkNode" output="screen">
-            <remap from="walking_motor_goals" to ="DynamixelController/command"/>
+        <!-- start kick since it is necessary -->
+        <node name="dynamic_kick" pkg="bitbots_dynamic_kick" type="KickNode" output="screen">
+            <rosparam file="$(find bitbots_dynamic_kick)/config/kick_config.yaml" command="load"/>
+            <remap from="kick_motor_goals" to ="DynamixelController/command"/>
             <remap from="/clock" to="clock"/>
             <remap from="imu/data" to="imu"/>
         </node>
