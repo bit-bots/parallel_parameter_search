@@ -70,8 +70,7 @@ class KickWorker:
 
         self.last_kick_message_time = 0
         self.kick_feedback_subscriber = rospy.Subscriber('dynamic_kick/feedback', KickActionFeedback, self.kick_feedback_callback)
-        self.kicking = False
-        self.threshold = 0.1  # no feedback within threshold? -> not kicking!
+        self.threshold = 1e9  # (=1s) no feedback within threshold? -> not kicking!
 
         self.anim_client = actionlib.SimpleActionClient('animation_server', PlayAnimationAction)
         self.anim_client.wait_for_server()
@@ -183,9 +182,15 @@ class KickWorker:
         # wait till time for test is up or stopping condition has been reached                
         while True:
             current_time = rospy.get_time() - start_time                
-            if current_time > self.time_limit or not self.kicking:
-                # reached time limit or kick is finished
+            if current_time > self.time_limit:
+                # reached time limit
+                rospy.logwarn("time limit exceeded")
                 return False                    
+            elif not self.kicking and current_time > 1:
+                # we are not kicking
+                rospy.logwarn("we are not kicking")
+                return False
+
             """
             if not self.robot_has_moved and current_time > 20 :
                 # has not moved 
@@ -349,12 +354,12 @@ class KickWorker:
     def kick_left(self):
         self.kick_goal.ball_position.y = 0.09
         self.kick_client.send_goal(self.kick_goal)
-        self.last_kick_message_time = rospy.Time.now()
+        self.last_kick_message_time = rospy.Time.now().to_nsec()
 
     def kick_right(self):
         self.kick_goal.ball_position.y = -0.09
         self.kick_client.send_goal(self.kick_goal)
-        self.last_kick_message_time = rospy.Time.now()
+        self.last_kick_message_time = rospy.Time.now().to_nsec()
 
     def kick_wait_finished(self):
         self.kick_cancel_publisher.publish(GoalID())
