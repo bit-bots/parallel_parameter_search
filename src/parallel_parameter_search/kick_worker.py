@@ -75,7 +75,7 @@ class KickWorker:
 
         self.anim_client = actionlib.SimpleActionClient('animation_server', PlayAnimationAction)
         self.anim_client.wait_for_server()
-        self.kick_cancel_publisher = rospy.Publisher('dynamic_kick/cancel', GoalID)
+        self.kick_cancel_publisher = rospy.Publisher('dynamic_kick/cancel', GoalID, queue_size=1)
 
         self.imu_fall_counter = 0
         #####
@@ -349,25 +349,23 @@ class KickWorker:
     def kick_left(self):
         self.kick_goal.ball_position.y = 0.09
         self.kick_client.send_goal(self.kick_goal)
-        self.kicking = True
+        self.last_kick_message_time = rospy.Time.now()
 
     def kick_right(self):
         self.kick_goal.ball_position.y = -0.09
         self.kick_client.send_goal(self.kick_goal)
-        self.kicking = True
+        self.last_kick_message_time = rospy.Time.now()
 
     def kick_wait_finished(self):
         self.kick_cancel_publisher.publish(GoalID())
         while self.kicking:
             rospy.sleep(0.001)
 
+    @property
+    def kicking(self):
+        return rospy.Time.now().to_nsec() - self.last_kick_message_time < self.threshold
+
     def kick_feedback_callback(self, msg):
-        if msg.header.stamp.to_nsec() - self.last_kick_message_time > self.threshold:
-            # We are not kicking anymore
-            self.kicking = False
-        else:
-            # Still kicking
-            self.kicking = True
         self.last_kick_message_time = msg.header.stamp.to_nsec()
 
     def play_walkready(self):
