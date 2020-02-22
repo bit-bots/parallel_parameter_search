@@ -60,7 +60,6 @@ class KickWorker:
         self.kick_client = actionlib.SimpleActionClient('dynamic_kick', KickAction)
         self.kick_client.wait_for_server()
         self.kick_goal = KickGoal()
-        self.kick_goal.header.stamp = rospy.Time.now()
         self.kick_goal.header.frame_id = "base_footprint"
         self.kick_goal.ball_position.x = 0.2
         self.kick_goal.ball_position.y = -0.09
@@ -353,11 +352,13 @@ class KickWorker:
 
     def kick_left(self):
         self.kick_goal.ball_position.y = 0.09
+        self.kick_goal.header.stamp = rospy.Time.now()
         self.kick_client.send_goal(self.kick_goal)
         self.last_kick_message_time = rospy.Time.now().to_nsec()
 
     def kick_right(self):
         self.kick_goal.ball_position.y = -0.09
+        self.kick_goal.header.stamp = rospy.Time.now()
         self.kick_client.send_goal(self.kick_goal)
         self.last_kick_message_time = rospy.Time.now().to_nsec()
 
