@@ -85,12 +85,12 @@ class KickWorker:
         rospy.wait_for_service('gazebo/get_model_state', timeout=10)
         rospy.wait_for_service('/request_parameters', timeout=10)
         rospy.wait_for_service('/submit_fitness', timeout=10)
-        self.reset_simulation = rospy.ServiceProxy('gazebo/reset_simulation', Empty, persistent=True)
-        self.set_robot_pose = rospy.ServiceProxy('gazebo/set_model_state', SetModelState, persistent=True)
-        self.get_robot_pose = rospy.ServiceProxy('gazebo/get_model_state', GetModelState, persistent=True)
+        self.reset_simulation = rospy.ServiceProxy('gazebo/reset_simulation', Empty)
+        self.set_robot_pose = rospy.ServiceProxy('gazebo/set_model_state', SetModelState)
+        self.get_robot_pose = rospy.ServiceProxy('gazebo/get_model_state', GetModelState)
         self.get_parameters = rospy.ServiceProxy('/request_parameters', RequestParameters)
         self.submit_fitness = rospy.ServiceProxy('/submit_fitness', SubmitFitness)
-        self.set_gravity_serv = rospy.ServiceProxy('gazebo/set_physics_properties', SetPhysicsProperties, persistent=True)
+        self.set_gravity_serv = rospy.ServiceProxy('gazebo/set_physics_properties', SetPhysicsProperties)
         if self.use_dyn_reconf:
             self.dynconf_client = dynamic_reconfigure.client.Client(self.dyn_reconf_name, timeout=60)
         else:
