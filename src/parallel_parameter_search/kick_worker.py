@@ -69,7 +69,7 @@ class KickWorker:
 
         self.last_kick_message_time = 0
         self.kick_feedback_subscriber = rospy.Subscriber('dynamic_kick/feedback', KickActionFeedback, self.kick_feedback_callback)
-        self.threshold = 1e9  # (=1s) no feedback within threshold? -> not kicking!
+        self.threshold = 5e9  # (=5s) no feedback within threshold? -> not kicking!
 
         self.anim_client = actionlib.SimpleActionClient('animation_server', PlayAnimationAction)
         self.anim_client.wait_for_server()
@@ -151,7 +151,7 @@ class KickWorker:
                     # we dont want to do anything else
                     self.kick_wait_finished()
                     break
-                fitness += self.measure_fitness(1, 1, -1)
+                #fitness += self.measure_fitness(1, 1, -1)
 
                 # right kick
                 self.reinitilize_simulation()
@@ -166,7 +166,8 @@ class KickWorker:
                     # we dont want to do anything else
                     self.kick_wait_finished()
                     break
-                fitness += self.measure_fitness(1,-1,1)
+                #fitness += self.measure_fitness(1,-1,1)
+                fitness += 1
 
             # return fitness
             self.submit_fitness(self.number, set_number, fitness / self.number_of_tries, evaluation_time, times_stopped)
