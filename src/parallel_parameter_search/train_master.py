@@ -133,10 +133,7 @@ class TrainMaster:
         return []
 
     def fixed_set(self):
-        di = {'trunk_height': 0.39981340504843704, 'foot_rise': 0.10539253465724091, 'freq': 0.60083165829638818, 'trunk_phase': 0.0011266795322085962, 'double_support_ratio': 0.39771674949947405, 'trunk_pitch': 0.24365538745932985, 'foot_distance': 0.16000194813586835, 'trunk_swing': 0.50133271709104776}
-
-
-
+        di = {'foot_rise': 0.07527412134561964, 'trunk_roll': 0.3083377660456297, 'trunk_pitch': 0.20683805360983132, 'trunk_yaw': -0.20710144067593617, 'move_trunk_time': 1.1170016780125862, 'raise_foot_time': 0.30414386814780275, 'move_to_ball_time': 1.184074340508993, 'kick_time': 0.49834285001824674, 'move_back_time': 0.01495165595062864, 'lower_foot_time': 0.6784001719335517, 'move_trunk_back_time': 0.3651330319891861}
 
         values = []
         for i in range(0,len(self.parameter_name_order)):
