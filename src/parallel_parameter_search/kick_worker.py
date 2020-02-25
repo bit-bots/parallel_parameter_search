@@ -14,7 +14,7 @@ from gazebo_msgs.srv import GetModelState, SetModelState, SetPhysicsProperties
 from gazebo_msgs.msg import ModelStates, ModelState, LinkStates
 import gazebo_msgs
 from std_msgs.msg import Float64MultiArray 
-from bitbots_msgs.msg import JointCommand, KickGoal, KickActionFeedback, KickAction
+from bitbots_msgs.msg import JointCommand, KickGoal, KickActionFeedback, KickAction, KickResult
 from sensor_msgs.msg import Imu
 import dynamic_reconfigure.client
 import math
@@ -68,9 +68,8 @@ class KickWorker:
         self.kick_goal.kick_direction = Quaternion(0, 0, 0, 1)
         self.kick_goal.kick_speed = 1
 
-        self.last_kick_message_time = 0
-        self.kick_feedback_subscriber = rospy.Subscriber('dynamic_kick/feedback', KickActionFeedback, self.kick_feedback_callback)
-        self.threshold = 5e9  # (=5s) no feedback within threshold? -> not kicking!
+        self.kicking = True
+        self.distance_threshold = 0.01
 
         self.anim_client = actionlib.SimpleActionClient('animation_server', PlayAnimationAction)
         self.anim_client.wait_for_server()
@@ -152,6 +151,7 @@ class KickWorker:
                     # we dont want to do anything else
                     self.kick_wait_finished()
                     break
+                self.kick_wait_finished()
                 fitness.append(self.measure_fitness())
 
                 # right kick
@@ -167,6 +167,7 @@ class KickWorker:
                     # we dont want to do anything else
                     self.kick_wait_finished()
                     break
+                self.kick_wait_finished()
                 fitness.append(self.measure_fitness())
 
             # return fitness
@@ -187,8 +188,7 @@ class KickWorker:
                 rospy.logwarn("time limit exceeded")
                 return False                    
             elif not self.kicking and current_time > 1:
-                # we are not kicking
-                rospy.logwarn("we are not kicking")
+                # kick is finished
                 return False
 
             """
@@ -271,11 +271,15 @@ class KickWorker:
         self.play_walkready()
         ####
 
-    def measure_fitness(self):
+    def get_ball_distance(self):
         # get position of ball
         resp = self.get_gazebo_model_pose(self.ball_name, "world")
         # get distance to origin
         distance = math.sqrt(resp.pose.position.x**2 + resp.pose.position.y**2)
+        return distance
+
+    def measure_fitness(self):
+        distance = self.get_ball_distance()
         rospy.logwarn(f"Ball distance: {distance}")
         return distance
 
@@ -366,27 +370,36 @@ class KickWorker:
         self.set_ball_position(0.2, 0.09, 0)
         self.kick_goal.ball_position.y = 0.09
         self.kick_goal.header.stamp = rospy.Time.now()
-        self.kick_client.send_goal(self.kick_goal)
-        self.last_kick_message_time = rospy.Time.now().to_nsec()
+        self.kick_client.send_goal(self.kick_goal, done_cb=self.kick_done_callback)
+        self.kicking = True
 
     def kick_right(self):
         self.set_ball_position(0.2, -0.09, 0)
         self.kick_goal.ball_position.y = -0.09
         self.kick_goal.header.stamp = rospy.Time.now()
-        self.kick_client.send_goal(self.kick_goal)
-        self.last_kick_message_time = rospy.Time.now().to_nsec()
+        self.kick_client.send_goal(self.kick_goal, done_cb=self.kick_done_callback)
+        self.kicking = True
 
     def kick_wait_finished(self):
         self.kick_cancel_publisher.publish(GoalID())
         while self.kicking:
             rospy.sleep(0.001)
+        if self.kick_successful:
+            # Wait a few seconds, robot may fall
+            rospy.sleep(5)
+            # Wait until ball stopped moving
+            distance = 0
+            while self.get_ball_distance() - distance > self.distance_threshold:
+                distance = self.get_ball_distance()
+                rospy.sleep(0.1)
 
-    @property
-    def kicking(self):
-        return rospy.Time.now().to_nsec() - self.last_kick_message_time < self.threshold
 
-    def kick_feedback_callback(self, msg):
-        self.last_kick_message_time = msg.header.stamp.to_nsec()
+    def kick_done_callback(self, state, result):
+        if result.result == KickResult.SUCCESS:
+            self.kick_successful = True
+        else:
+            self.kick_successful = False
+        self.kicking = False
 
     def play_walkready(self):
         goal = PlayAnimationGoal()
