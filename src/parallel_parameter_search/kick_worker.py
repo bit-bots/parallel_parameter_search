@@ -260,7 +260,6 @@ class KickWorker:
         rospy.loginfo("resetting model pose")
         self.reset_model_pose()
         self.set_gravity(True)
-        rospy.sleep(2) # to let the robot be stable before starting
 
 
     def set_joints_to_start_position(self):
@@ -297,7 +296,7 @@ class KickWorker:
         #    rospy.logwarn(entry)
         if self.link_name in msg.name:
             index = msg.name.index(self.link_name)
-            if msg.pose[index].position.z < 0.4:
+            if msg.pose[index].position.z < 0.3:
                 self.stop_try = True
         else:
             rospy.logwarn_throttle(2, "head is not in link information")
