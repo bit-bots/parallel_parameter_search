@@ -7,6 +7,7 @@ worker:
         start_position: [0,0, 0.41] #x,y,z
         start_orientation: [0, 0.18,0] #r,p,y
         model_name: "wolfgang"
+        ball_name: "teensize_ball"
         link_name: "wolfgang::head"
 
     simulation:

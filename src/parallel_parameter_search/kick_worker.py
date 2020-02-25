@@ -36,6 +36,7 @@ class KickWorker:
 
         # read in config        
         self.model_name = rospy.get_param("/worker/evaluation/model_name")
+        self.ball_name = rospy.get_param("/worker/evaluation/ball_name")
         self.link_name = rospy.get_param("/worker/evaluation/link_name")
         self.time_limit = rospy.get_param("/worker/evaluation/time_limit")
         self.number_of_tries = rospy.get_param("/worker/evaluation/number_of_tries")
@@ -86,8 +87,8 @@ class KickWorker:
         rospy.wait_for_service('/request_parameters', timeout=10)
         rospy.wait_for_service('/submit_fitness', timeout=10)
         self.reset_simulation = rospy.ServiceProxy('gazebo/reset_simulation', Empty)
-        self.set_robot_pose = rospy.ServiceProxy('gazebo/set_model_state', SetModelState)
-        self.get_robot_pose = rospy.ServiceProxy('gazebo/get_model_state', GetModelState)
+        self.set_model_pose = rospy.ServiceProxy('gazebo/set_model_state', SetModelState)
+        self.get_model_pose = rospy.ServiceProxy('gazebo/get_model_state', GetModelState)
         self.get_parameters = rospy.ServiceProxy('/request_parameters', RequestParameters)
         self.submit_fitness = rospy.ServiceProxy('/submit_fitness', SubmitFitness)
         self.set_gravity_serv = rospy.ServiceProxy('gazebo/set_physics_properties', SetPhysicsProperties)
@@ -129,7 +130,7 @@ class KickWorker:
             # set the parameters for this node
             self.set_params(resp.parameter_names, resp.parameters)    
 
-            fitness = 0
+            fitness = []
             evaluation_time = 0
             times_stopped = 0
             for eval_try in range(0, self.number_of_tries):
@@ -146,12 +147,12 @@ class KickWorker:
                 evaluation_time += rospy.get_time() - start_time
                 if interupted:
                     # we've fallen down. Fitness is zero
-                    fitness = 0 
+                    fitness = [0]
                     times_stopped += 1
                     # we dont want to do anything else
                     self.kick_wait_finished()
                     break
-                #fitness += self.measure_fitness(1, 1, -1)
+                fitness.append(self.measure_fitness())
 
                 # right kick
                 self.reinitilize_simulation()
@@ -161,16 +162,15 @@ class KickWorker:
                 evaluation_time += rospy.get_time() - start_time
                 if interupted:
                     # we've fallen down. Fitness is zero
-                    fitness = 0 
+                    fitness = [0]
                     times_stopped += 1
                     # we dont want to do anything else
                     self.kick_wait_finished()
                     break
-                #fitness += self.measure_fitness(1,-1,1)
-                fitness += 1
+                fitness.append(self.measure_fitness())
 
             # return fitness
-            self.submit_fitness(self.number, set_number, fitness / self.number_of_tries, evaluation_time, times_stopped)
+            self.submit_fitness(self.number, set_number, min(fitness), evaluation_time, times_stopped)
 
         else:
             rospy.loginfo("No more parameters to test")
@@ -269,12 +269,18 @@ class KickWorker:
         self.play_walkready()
         ####
 
+    def measure_fitness(self):
+        # get position of ball
+        resp = self.get_model_pose(self.ball_name, "world")
+        # get distance to origin
+        return math.sqrt(resp.pose.position.x**2 + resp.pose.position.y**2)
+
     def measure_fitness(self, x, y, yaw):
         """
         x,y,yaw have to be either 1 for being goo, -1 for being bad or 0 for making no difference
         """
         # get position of robot
-        resp = self.get_robot_pose(self.model_name, "world")
+        resp = self.get_model_pose(self.model_name, "world")
         # factor to increase the weight of the yaw since it is a different unit then x and y
         yaw_factor = 5
 
@@ -328,7 +334,22 @@ class KickWorker:
         msg.twist = Twist()
         msg.reference_frame = "world"
         req.model_state = msg
-        self.set_robot_pose(req)
+        self.set_model_pose(req)
+
+    def set_ball_position(self, x, y, z):
+        req = gazebo_msgs.srv.SetModelStateRequest()
+        msg = ModelState()
+        msg.model_name = self.ball_name
+        pose_msg = Pose()
+        pose_msg.position.x = x
+        pose_msg.position.y = y
+        pose_msg.position.z = z
+        pose_msg.orientation.w = 1
+        msg.pose = pose_msg
+        msg.twist = Twist()
+        msg.reference_frame = "world"
+        req.model_state = msg
+        self.set_model_pose(req)
 
     def set_gravity(self, on):
         req = gazebo_msgs.srv.SetPhysicsPropertiesRequest()    
@@ -352,12 +373,14 @@ class KickWorker:
         self.set_gravity_serv(req)
 
     def kick_left(self):
+        self.set_ball_position(0.2, 0.09, 0)
         self.kick_goal.ball_position.y = 0.09
         self.kick_goal.header.stamp = rospy.Time.now()
         self.kick_client.send_goal(self.kick_goal)
         self.last_kick_message_time = rospy.Time.now().to_nsec()
 
     def kick_right(self):
+        self.set_ball_position(0.2, -0.09, 0)
         self.kick_goal.ball_position.y = -0.09
         self.kick_goal.header.stamp = rospy.Time.now()
         self.kick_client.send_goal(self.kick_goal)
