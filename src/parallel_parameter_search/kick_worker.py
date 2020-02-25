@@ -87,8 +87,8 @@ class KickWorker:
         rospy.wait_for_service('/request_parameters', timeout=10)
         rospy.wait_for_service('/submit_fitness', timeout=10)
         self.reset_simulation = rospy.ServiceProxy('gazebo/reset_simulation', Empty)
-        self.set_model_pose = rospy.ServiceProxy('gazebo/set_model_state', SetModelState)
-        self.get_model_pose = rospy.ServiceProxy('gazebo/get_model_state', GetModelState)
+        self.set_gazebo_model_pose = rospy.ServiceProxy('gazebo/set_model_state', SetModelState)
+        self.get_gazebo_model_pose = rospy.ServiceProxy('gazebo/get_model_state', GetModelState)
         self.get_parameters = rospy.ServiceProxy('/request_parameters', RequestParameters)
         self.submit_fitness = rospy.ServiceProxy('/submit_fitness', SubmitFitness)
         self.set_gravity_serv = rospy.ServiceProxy('gazebo/set_physics_properties', SetPhysicsProperties)
@@ -271,23 +271,11 @@ class KickWorker:
 
     def measure_fitness(self):
         # get position of ball
-        resp = self.get_model_pose(self.ball_name, "world")
+        resp = self.get_gazebo_model_pose(self.ball_name, "world")
         # get distance to origin
-        return math.sqrt(resp.pose.position.x**2 + resp.pose.position.y**2)
-
-    def measure_fitness(self, x, y, yaw):
-        """
-        x,y,yaw have to be either 1 for being goo, -1 for being bad or 0 for making no difference
-        """
-        # get position of robot
-        resp = self.get_model_pose(self.model_name, "world")
-        # factor to increase the weight of the yaw since it is a different unit then x and y
-        yaw_factor = 5
-
-        return math.sqrt(max(x * resp.pose.position.x**2 + 
-                            y * resp.pose.position.y **2 + 
-                            yaw * resp.pose.orientation.z**2 * yaw_factor, 0.0))
-
+        distance = math.sqrt(resp.pose.position.x**2 + resp.pose.position.y**2)
+        rospy.logwarn(f"Ball distance: {distance}")
+        return distance
 
     def model_state_callback(self, msg):
         #last entry
@@ -334,7 +322,7 @@ class KickWorker:
         msg.twist = Twist()
         msg.reference_frame = "world"
         req.model_state = msg
-        self.set_model_pose(req)
+        self.set_gazebo_model_pose(req)
 
     def set_ball_position(self, x, y, z):
         req = gazebo_msgs.srv.SetModelStateRequest()
@@ -349,7 +337,7 @@ class KickWorker:
         msg.twist = Twist()
         msg.reference_frame = "world"
         req.model_state = msg
-        self.set_model_pose(req)
+        self.set_gazebo_model_pose(req)
 
     def set_gravity(self, on):
         req = gazebo_msgs.srv.SetPhysicsPropertiesRequest()    
