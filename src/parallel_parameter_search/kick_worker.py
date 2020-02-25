@@ -249,6 +249,8 @@ class KickWorker:
         self.set_model_pose(0, 0, 2, 0, 0, 0)
 
         self.set_joints_to_start_position()
+        # move ball out of the way
+        self.set_ball_position(1, 0, 0)
         
         # reset simulation
         #rospy.loginfo("resetting sim double")
