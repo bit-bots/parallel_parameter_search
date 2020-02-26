@@ -49,3 +49,9 @@ master:
       min: 0.1
       max: 0.7
       step_size: 0.1
+    stabilizing_point_x:
+      min: -0.1
+      max: 0.05
+    stabilizing_point_y:
+      min: -0.05
+      max: 0.05
