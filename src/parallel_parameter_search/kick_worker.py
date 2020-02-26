@@ -186,9 +186,16 @@ class KickWorker:
             if current_time > self.time_limit:
                 # reached time limit
                 rospy.logwarn("time limit exceeded")
-                return False                    
+                return False
             elif not self.kicking and current_time > 1:
-                # kick is finished
+                # kick is finished -> wait five seconds to see if robot falls down
+                kick_end_time = rospy.get_time()
+                while rospy.get_time() - kick_end_time < 5:
+                    if self.stop_try:
+                        rospy.loginfo("Kick executed but robot fell")
+                        self.stop_try = False
+                        return True
+                rospy.loginfo("Kick was successful")
                 return False
 
             """
@@ -384,9 +391,7 @@ class KickWorker:
         while self.kicking:
             rospy.sleep(0.001)
         if self.kick_successful:
-            # Wait a few seconds, robot may fall
-            rospy.sleep(5)
-            # Wait until ball stopped moving
+            # Wait until ball stopped moving for evaluation
             distance = 0
             while self.get_ball_distance() - distance > self.distance_threshold:
                 distance = self.get_ball_distance()
