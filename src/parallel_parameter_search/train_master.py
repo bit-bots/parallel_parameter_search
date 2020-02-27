@@ -6,6 +6,7 @@ import os
 import sys
 import rospy
 import time
+from bayes_opt import UtilityFunction, BayesianOptimization
 from parallel_parameter_search.srv import RequestParameters, SubmitFitness, RequestParametersResponse
 
 
@@ -68,6 +69,16 @@ class TrainMaster:
         elif self.search_method == "fixed":
             self.generate_set = self.fixed_set
             self.number_of_sets_to_test = rospy.get_param("/master/number_of_sets_to_test")
+        elif self.search_method == "bayes":
+            bounds = self.get_bounds()
+            self.utility = UtilityFunction(kind='ucb', kappa=2.567, xi=0.0)  # defaults
+            self.optimizer = BayesianOptimization(f=None, pbounds=bounds, random_state=1)
+            self.generate_set = self.next_bayes_set
+            self.number_of_sets_to_test = rospy.get_param("/master/number_of_sets_to_test")
+            # we need a dict of workers to their next set
+            # this is necessary because the suggestion changes only when a new set has been registered
+            # therefore, we get and save a new suggestion for a worker when it submits the previous one
+            self.next_set = dict()
         else:
             rospy.logerr("Search method not valid. Chose random or grid.")
             rospy.signal_shutdown("fail")
@@ -86,12 +97,12 @@ class TrainMaster:
         rospy.signal_shutdown("finished")
 
     def requestParameterCall(self, req):
-        rospy.logdebug("Call from worker %s", req._connection_header['callerid'])
+        worker = req._connection_header['callerid']
+        rospy.logdebug("Call from worker %s", worker)
         resp = RequestParametersResponse()
         if self.current_set_index < self.number_of_sets_to_test:
-            rospy.logdebug("Providing parameter set number %d", self.current_set_index)
             resp.set_available = True
-            self.parameter_sets.append(self.generate_set())
+            self.parameter_sets.append(self.generate_set(worker))
             resp.parameters = self.parameter_sets[self.current_set_index]
             resp.set_number = self.current_set_index
             resp.parameter_names = self.parameter_name_order
@@ -115,6 +126,19 @@ class TrainMaster:
             rospy.logerr("A fitness value for a wrong parameter set has been returned. Will not record this parameter.")
             return False
         self.fitness_values.append((req.set_number, req.fitness))
+        if self.search_method == "bayes":
+            self.optimizer.register(params=self.parameter_sets[req.set_number], target=req.fitness)
+
+            # get next set for this worker
+            suggestion = None
+            while not suggestion:
+                try:
+                    suggestion = self.optimizer.suggest(self.utility)
+                except ValueError, TypeError:
+                    # I don't know why this happens
+                    rospy.logerr('Got an error while trying to submit fitness, retrying...')
+            self.next_set[req.worker_number] = self.dict_to_values(suggestion)
+
         self.fitness_values_returned += 1
         if req.fitness > self.best_fitness_value:
             self.best_fitness_value = req.fitness
@@ -129,19 +153,15 @@ class TrainMaster:
             self.finished = True
         return True
 
-    def empty_set(self):
+    def empty_set(self, worker):
         return []
 
-    def fixed_set(self):
+    def fixed_set(self, worker):
         di = {'foot_rise': 0.07527412134561964, 'trunk_roll': 0.3083377660456297, 'trunk_pitch': 0.20683805360983132, 'trunk_yaw': -0.20710144067593617, 'move_trunk_time': 1.1170016780125862, 'raise_foot_time': 0.30414386814780275, 'move_to_ball_time': 1.184074340508993, 'kick_time': 0.49834285001824674, 'move_back_time': 0.01495165595062864, 'lower_foot_time': 0.6784001719335517, 'move_trunk_back_time': 0.3651330319891861}
 
-        values = []
-        for i in range(0,len(self.parameter_name_order)):
-            parameter = self.parameter_name_order[i]
-            values.append(di[parameter])
-        return values
+        return self.dict_to_values(di)
 
-    def next_set_random(self):
+    def next_set_random(self, worker):
         """Generate a parameter set based on random numbers."""
         values = []
         # generate random numbers in usable areas
@@ -152,7 +172,7 @@ class TrainMaster:
             values.append(uniform(min_val, max_val)) 
         return values
 
-    def next_set_grid(self):
+    def next_set_grid(self, worker):
         """Generate parameter sets based on a grid of possible values for each parameter."""
         if self.parameter_grid is None:
             rospy.logerr("You have to give a parameter grid when calling ")
@@ -192,6 +212,32 @@ class TrainMaster:
                 grid_row.append(val)
                 val += step_size
             self.parameter_grid.append(grid_row)        
+
+    def get_bounds(self):
+        bounds = dict()
+        for i in range(len(self.parameter_name_order)):
+            parameter = self.parameter_name_order[i]
+            min_val = self.parameters[parameter]["min"]
+            max_val = self.parameters[parameter]["max"]
+            bounds[parameter] = (min_val, max_val)
+        return bounds
+
+    def next_bayes_set(self, worker):
+        if worker in self.next_set.keys():
+            next_set = self.next_set[worker]
+            del self.next_set[worker]
+        else:
+            # get random set
+            next_set = self.optimizer.space.array_to_params(self.optimizer.space.random_sample())
+            next_set = self.dict_to_values(next_set)
+        return next_set
+
+    def dict_to_values(self, d):
+        values = []
+        for i in range(len(self.parameter_name_order)):
+            parameter = self.parameter_name_order[i]
+            values.append(d[parameter])
+        return values
 
 if __name__ == "__main__":    
     TrainMaster()

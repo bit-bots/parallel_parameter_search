@@ -1,7 +1,7 @@
 master:    
   file_path: "/tmp/" # in home folder
   
-  search_method: "random" # random, grid, fixed, ...
+  search_method: "bayes" # random, grid, fixed, bayes, ...
   number_of_sets_to_test: 10000000 # only for random search, 0 for unlimited
 
   parameters:
