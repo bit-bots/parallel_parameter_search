@@ -1,0 +1,9 @@
+<launch>
+    <!-- launch a workers with its own namespace -->
+    <group ns="test_1">
+         <!-- launch script which creates jointgroup messages for the simulator controller -->
+        <node name="motor_viz_helper" pkg="bitbots_bringup" type="motor_goals_viz_helper.py" output="screen" args="--gazebo" >
+                <remap from="/DynamixelController/command" to="DynamixelController/command"/>
+        </node>
+    </group>
+</launch>
