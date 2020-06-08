@@ -37,6 +37,8 @@ class AbstractRosOptimization:
         # we can not init node for specific name space, but we can remap the clock topic
         rospy.init_node('optimizer', anonymous=True, argv=['clock:=/' + self.namespace + '/clock'])
 
+        self.dynreconf_client = None
+
         while False:
             try:
                 self.launch.spin_once()
@@ -47,13 +49,6 @@ class AbstractRosOptimization:
         """
         The actual optimization target for optuna.
         """
-        raise NotImplementedError()
-
-    def close(self):
-        """
-        Destroys environment after finishing the optimization.
-        """
-        # todo maybe close all nodes in namespace?
         raise NotImplementedError()
 
 
