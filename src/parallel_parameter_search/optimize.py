@@ -27,7 +27,7 @@ args = parser.parse_args()
 from parallel_parameter_search.walk_pybullet_optimization import WalkPybulletOptimization
 
 seed = np.random.randint(2 ** 32 - 1)
-n_startup_trials = 20
+n_startup_trials = 100
 
 sampler = TPESampler(n_startup_trials=n_startup_trials, seed=seed)
 #pruner = MedianPruner(n_startup_trials=n_startup_trials, n_warmup_steps=10)

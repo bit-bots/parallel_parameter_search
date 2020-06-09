@@ -56,9 +56,9 @@ class WalkPybulletOptimization(PybulletOptimization):
         rospack = rospkg.RosPack()
         # set robot urdf and srdf
         load_wolfgang_param(self.namespace, rospack)
+        # todo urdf joints need to be made more realistic by using damping
 
         # load walk params
-        # todo load a another config file that only provides the parameters necessary for optimization, i.e. no speed limits
         load_yaml_to_param(self.namespace, 'bitbots_quintic_walk', '/config/walking_wolfgang_optimization.yaml',
                            rospack)
 
@@ -71,7 +71,7 @@ class WalkPybulletOptimization(PybulletOptimization):
         self.cmd_vel_pub = rospy.Publisher(self.namespace + '/cmd_vel', Twist, queue_size=10)
 
         self.robot_pose = None
-        self.number_of_tries = 2
+        self.number_of_iterations = 10
         self.time_limit = 20
 
     def objective(self, trial):
@@ -80,26 +80,47 @@ class WalkPybulletOptimization(PybulletOptimization):
 
         cost = 0
         # starting with hardest first, to get faster early termination
+        # todo maybe start with half that speed but make more trials
         directions = [[0.1, 0, 0],
-                      [0.1, 0.1, 1],
-                      [-0.1, -0.1, -1],
                       [-0.1, 0, 0],
-                      [0, 0.1, 0],
-                      [0, -0.1, 0],
-                      [0, 0, 1],
-                      [0, 0, -1]]
+                      [0, 0.05, 0],
+                      [0, -0.05, 0],
+                      [0, 0, 0.5],
+                      [0, 0, -0.5],
+                      [0.1, 0, 0.5],
+                      [0, 0.05, -0.5],
+                      [0.1, 0.05, 0.5],
+                      [-0.1, -0.05, -0.5]
+                      ]
+        # todo add scenarios where the speed command changes multiple times while the robot is already walking
 
-        for eval_try in range(0, self.number_of_tries):
+        failed_directions = 0
+        for eval_try in range(1, self.number_of_iterations + 1):
+            failed_directions_try = 0
+            d = 0
             for direction in directions:
                 self.reset()
                 cost_try = self.evaluate_direction(*direction, trial, eval_try)
                 # check if we failed in this direction and terminate this trial early
                 if cost_try is None:
-                    return np.inf
+                    # failed_directions += 1
+                    # failed_directions_try += 1
+                    # cost += 100
+                    # continue
+                    # terminate early and give cost based on how much tries are left
+                    return 100 * (self.number_of_iterations - eval_try) * len(directions) + 100 * (
+                            len(directions) - d) + cost
+                    # return np.inf
+                    # todo maybe give different costs for failed trials, depending on the number of directions which worked
                 cost += cost_try
+                d += 1
+            if failed_directions_try == len(directions):
+                # terminate early if we didn't succeed at all
+                # add future costs of missed trials
+                return cost + (self.number_of_iterations - eval_try) * len(directions) * 100
 
         # return mean cost per try
-        return cost / (self.number_of_tries * len(directions))
+        return cost  # / (self.number_of_tries * len(directions))
 
     def suggest_walk_params(self, trial):
         param_dict = {}
@@ -122,36 +143,32 @@ class WalkPybulletOptimization(PybulletOptimization):
         add('trunk_y_offset', -0.05, 0.05)
         add('first_step_swing_factor', 0.5, 2)
         add('first_step_trunk_phase', -0.5, 0.5)
+        # todo einmal mit allen params machen um zu sehen ob manche überhaupt einen einfluss auf die fitness haben
+        # todo also find PID values, maybe in a second step after finding walking params
+        # todo deactivate phase reset while searching params?
 
         self.set_params(param_dict)
 
-    def evaluate_direction(self, x, y, yaw, trial: optuna.Trial, step):
+    def evaluate_direction(self, x, y, yaw, trial: optuna.Trial, iteration):
         start_time = rospy.get_time()
-        self.send_cmd_vel(x, y, yaw)
+        self.send_cmd_vel(x * iteration, y * iteration, yaw * iteration)
 
         # wait till time for test is up or stopping condition has been reached
         while not rospy.is_shutdown():
             passed_time = rospy.get_time() - start_time
             if passed_time > self.time_limit:
-                # reached time limit, evaluate the fitness
-                return self.measure_fitness(x, y, yaw)
+                # reached time limit, stop robot
+                self.send_cmd_vel(0, 0, 0)
 
-            # todo
-            """    
-            # test if robot moved at least a bit        
-            if not self.robot_has_moved and current_time > 20 :
-                # has not moved 
-                rospy.loginfo("robot didn't move")
-                return True
-            """
+            if passed_time > self.time_limit + 5:
+                # robot should have stopped now, evaluate the fitness
+                return self.measure_fitness(x * iteration, y * iteration, yaw * iteration)
+
             # test if the robot has fallen down
             if self.sim.get_robot_pose()[0][2] < 0.3:
                 # add extra information to trial
-                #trial.set_user_attr('early_termination_at', (x, y, yaw))
-                # prune this trial, aka early termination
-                #trial.report(100, step)
-                #raise optuna.exceptions.TrialPruned()
-                # todo think about if pruning is really the best idea, or if a low fitness value should be returned
+                trial.set_user_attr('early_termination_at', (
+                x * self.number_of_iterations, y * self.number_of_iterations, yaw * self.number_of_iterations))
                 return None
 
             try:
@@ -175,19 +192,20 @@ class WalkPybulletOptimization(PybulletOptimization):
         pos, rpy = self.sim.get_robot_pose_rpy()
         # 2D pose
         current_pose = [pos[0], pos[1], rpy[2]]
-        # test if robot moved at all for simple case
-        if x != 0 and y == 0 and yaw == 0 and current_pose[0] < 0.25:
-            print("Did not move enough")
-            return None
         correct_pose = [x * self.time_limit,
                         y * self.time_limit,
-                        yaw * self.time_limit / (2 * math.pi)]  # todo we dont take multipe rotations into account
+                        (yaw * self.time_limit) % (2 * math.pi)]  # todo we dont take multipe rotations into account
+        # test if robot moved at all for simple case
+        if yaw == 0 and ((x != 0 and abs(current_pose[0]) < 0.5 * abs(correct_pose[0])) or (
+                y != 0 and abs(current_pose[1]) < 0.5 * abs(correct_pose[1]))):
+            print("Did not move enough")
+            return None
         cost = abs(current_pose[0] - correct_pose[0]) \
                + abs(current_pose[1] - correct_pose[1]) \
                + abs(current_pose[2] - correct_pose[2]) * yaw_factor
         # method doesn't work for going forward and turning at the same time
         # todo better computation of correct end pose
-        if (x != 0 or y != 0) and yaw != 0:
+        if yaw != 0:  # and (x != 0 or y != 0):
             # just give 0 cost for surviving
             cost = 0
         print(F"cost: {cost}")
