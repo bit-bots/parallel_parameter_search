@@ -4,6 +4,7 @@ import rosnode
 import roslaunch
 import yaml
 import sys
+import threading
 
 
 class AbstractRosOptimization:
@@ -11,6 +12,7 @@ class AbstractRosOptimization:
     def __init__(self, namespace):
         # make all nodes use simulation time via /clock topic
         rospy.set_param('/use_sim_time', True)
+        self.current_params = None
 
         # unfortunately we can not start the node in our namespace. therefore it is anonymous, so names don't collide
         # rospy.names._set_caller_id('/bbb')
@@ -37,7 +39,8 @@ class AbstractRosOptimization:
         # we can not init node for specific name space, but we can remap the clock topic
         rospy.init_node('optimizer', anonymous=True, argv=['clock:=/' + self.namespace + '/clock'])
 
-        self.dynreconf_client = None
+        self.dynconf_client = None
+        self.sim = None
 
         while False:
             try:
@@ -45,17 +48,29 @@ class AbstractRosOptimization:
             except KeyboardInterrupt:
                 exit(0)
 
+    def set_params(self, param_dict):
+        self.current_params = param_dict
+        # need to let run clock while setting parameters, otherwise service system behind it will block
+        # let simulation run in a thread until dyn reconf setting is finished
+        stop_clock = False
+
+        def clock_thread():
+            while not stop_clock or rospy.is_shutdown():
+                self.sim.step()
+
+        dyn_thread = threading.Thread(target=self.dynconf_client.update_configuration, args=[param_dict])
+        clock_thread = threading.Thread(target=clock_thread)
+        clock_thread.start()
+        dyn_thread.start()
+        dyn_thread.join()
+        stop_clock = True
+        clock_thread.join()
+
     def objective(self, trial):
         """
         The actual optimization target for optuna.
         """
         raise NotImplementedError()
-
-
-class AbstractGazeboOptimization(AbstractRosOptimization):
-
-    def __init__(self, namespace, gui):
-        super(AbstractGazeboOptimization, self).__init__(namespace)
 
 
 def set_param_to_file(param, package, file, rospack):

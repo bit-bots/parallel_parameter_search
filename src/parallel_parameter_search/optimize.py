@@ -27,7 +27,7 @@ args = parser.parse_args()
 from parallel_parameter_search.walk_pybullet_optimization import WalkPybulletOptimization
 
 seed = np.random.randint(2 ** 32 - 1)
-n_startup_trials = 100
+n_startup_trials = 1000
 
 sampler = TPESampler(n_startup_trials=n_startup_trials, seed=seed)
 #pruner = MedianPruner(n_startup_trials=n_startup_trials, n_warmup_steps=10)
@@ -37,4 +37,4 @@ study = optuna.create_study(study_name=args.name, storage=args.storage, directio
 
 #objective = args.objective()
 objective = WalkPybulletOptimization('trial', gui=True)
-study.optimize(objective.objective, n_trials=100, show_progress_bar=True)
+study.optimize(objective.objective, n_trials=1000, show_progress_bar=True)
