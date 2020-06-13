@@ -8,7 +8,7 @@ import numpy as np
 
 import rospy
 
-from parallel_parameter_search.abstract_ros_optimization import AbstractRosOptimization
+from parallel_parameter_search.walk_optimization import WolfgangWalkOptimization
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--storage', help='Dataabase SQLAlchemy string, e.g. postgresql://USER:PASS@SERVER/DB_NAME',
@@ -24,8 +24,6 @@ args = parser.parse_args()
 #    print('Objective class is not a subclass of AbstractRosOptimization.')
 #    exit(1)
 
-from parallel_parameter_search.walk_pybullet_optimization import WalkPybulletOptimization
-
 seed = np.random.randint(2 ** 32 - 1)
 n_startup_trials = 1000
 
@@ -36,5 +34,5 @@ study = optuna.create_study(study_name=args.name, storage=args.storage, directio
                             sampler=sampler, load_if_exists=True)
 
 #objective = args.objective()
-objective = WalkPybulletOptimization('trial', gui=True)
+objective = WolfgangWalkOptimization('trial', gui=True)
 study.optimize(objective.objective, n_trials=1000, show_progress_bar=True)

@@ -8,9 +8,8 @@ import numpy as np
 
 import rospy
 
-from parallel_parameter_search.abstract_ros_optimization import AbstractRosOptimization
 
-from src.parallel_parameter_search.walk_optimization import DarwinWalkOptimization
+from parallel_parameter_search.walk_optimization import DarwinWalkOptimization
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--storage', help='Dataabase SQLAlchemy string, e.g. postgresql://USER:PASS@SERVER/DB_NAME',

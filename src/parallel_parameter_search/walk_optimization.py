@@ -10,29 +10,29 @@ import tf
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 
-from src.parallel_parameter_search.abstract_ros_optimization import set_param_to_file, load_yaml_to_param, \
+from parallel_parameter_search.abstract_ros_optimization import set_param_to_file, load_yaml_to_param, \
     AbstractRosOptimization
-from src.parallel_parameter_search.simulators import PybulletSim, WebotsSim
+from parallel_parameter_search.simulators import PybulletSim, WebotsSim
 
 
 class AbstractWalkOptimization(AbstractRosOptimization):
 
     def __init__(self, namespace, robot_name):
-        super(AbstractWalkOptimization).__init__(namespace)
+        super().__init__(namespace)
         rospack = rospkg.RosPack()
         # set robot urdf and srdf
         load_robot_param(self.namespace, rospack, robot_name)
 
         # load walk params
         load_yaml_to_param(self.namespace, 'bitbots_quintic_walk',
-                           '/config/walking_' + robot_name + ' _optimization.yaml',
+                           '/config/walking_' + robot_name + '_optimization.yaml',
                            rospack)
 
         self.walk_node = roslaunch.core.Node('bitbots_quintic_walk', 'WalkNode', 'walking',
                                              namespace=self.namespace)
         self.walk_node.remap_args = [("walking_motor_goals", "DynamixelController/command"), ("/clock", "clock")]
         self.launch.launch(self.walk_node)
-        self.dynconf_client = dynamic_reconfigure.client.Client(self.namespace + 'wa/' + 'walking/engine', timeout=60)
+        self.dynconf_client = dynamic_reconfigure.client.Client(self.namespace + '/' + 'walking/engine', timeout=60)
 
         self.cmd_vel_pub = rospy.Publisher(self.namespace + '/cmd_vel', Twist, queue_size=10)
 

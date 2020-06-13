@@ -28,6 +28,9 @@ class AbstractSim:
     def reset_robot_pose(self, pos, quat):
         raise NotImplementedError
 
+    def get_robot_pose_rpy(self):
+        raise NotImplementedError
+
     def reset(self):
         raise NotImplementedError
 
@@ -50,6 +53,9 @@ class PybulletSim(AbstractSim):
     def reset_robot_pose(self, pos, quat):
         self.sim.reset_robot_pose(pos, quat)
 
+    def get_robot_pose_rpy(self):
+        return self.sim.get_robot_pose_rpy()
+
     def reset(self):
         self.sim.reset()
 
@@ -62,7 +68,7 @@ class WebotsSim(AbstractSim):
         arguments = ["webots",
                      "--batch",
                      sys.path[0][:-23] + "/worlds/RunningRobotEnv_extern.wbt"]
-        #todo load different world that is empty
+        # todo load different world that is empty
         if not gui:
             arguments.append("--minimize")
         sim_proc = subprocess.Popen(arguments)
@@ -78,6 +84,9 @@ class WebotsSim(AbstractSim):
 
     def reset_robot_pose(self, pos, quat):
         self.robot_controller.reset_robot_pose(pos, quat)
+
+    def get_robot_pose_rpy(self):
+        self.robot_controller.get_robot_rpy()
 
     def reset(self):
         self.robot_controller.reset()
