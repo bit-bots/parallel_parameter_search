@@ -68,7 +68,7 @@ class WebotsSim(AbstractSim):
         sim_proc = subprocess.Popen(arguments)
 
         os.environ["WEBOTS_PID"] = str(sim_proc.pid)
-        self.robot_controller = darwin_ros.DarwinController(sim_proc.pid)
+        self.robot_controller = darwin_ros.DarwinController(sim_proc.pid, namespace)
 
     def step_sim(self):
         self.robot_controller.step_sim()

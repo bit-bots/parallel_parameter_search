@@ -12,13 +12,13 @@ from nav_msgs.msg import Odometry
 
 from src.parallel_parameter_search.abstract_ros_optimization import set_param_to_file, load_yaml_to_param, \
     AbstractRosOptimization
-from src.parallel_parameter_search.simulators import PybulletSim
+from src.parallel_parameter_search.simulators import PybulletSim, WebotsSim
 
 
 class AbstractWalkOptimization(AbstractRosOptimization):
 
     def __init__(self, namespace, robot_name):
-        super().__init__(namespace)
+        super(AbstractWalkOptimization).__init__(namespace)
         rospack = rospkg.RosPack()
         # set robot urdf and srdf
         load_robot_param(self.namespace, rospack, robot_name)
@@ -166,7 +166,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
 
 class WolfgangWalkOptimization(AbstractWalkOptimization):
     def __init__(self, namespace, gui):
-        super(AbstractWalkOptimization, self).__init__(namespace, 'wolfgang')
+        super(WolfgangWalkOptimization, self).__init__(namespace, 'wolfgang')
         self.directions = [[0.1, 0, 0],
                            [-0.1, 0, 0],
                            [0, 0.05, 0],
@@ -221,7 +221,7 @@ class WolfgangWalkOptimization(AbstractWalkOptimization):
 
 class DarwinWalkOptimization(AbstractWalkOptimization):
     def __init__(self, namespace, gui):
-        super(AbstractWalkOptimization, self).__init__(namespace, 'darwin')
+        super(DarwinWalkOptimization, self).__init__(namespace, 'darwin')
         self.directions = [[0.1, 0, 0],
                            [-0.1, 0, 0],
                            [0, 0, 0.5],
@@ -229,7 +229,7 @@ class DarwinWalkOptimization(AbstractWalkOptimization):
                            [0.1, 0, 0.5],
                            [-0.1, 0, 0.5],
                            ]
-        self.sim = PybulletSim(self.namespace, gui)
+        self.sim = WebotsSim(self.namespace, gui)
 
     def suggest_walk_params(self, trial):
         param_dict = {}
