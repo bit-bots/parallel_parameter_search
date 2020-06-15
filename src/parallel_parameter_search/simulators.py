@@ -7,6 +7,8 @@ import rospy
 from wolfgang_pybullet_sim.simulation import Simulation
 from wolfgang_pybullet_sim.ros_interface import ROSInterface
 
+from darwin_description.darwin_webots_controller import DarwinWebotsController
+
 
 class AbstractSim:
 
@@ -67,17 +69,17 @@ class WebotsSim(AbstractSim):
         super().__init__()
         arguments = ["webots",
                      "--batch",
-                     sys.path[0][:-23] + "/worlds/RunningRobotEnv_extern.wbt"]
+                     "/home/marc/repositories/running_robot_competition/running_robot_environment/worlds/RunningRobotEnv_optim.wbt"]
         # todo load different world that is empty
         if not gui:
             arguments.append("--minimize")
         sim_proc = subprocess.Popen(arguments)
 
         os.environ["WEBOTS_PID"] = str(sim_proc.pid)
-        self.robot_controller = darwin_ros.DarwinController(sim_proc.pid, namespace)
+        self.robot_controller = DarwinWebotsController(namespace, False)
 
     def step_sim(self):
-        self.robot_controller.step_sim()
+        self.robot_controller.step()
 
     def set_gravity(self, on):
         self.robot_controller.set_gravity(on)
@@ -86,7 +88,7 @@ class WebotsSim(AbstractSim):
         self.robot_controller.reset_robot_pose(pos, quat)
 
     def get_robot_pose_rpy(self):
-        self.robot_controller.get_robot_rpy()
+        return self.robot_controller.get_robot_pose_rpy()
 
     def reset(self):
         self.robot_controller.reset()

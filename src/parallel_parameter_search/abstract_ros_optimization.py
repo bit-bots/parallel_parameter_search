@@ -56,7 +56,7 @@ class AbstractRosOptimization:
 
         def clock_thread():
             while not stop_clock or rospy.is_shutdown():
-                self.sim.step()
+                self.sim.step_sim()
 
         dyn_thread = threading.Thread(target=self.dynconf_client.update_configuration, args=[param_dict])
         clock_thread = threading.Thread(target=clock_thread)

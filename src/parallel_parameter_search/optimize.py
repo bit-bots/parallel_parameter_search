@@ -34,5 +34,5 @@ study = optuna.create_study(study_name=args.name, storage=args.storage, directio
                             sampler=sampler, load_if_exists=True)
 
 #objective = args.objective()
-objective = WolfgangWalkOptimization('trial', gui=True)
+objective = WolfgangWalkOptimization('worker', gui=True)
 study.optimize(objective.objective, n_trials=1000, show_progress_bar=True)

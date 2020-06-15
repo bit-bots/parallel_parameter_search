@@ -57,7 +57,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
             d = 0
             for direction in self.directions:
                 d += 1
-                self.sim.reset()
+                self.reset()
                 early_term, cost_try = self.evaluate_direction(*direction, trial, eval_try)
                 cost += cost_try
                 # check if we failed in this direction and terminate this trial early
@@ -99,7 +99,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
                 return True, cost
 
             try:
-                self.sim.step()
+                self.sim.step_sim()
                 # give time to other algorithms to compute their responses
                 # use wall time, as ros time is standing still
                 time.sleep(0.0001)
@@ -140,7 +140,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
 
     def reset(self):
         # reset simulation
-        self.sim.reset()
+        #self.sim.reset()
         # let the robot do a few steps in the air to get correct walkready position
         self.sim.set_gravity(False)
         self.sim.reset_robot_pose((0, 0, 1), (0, 0, 0, 1))
@@ -244,7 +244,7 @@ class DarwinWalkOptimization(AbstractWalkOptimization):
         add('foot_rise', 0.02, 0.08)
         add('foot_overshoot_phase', 0.0, 1.0)
         add('foot_overshoot_ratio', 0.0, 1.0)
-        add('trunk_height', 0.15, 0.3)
+        add('trunk_height', 0.26, 0.30)
         add('trunk_phase', -0.5, 0.5)
         add('trunk_pitch', -0.5, 0.5)
         add('trunk_swing', 0.0, 1.0)
