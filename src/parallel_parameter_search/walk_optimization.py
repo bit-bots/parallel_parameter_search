@@ -41,6 +41,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
 
         # needs to be specified by subclasses
         self.directions = None
+        self.reset_height_offset = None
 
     def objective(self, trial):
         # get parameter to evaluate from optuna
@@ -51,6 +52,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         # todo maybe start with half that speed but make more trials
         # todo eine cleverere reinfolge für die verschiedenen fälle, auch abhängig davon welche geschafft oder nicht geschafft wurden
         # todo add scenarios where the speed command changes multiple times while the robot is already walking
+        # todo take into account that falling to a specific site is propably only depending on a subset of the parameters
 
         for eval_try in range(1, self.number_of_iterations + 1):
             failed_directions_try = 0
@@ -77,6 +79,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
     def evaluate_direction(self, x, y, yaw, trial: optuna.Trial, iteration):
         start_time = rospy.get_time()
         self.send_cmd_vel(x * iteration, y * iteration, yaw * iteration)
+        print(F'cmd: {x * iteration} {y * iteration} {yaw * iteration}')
 
         # wait till time for test is up or stopping condition has been reached
         while not rospy.is_shutdown():
@@ -94,7 +97,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
             if abs(rpy[0]) > math.radians(60) or abs(rpy[1]) > math.radians(60):
                 # add extra information to trial
                 trial.set_user_attr('early_termination_at', (
-                    x * self.number_of_iterations, y * self.number_of_iterations, yaw * self.number_of_iterations))
+                    x * iteration, y * iteration, yaw * iteration))
                 early_term, cost = self.compute_cost(x * iteration, y * iteration, yaw * iteration)
                 return True, cost
 
@@ -102,7 +105,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
                 self.sim.step_sim()
                 # give time to other algorithms to compute their responses
                 # use wall time, as ros time is standing still
-                time.sleep(0.0001)
+                time.sleep(0.01)
             except:
                 pass
 
@@ -117,20 +120,21 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         yaw_factor = 5
         # todo better formular
         pos, rpy = self.sim.get_robot_pose_rpy()
+
         # 2D pose
         current_pose = [pos[0], pos[1], rpy[2]]
         correct_pose = [x * self.time_limit,
                         y * self.time_limit,
-                        (yaw * self.time_limit) % (2 * math.pi)]  # todo we dont take multipe rotations into account
+                        (yaw * self.time_limit) % (2 * math.pi)]  # todo we dont take multiple rotations into account
         cost = abs(current_pose[0] - correct_pose[0]) \
                + abs(current_pose[1] - correct_pose[1]) \
-               + abs(current_pose[2] - correct_pose[2]) * yaw_factor
-        # method doesn't work for going forward and turning at the same time
-        # todo better computation of correct end pose
+               + abs(current_pose[2] - correct_pose[
+            2]) * yaw_factor  # todo take closest distance in cricle through 0 into account
+        # method doesn't work for going forward and turning at the same times
+        # todo better computation of correct end pose, maybe use foot position
         if yaw != 0:  # and (x != 0 or y != 0):
             # just give 0 cost for surviving
             cost = 0
-        print(F"cost: {cost}")
         # test if robot moved at all for simple case
         early_term = False
         if yaw == 0 and ((x != 0 and abs(current_pose[0]) < 0.5 * abs(correct_pose[0])) or (
@@ -140,21 +144,21 @@ class AbstractWalkOptimization(AbstractRosOptimization):
 
     def reset(self):
         # reset simulation
-        #self.sim.reset()
+        # self.sim.reset()
         # let the robot do a few steps in the air to get correct walkready position
         self.sim.set_gravity(False)
         self.sim.reset_robot_pose((0, 0, 1), (0, 0, 0, 1))
         self.send_cmd_vel(0.1, 0, 0)
-        self.sim.run_simulation(duration=2, sleep=0.001)
+        self.sim.run_simulation(duration=2, sleep=0.01)
         self.send_cmd_vel(0, 0, 0)
-        self.sim.run_simulation(duration=2, sleep=0.001)
+        self.sim.run_simulation(duration=2, sleep=0.01)
         self.sim.set_gravity(True)
-        height = self.current_params['trunk_height'] + 0.005
+        height = self.current_params['trunk_height'] + self.reset_height_offset
         pitch = self.current_params['trunk_pitch']
         (x, y, z, w) = tf.transformations.quaternion_from_euler(0, pitch, 0)
 
         self.sim.reset_robot_pose((0, 0, height), (x, y, z, w))
-        self.sim.run_simulation(duration=1, sleep=0.001)
+        self.sim.run_simulation(duration=1, sleep=0.01)
 
     def send_cmd_vel(self, x, y, yaw):
         msg = Twist()
@@ -167,6 +171,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
 class WolfgangWalkOptimization(AbstractWalkOptimization):
     def __init__(self, namespace, gui):
         super(WolfgangWalkOptimization, self).__init__(namespace, 'wolfgang')
+        self.reset_height_offset = 0.005
         self.directions = [[0.1, 0, 0],
                            [-0.1, 0, 0],
                            [0, 0.05, 0],
@@ -186,7 +191,6 @@ class WolfgangWalkOptimization(AbstractWalkOptimization):
         def add(name, min_value, max_value):
             param_dict[name] = trial.suggest_uniform(name, min_value, max_value)
 
-        # todo einige davon sind voneinander abhängig (können nur vor oder nach einem anderen sein), das sollte man beachten bei den min, max werten
         add('double_support_ratio', 0.0, 1.0)
         add('freq', 0.1, 5)
         add('foot_apex_phase', 0.0, 1.0)
@@ -214,7 +218,7 @@ class WolfgangWalkOptimization(AbstractWalkOptimization):
         # todo 'trunk' nochmal ander nennen? body?
 
         # todo also find PID values, maybe in a second step after finding walking params
-        # todo de/activate phase reset while searching params?
+        # todo de/activate phase reset while searching params? yes
 
         self.set_params(param_dict)
 
@@ -222,12 +226,13 @@ class WolfgangWalkOptimization(AbstractWalkOptimization):
 class DarwinWalkOptimization(AbstractWalkOptimization):
     def __init__(self, namespace, gui):
         super(DarwinWalkOptimization, self).__init__(namespace, 'darwin')
-        self.directions = [[0.1, 0, 0],
-                           [-0.1, 0, 0],
-                           [0, 0, 0.5],
-                           [0, 0, -0.5],
-                           [0.1, 0, 0.5],
-                           [-0.1, 0, 0.5],
+        self.reset_height_offset = 0.1
+        self.directions = [[0.05, 0, 0],
+                           [-0.05, 0, 0],
+                           [0, 0, 0.25],
+                           [0, 0, -0.25],
+                           [0.05, 0, 0.25],
+                           [-0.05, 0, 0.25],
                            ]
         self.sim = WebotsSim(self.namespace, gui)
 
@@ -237,29 +242,45 @@ class DarwinWalkOptimization(AbstractWalkOptimization):
         def add(name, min_value, max_value):
             param_dict[name] = trial.suggest_uniform(name, min_value, max_value)
 
+        #todo try without overshoot
+        # todo try without apex phase
+        # todo try without pitch values, only x offset
         add('double_support_ratio', 0.0, 0.8)
-        add('freq', 0.1, 3)
-        add('foot_apex_phase', 0.0, 1.0)
-        add('foot_distance', 0.05, 0.2)
-        add('foot_rise', 0.02, 0.08)
+        add('freq', 0.5, 3)
+        add('foot_distance', 0.08, 0.17)
         add('foot_overshoot_phase', 0.0, 1.0)
         add('foot_overshoot_ratio', 0.0, 1.0)
-        add('trunk_height', 0.26, 0.30)
+        add('trunk_height', 0.18, 0.24)
         add('trunk_phase', -0.5, 0.5)
-        add('trunk_pitch', -0.5, 0.5)
         add('trunk_swing', 0.0, 1.0)
         add('trunk_x_offset', -0.03, 0.03)
-        add('trunk_y_offset', -0.03, 0.03)
-        add('first_step_swing_factor', 0.5, 2)
+        add('first_step_swing_factor', 0.0, 2)
         add('first_step_trunk_phase', -0.5, 0.5)
 
         add('trunk_x_offset_p_coef_forward', -1, 1)
         add('trunk_x_offset_p_coef_turn', -1, 1)
-        add('trunk_pitch_p_coef_forward', -5, 5)
-        add('trunk_pitch_p_coef_turn', -5, 5)
+
+        #add('trunk_y_offset', -0.03, 0.03)
+        #add('foot_rise', 0.04, 0.08)
+        #add('foot_apex_phase', 0.0, 1.0)
+        param_dict['trunk_y_offset'] = 0
+        param_dict['foot_rise'] = 0.04
+        param_dict['foot_apex_phase'] = 0.5
+
+
+        #add('trunk_pitch', -1.0, 1.0)
+        #add('trunk_pitch_p_coef_forward', -5, 5)
+        #add('trunk_pitch_p_coef_turn', -5, 5)
+        param_dict['trunk_pitch'] = 0
+        param_dict['trunk_pitch_p_coef_forward'] = 0
+        param_dict['trunk_pitch_p_coef_turn'] = 0
+
         # add('foot_z_pause', 0, 1)
         # add('foot_put_down_phase', 0, 1)
         # add('trunk_pause', 0, 1)
+        param_dict['foot_z_pause'] = 0
+        param_dict['foot_put_down_phase'] = 1
+        param_dict['trunk_pause'] = 0
 
         self.set_params(param_dict)
 

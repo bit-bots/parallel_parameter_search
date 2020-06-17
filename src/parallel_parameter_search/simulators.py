@@ -70,7 +70,6 @@ class WebotsSim(AbstractSim):
         arguments = ["webots",
                      "--batch",
                      "/home/marc/repositories/running_robot_competition/running_robot_environment/worlds/RunningRobotEnv_optim.wbt"]
-        # todo load different world that is empty
         if not gui:
             arguments.append("--minimize")
         sim_proc = subprocess.Popen(arguments)

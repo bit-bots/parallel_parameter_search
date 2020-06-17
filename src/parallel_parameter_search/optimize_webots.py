@@ -4,7 +4,7 @@ import time
 
 import optuna
 from optuna.pruners import MedianPruner
-from optuna.samplers import TPESampler
+from optuna.samplers import TPESampler, CmaEsSampler
 import numpy as np
 
 import rospy
@@ -26,7 +26,7 @@ seed = np.random.randint(2 ** 32 - 1)
 n_startup_trials = 1000
 
 sampler = TPESampler(n_startup_trials=n_startup_trials, seed=seed)
-# pruner = MedianPruner(n_startup_trials=n_startup_trials, n_warmup_steps=10)
+#sampler = CmaEsSampler(seed=seed)
 
 study = optuna.create_study(study_name=args.name, storage=args.storage, direction='minimize',
                             sampler=sampler, load_if_exists=True)
@@ -34,8 +34,4 @@ study = optuna.create_study(study_name=args.name, storage=args.storage, directio
 # objective = args.objective()
 objective = DarwinWalkOptimization('worker', gui=True)
 
-#study.optimize(objective.objective, n_trials=1000, show_progress_bar=True)
-
-while True:
-    objective.sim.step_sim()
-    time.sleep(0.005)
+study.optimize(objective.objective, n_trials=1000, show_progress_bar=True)
