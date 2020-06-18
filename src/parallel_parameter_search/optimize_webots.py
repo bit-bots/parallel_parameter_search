@@ -1,3 +1,4 @@
+from bitbots_quintic_walk import PyWalk
 import argparse
 import importlib
 import time
@@ -32,6 +33,6 @@ study = optuna.create_study(study_name=args.name, storage=args.storage, directio
                             sampler=sampler, load_if_exists=True)
 
 # objective = args.objective()
-objective = DarwinWalkOptimization('worker', gui=True)
+objective = DarwinWalkOptimization('worker', gui=True, walk_as_node=False)
 
 study.optimize(objective.objective, n_trials=1000, show_progress_bar=True)

@@ -1,3 +1,6 @@
+# THIS HAS TO BE IMPORTED FIRST!!! I don't know why
+from bitbots_quintic_walk import PyWalk
+
 import math
 import time
 
@@ -17,7 +20,7 @@ from parallel_parameter_search.simulators import PybulletSim, WebotsSim
 
 class AbstractWalkOptimization(AbstractRosOptimization):
 
-    def __init__(self, namespace, robot_name):
+    def __init__(self, namespace, robot_name, walk_as_node):
         super().__init__(namespace)
         rospack = rospkg.RosPack()
         # set robot urdf and srdf
@@ -28,13 +31,21 @@ class AbstractWalkOptimization(AbstractRosOptimization):
                            '/config/walking_' + robot_name + '_optimization.yaml',
                            rospack)
 
-        self.walk_node = roslaunch.core.Node('bitbots_quintic_walk', 'WalkNode', 'walking',
-                                             namespace=self.namespace)
-        self.walk_node.remap_args = [("walking_motor_goals", "DynamixelController/command"), ("/clock", "clock")]
-        self.launch.launch(self.walk_node)
-        self.dynconf_client = dynamic_reconfigure.client.Client(self.namespace + '/' + 'walking/engine', timeout=60)
-
-        self.cmd_vel_pub = rospy.Publisher(self.namespace + '/cmd_vel', Twist, queue_size=10)
+        self.walk_as_node = walk_as_node
+        self.current_speed = None
+        self.last_time = 0
+        if self.walk_as_node:
+            self.walk_node = roslaunch.core.Node('bitbots_quintic_walk', 'WalkNode', 'walking',
+                                                 namespace=self.namespace)
+            self.walk_node.remap_args = [("walking_motor_goals", "DynamixelController/command"), ("/clock", "clock")]
+            self.launch.launch(self.walk_node)
+            self.dynconf_client = dynamic_reconfigure.client.Client(self.namespace + '/' + 'walking/engine', timeout=60)
+            self.cmd_vel_pub = rospy.Publisher(self.namespace + '/cmd_vel', Twist, queue_size=10)
+        else:
+            load_yaml_to_param("/robot_description_kinematics", robot_name + '_moveit_config',
+                               '/config/kinematics.yaml', rospack)
+            # create walk as python class to call it later
+            self.walk = PyWalk(self.namespace)
 
         self.number_of_iterations = 10
         self.time_limit = 20
@@ -78,7 +89,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
 
     def evaluate_direction(self, x, y, yaw, trial: optuna.Trial, iteration):
         start_time = rospy.get_time()
-        self.send_cmd_vel(x * iteration, y * iteration, yaw * iteration)
+        self.set_cmd_vel(x * iteration, y * iteration, yaw * iteration)
         print(F'cmd: {x * iteration} {y * iteration} {yaw * iteration}')
 
         # wait till time for test is up or stopping condition has been reached
@@ -86,7 +97,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
             passed_time = rospy.get_time() - start_time
             if passed_time > self.time_limit:
                 # reached time limit, stop robot
-                self.send_cmd_vel(0, 0, 0)
+                self.set_cmd_vel(0, 0, 0)
 
             if passed_time > self.time_limit + 5:
                 # robot should have stopped now, evaluate the fitness
@@ -94,7 +105,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
 
             # test if the robot has fallen down
             pos, rpy = self.sim.get_robot_pose_rpy()
-            if abs(rpy[0]) > math.radians(60) or abs(rpy[1]) > math.radians(60):
+            if abs(rpy[0]) > math.radians(45) or abs(rpy[1]) > math.radians(45):
                 # add extra information to trial
                 trial.set_user_attr('early_termination_at', (
                     x * iteration, y * iteration, yaw * iteration))
@@ -102,15 +113,38 @@ class AbstractWalkOptimization(AbstractRosOptimization):
                 return True, cost
 
             try:
+                if self.walk_as_node:
+                    # give time to other algorithms to compute their responses
+                    # use wall time, as ros time is standing still
+                    time.sleep(0.01)
+                else:
+                    current_time = self.sim.get_time()
+                    #print(current_time - self.last_time)
+                    #print(self.current_speed)
+                    #print(self.sim.get_imu_msg())
+                    #print(self.sim.get_joint_state_msg())
+                    joint_command = self.walk.step(current_time - self.last_time, self.current_speed,
+                                                   self.sim.get_imu_msg(),
+                                                   self.sim.get_joint_state_msg())
+                    #print(joint_command)
+                    self.sim.set_joints(joint_command)
+                    self.last_time = current_time
                 self.sim.step_sim()
-                # give time to other algorithms to compute their responses
-                # use wall time, as ros time is standing still
-                time.sleep(0.01)
             except:
                 pass
 
         # was stopped before finishing
         raise optuna.exceptions.OptunaError()
+
+    def run_walking(self, duration):
+        start_time = self.sim.get_time()
+        while not rospy.is_shutdown() and (duration is None or self.sim.get_time() - start_time < duration):
+            self.sim.step_sim()
+            current_time = self.sim.get_time()
+            joint_command = self.walk.step(current_time - self.last_time, self.current_speed, self.sim.get_imu_msg(),
+                                           self.sim.get_joint_state_msg())
+            self.sim.set_joints(joint_command)
+            self.last_time = current_time
 
     def compute_cost(self, x, y, yaw):
         """
@@ -148,24 +182,36 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         # let the robot do a few steps in the air to get correct walkready position
         self.sim.set_gravity(False)
         self.sim.reset_robot_pose((0, 0, 1), (0, 0, 0, 1))
-        self.send_cmd_vel(0.1, 0, 0)
-        self.sim.run_simulation(duration=2, sleep=0.01)
-        self.send_cmd_vel(0, 0, 0)
-        self.sim.run_simulation(duration=2, sleep=0.01)
+        self.set_cmd_vel(0.1, 0, 0)
+        if self.walk_as_node:
+            self.sim.run_simulation(duration=2, sleep=0.01)
+        else:
+            self.run_walking(duration=2)
+        self.set_cmd_vel(0, 0, 0)
+        if self.walk_as_node:
+            self.sim.run_simulation(duration=2, sleep=0.01)
+        else:
+            self.run_walking(duration=2)
         self.sim.set_gravity(True)
         height = self.current_params['trunk_height'] + self.reset_height_offset
         pitch = self.current_params['trunk_pitch']
         (x, y, z, w) = tf.transformations.quaternion_from_euler(0, pitch, 0)
 
         self.sim.reset_robot_pose((0, 0, height), (x, y, z, w))
-        self.sim.run_simulation(duration=1, sleep=0.01)
+        if self.walk_as_node:
+            self.sim.run_simulation(duration=2, sleep=0.01)
+        else:
+            self.run_walking(duration=2)
 
-    def send_cmd_vel(self, x, y, yaw):
+    def set_cmd_vel(self, x, y, yaw):
         msg = Twist()
         msg.linear.x = x
         msg.linear.y = y
         msg.angular.z = yaw
-        self.cmd_vel_pub.publish(msg)
+        if self.walk_as_node:
+            self.cmd_vel_pub.publish(msg)
+        else:
+            self.current_speed = msg
 
 
 class WolfgangWalkOptimization(AbstractWalkOptimization):
@@ -224,9 +270,9 @@ class WolfgangWalkOptimization(AbstractWalkOptimization):
 
 
 class DarwinWalkOptimization(AbstractWalkOptimization):
-    def __init__(self, namespace, gui):
-        super(DarwinWalkOptimization, self).__init__(namespace, 'darwin')
-        self.reset_height_offset = 0.1
+    def __init__(self, namespace, gui, walk_as_node):
+        super(DarwinWalkOptimization, self).__init__(namespace, 'darwin', walk_as_node)
+        self.reset_height_offset = 0.09
         self.directions = [[0.05, 0, 0],
                            [-0.05, 0, 0],
                            [0, 0, 0.25],
@@ -242,7 +288,7 @@ class DarwinWalkOptimization(AbstractWalkOptimization):
         def add(name, min_value, max_value):
             param_dict[name] = trial.suggest_uniform(name, min_value, max_value)
 
-        #todo try without overshoot
+        # todo try without overshoot
         # todo try without apex phase
         # todo try without pitch values, only x offset
         add('double_support_ratio', 0.0, 0.8)
@@ -260,17 +306,17 @@ class DarwinWalkOptimization(AbstractWalkOptimization):
         add('trunk_x_offset_p_coef_forward', -1, 1)
         add('trunk_x_offset_p_coef_turn', -1, 1)
 
-        #add('trunk_y_offset', -0.03, 0.03)
-        #add('foot_rise', 0.04, 0.08)
-        #add('foot_apex_phase', 0.0, 1.0)
+        # add('trunk_y_offset', -0.03, 0.03)
+        # add('foot_rise', 0.04, 0.08)
+        # add('foot_apex_phase', 0.0, 1.0)
         param_dict['trunk_y_offset'] = 0
         param_dict['foot_rise'] = 0.04
         param_dict['foot_apex_phase'] = 0.5
+        # todo put this as addition arguments to trail
 
-
-        #add('trunk_pitch', -1.0, 1.0)
-        #add('trunk_pitch_p_coef_forward', -5, 5)
-        #add('trunk_pitch_p_coef_turn', -5, 5)
+        # add('trunk_pitch', -1.0, 1.0)
+        # add('trunk_pitch_p_coef_forward', -5, 5)
+        # add('trunk_pitch_p_coef_turn', -5, 5)
         param_dict['trunk_pitch'] = 0
         param_dict['trunk_pitch_p_coef_forward'] = 0
         param_dict['trunk_pitch_p_coef_turn'] = 0
@@ -282,7 +328,11 @@ class DarwinWalkOptimization(AbstractWalkOptimization):
         param_dict['foot_put_down_phase'] = 1
         param_dict['trunk_pause'] = 0
 
-        self.set_params(param_dict)
+        if self.walk_as_node:
+            self.set_params(param_dict)
+        else:
+            self.current_params = param_dict
+            self.walk.set_engine_dyn_reconf(param_dict)
 
 
 def load_robot_param(namespace, rospack, name):

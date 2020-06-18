@@ -36,6 +36,8 @@ class AbstractSim:
     def reset(self):
         raise NotImplementedError
 
+    def get_time(self):
+        raise NotImplementedError
 
 class PybulletSim(AbstractSim):
 
@@ -75,7 +77,11 @@ class WebotsSim(AbstractSim):
         sim_proc = subprocess.Popen(arguments)
 
         os.environ["WEBOTS_PID"] = str(sim_proc.pid)
-        self.robot_controller = DarwinWebotsController(namespace, False)
+        if gui:
+            mode = 'run'
+        else:
+            mode = 'fast'
+        self.robot_controller = DarwinWebotsController(namespace, False, mode)
 
     def step_sim(self):
         self.robot_controller.step()
@@ -91,5 +97,17 @@ class WebotsSim(AbstractSim):
 
     def reset(self):
         self.robot_controller.reset()
+
+    def get_time(self):
+        return self.robot_controller.time
+
+    def get_imu_msg(self):
+        return self.robot_controller.get_imu_msg()
+
+    def get_joint_state_msg(self):
+        return self.robot_controller.get_joint_state_msg()
+
+    def set_joints(self, joint_command_msg):
+        self.robot_controller.command_cb(joint_command_msg)
 
 # todo gazebo
