@@ -45,11 +45,11 @@ class PybulletSim(AbstractSim):
         super(AbstractSim, self).__init__()
         self.namespace = namespace
         self.gui = gui
-        self.sim: PybulletSim = Simulation(gui)
+        self.sim: Simulation = Simulation(gui)
         self.sim_interface: ROSInterface = ROSInterface(self.sim, namespace=self.namespace + '/', node=False)
 
     def step_sim(self):
-        self.sim_interface.step()
+        self.sim.step()
 
     def set_gravity(self, on):
         self.sim.set_gravity(on)
@@ -62,6 +62,18 @@ class PybulletSim(AbstractSim):
 
     def reset(self):
         self.sim.reset()
+
+    def get_time(self):
+        return self.sim.time
+
+    def get_imu_msg(self):
+        return self.sim_interface.get_imu_msg()
+
+    def get_joint_state_msg(self):
+        return self.sim_interface.get_joint_state_msg()
+
+    def set_joints(self, joint_command_msg):
+        self.sim_interface.joint_goal_cb(joint_command_msg)
 
 
 class WebotsSim(AbstractSim):

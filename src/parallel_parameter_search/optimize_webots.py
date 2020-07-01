@@ -1,3 +1,4 @@
+# this has to be first import, otherwise there will be an error
 from bitbots_quintic_walk import PyWalk
 import argparse
 import importlib

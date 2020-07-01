@@ -1,3 +1,7 @@
+# this has to be first import, otherwise there will be an error
+from bitbots_quintic_walk import PyWalk
+import cProfile as profile
+
 import argparse
 import importlib
 
@@ -25,7 +29,7 @@ args = parser.parse_args()
 #    exit(1)
 
 seed = np.random.randint(2 ** 32 - 1)
-n_startup_trials = 1000
+n_startup_trials = 10
 
 sampler = TPESampler(n_startup_trials=n_startup_trials, seed=seed)
 #pruner = MedianPruner(n_startup_trials=n_startup_trials, n_warmup_steps=10)
@@ -34,5 +38,12 @@ study = optuna.create_study(study_name=args.name, storage=args.storage, directio
                             sampler=sampler, load_if_exists=True)
 
 #objective = args.objective()
-objective = WolfgangWalkOptimization('worker', gui=True)
-study.optimize(objective.objective, n_trials=1000, show_progress_bar=True)
+pr = profile.Profile()
+pr.enable()
+try:
+    objective = WolfgangWalkOptimization('worker', gui=True, walk_as_node=False)
+    study.optimize(objective.objective, n_trials=1000, show_progress_bar=True)
+finally:
+    print("hi")
+    pr.disable()
+    pr.dump_stats('profile.pstat')

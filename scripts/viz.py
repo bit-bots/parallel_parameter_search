@@ -2,7 +2,7 @@
 
 from optuna import Study, load_study, visualization, importance
 
-study = load_study('webots_test5',  storage='postgresql://bestmann:deepquintic@localhost/deep_quintic')
+study = load_study('pybullet3',  storage='postgresql://bestmann:deepquintic@localhost/deep_quintic')
 df = study.trials_dataframe()
 #print(df)
 print(df.keys())
@@ -41,6 +41,12 @@ for param in best_set.keys():
 #%%
 
 visualization.plot_slice(study).show()#, params=['freq', 'double_support_ratio', 'trunk_height'])
+
+visualization.plot_contour(study, params=['double_support_ratio', 'trunk_swing']).show()
+
+visualization.plot_optimization_history(study).show()
+
+visualization.plot_parallel_coordinate(study).show()
 
 #%%
 
