@@ -13,8 +13,8 @@ import tf
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 
-from parallel_parameter_search.abstract_ros_optimization import set_param_to_file, load_yaml_to_param, \
-    AbstractRosOptimization
+from parallel_parameter_search.abstract_ros_optimization import AbstractRosOptimization
+from parallel_parameter_search.utils import  set_param_to_file, load_yaml_to_param
 from parallel_parameter_search.simulators import PybulletSim, WebotsSim
 
 

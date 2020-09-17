@@ -3,9 +3,11 @@ import subprocess
 import sys
 import time
 
+import rospkg
 import rospy
 from wolfgang_pybullet_sim.simulation import Simulation
 from wolfgang_pybullet_sim.ros_interface import ROSInterface
+from parallel_parameter_search.utils import  set_param_to_file, load_yaml_to_param
 
 from darwin_description.darwin_webots_controller import DarwinWebotsController
 
@@ -44,9 +46,13 @@ class PybulletSim(AbstractSim):
     def __init__(self, namespace, gui):
         super(AbstractSim, self).__init__()
         self.namespace = namespace
+        # load simuation params
+        rospack = rospkg.RosPack()
+        print(self.namespace)
+        load_yaml_to_param("/" +self.namespace, 'wolfgang_pybullet_sim', '/config/config.yaml', rospack)
         self.gui = gui
         self.sim: Simulation = Simulation(gui)
-        self.sim_interface: ROSInterface = ROSInterface(self.sim, namespace=self.namespace + '/', node=False)
+        self.sim_interface: ROSInterface = ROSInterface(self.sim, namespace="/" + self.namespace + '/', node=False)
 
     def step_sim(self):
         self.sim.step()

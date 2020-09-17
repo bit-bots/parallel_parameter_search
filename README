@@ -1,37 +1,5 @@
-Distributed Gazebo Parameter Learning
+Distributed Parameter Learning
 =====================================
 
-This package allows you to optimize a generic set of parameters for an arbitrary algorithm in a distributed way in the Gazebo simulator.
-The process consists of a master which provides a service to get the next set of parameters and a number of workers which evaluate these parameters and send them back to the master.
-1. Start master node
-2. Start n worker nodes 
-3. For worker in workers
-3.1. Get set of parameters from master using a service
-3.2. Evaluate the performance of these parameters
-3.3. Return the performance for this set of parameters to the master
-4. The loop ends when the master has no new parameter sets to evaluate
-5. The results are written in a .csv file and can be inspected with the provided scripts
-
-
-Start Master
-------------
-Make sure correct workspaces are sourced
-The master has to be started before the worker nodes are started. Do this with the following launch file
-roslaunch parallel_parameter_search master.launch
-
-Start Worker
-------------
-Make sure correct workspaces are sourced
-The worker can run on any machine that is in a network connection to the master machine. Before starting the worker you have to set the ROS master uri to the master computer. 
-export ROS_MASTER_URI=http://MASTERPC:11311
-To start a single worker you can use the following launch file
-roslaunch parallel_parameter_search worker.launch
-To start multiple workers you can use 
-rosrun parallel_parameter_search launch_workers.py 5 1 http://MASTERPC:11311
-
-Watching workers
-----------------
-You can watch workers evaluating their parameter set with the following script.
-You have to set the ROS master uri first.
-rosrun parallel_parameter_search watch_worker.py WORKER_NUMBER IP_OF_WORKER
-
+This package allows you to optimize a generic set of parameters for an arbitrary algorithm in a distributed way in the Pybullet and Webots simulator.
+The package heavly relies on Optuna as a backend for optimization and for distributed execution via SQL database.
