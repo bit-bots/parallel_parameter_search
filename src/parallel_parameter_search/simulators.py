@@ -75,6 +75,17 @@ class PybulletSim(AbstractSim):
     def set_joints(self, joint_command_msg):
         self.sim_interface.joint_goal_cb(joint_command_msg)
 
+def fix_webots_folder(sim_proc_pid):
+    # Fix for webots folder name on some systems
+    time.sleep(1)  # Wait for webots
+    for folder in os.listdir('/tmp'):
+        if folder.startswith(f'webots-{sim_proc_pid}-'):
+            try:
+                os.remove(F'/tmp/webots-{sim_proc_pid}')
+            except FileNotFoundError:
+                pass
+            os.symlink(F'/tmp/{folder}', F'/tmp/webots-{sim_proc_pid}')
+
 
 class WebotsSim(AbstractSim):
 
@@ -83,12 +94,14 @@ class WebotsSim(AbstractSim):
         super().__init__()
         arguments = ["webots",
                      "--batch",
-                     "/home/marc/repositories/running_robot_competition/running_robot_environment/worlds/RunningRobotEnv_optim.wbt"]
+                     "/homes/10bestman/repositories/running_robot_competition/running_robot_environment/worlds/RunningRobotEnv_optim.wbt"]
         if not gui:
             arguments.append("--minimize")
         sim_proc = subprocess.Popen(arguments)
 
         os.environ["WEBOTS_PID"] = str(sim_proc.pid)
+        fix_webots_folder(sim_proc.pid)
+
         if gui:
             mode = 'run'
         else:

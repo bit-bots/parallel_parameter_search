@@ -321,7 +321,9 @@ class DarwinWalkOptimization(AbstractWalkOptimization):
 
         add('double_support_ratio', 0.0, 0.5)
         add('freq', 1.5, 3)
-        add('foot_distance', 0.08, 0.17)
+        #add('foot_distance', 0.08, 0.10)
+        param_dict['foot_distance'] = 0.10
+
         add('trunk_height', 0.18, 0.24)
         add('trunk_phase', -0.5, 0.5)
         add('trunk_swing', 0.0, 1.0)
