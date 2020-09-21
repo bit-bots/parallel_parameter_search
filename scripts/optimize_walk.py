@@ -13,14 +13,17 @@ import numpy as np
 
 import rospy
 
-from parallel_parameter_search.walk_optimization import DarwinWalkOptimization, WolfgangWalkOptimization
+from parallel_parameter_search.walk_optimization import DarwinWalkOptimization, WolfgangWalkOptimization, OP3WalkOptimization
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--storage', help='Database SQLAlchemy string, e.g. postgresql://USER:PASS@SERVER/DB_NAME',
                     default=None, type=str, required=False)
 parser.add_argument('--name', help='Name of the study', default=None, type=str, required=True)
-parser.add_argument('--robot', help='Robot model that should be used {wolfgang, darwin, robotisop3, nao, Talos, reemc, zjl} ', default=None, type=str, required=True)
+parser.add_argument('--robot', help='Robot model that should be used {wolfgang, darwin, op3, nao, Talos, reemc, zjl} ', default=None, type=str, required=True)
+parser.add_argument('--sim', help='Simulator type that should be used {pybullet, webots} ', default=None, type=str, required=True)
 parser.add_argument('--gui', help="Activate gui", action='store_true')
+parser.add_argument('--node', help="Run walking as extra node", action='store_true')
+
 args = parser.parse_args()
 
 seed = np.random.randint(2 ** 32 - 1)
@@ -33,11 +36,11 @@ study = optuna.create_study(study_name=args.name, storage=args.storage, directio
                             sampler=sampler, load_if_exists=True)
 
 if args.robot == "darwin":
-    objective = DarwinWalkOptimization('worker', gui=args.gui, walk_as_node=False)
+    objective = DarwinWalkOptimization('worker', gui=args.gui, walk_as_node=args.node, sim_type=args.sim)
 elif args.robot == "wolfgang":
-    objective = WolfgangWalkOptimization('worker', gui=args.gui, walk_as_node=False)
-elif args.robot == "robotisop3":
-    pass
+    objective = WolfgangWalkOptimization('worker', gui=args.gui, walk_as_node=args.node, sim_type=args.sim)
+elif args.robot == "op3":
+    objective = OP3WalkOptimization('worker', gui=args.gui, walk_as_node=args.node, sim_type=args.sim)
 else:
     print(f"robot type \"{args.robot}\" not known.")
 
