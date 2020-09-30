@@ -81,6 +81,9 @@ class PybulletSim(AbstractSim):
     def set_joints(self, joint_command_msg):
         self.sim_interface.joint_goal_cb(joint_command_msg)
 
+    def get_timestep(self):
+        return self.sim.timestep
+
 def fix_webots_folder(sim_proc_pid):
     # Fix for webots folder name on some systems
     time.sleep(1)  # Wait for webots
@@ -140,5 +143,9 @@ class WebotsSim(AbstractSim):
 
     def set_joints(self, joint_command_msg):
         self.robot_controller.command_cb(joint_command_msg)
+
+    def get_timestep(self):
+        # webots time step is in ms, so we need to convert
+        return self.robot_controller.timestep / 1000
 
 # todo gazebo
