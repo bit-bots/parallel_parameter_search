@@ -88,6 +88,66 @@ class AbstractWalkOptimization(AbstractRosOptimization):
     def suggest_walk_params(self, trial):
         raise NotImplementedError
 
+    def _suggest_walk_params(self, trial, trunk_height, foot_distance):
+        param_dict = {}
+
+        def add(name, min_value, max_value):
+            param_dict[name] = trial.suggest_uniform(name, min_value, max_value)
+
+        add('double_support_ratio', 0.0, 0.45)
+        add('freq', 1.5, 3)
+        add('foot_distance', foot_distance[0], foot_distance[1])
+        add('trunk_height', trunk_height[0], trunk_height[1])
+        add('trunk_phase', -0.5, 0.5)
+        add('trunk_swing', 0.0, 1.0)
+        add('trunk_x_offset', -0.03, 0.03)
+
+        add('trunk_x_offset_p_coef_forward', -1, 1)
+        add('trunk_x_offset_p_coef_turn', -1, 1)
+
+        # add('first_step_swing_factor', 0.0, 2)
+        # add('first_step_trunk_phase', -0.5, 0.5)
+        param_dict['first_step_swing_factor'] = 1
+        param_dict['first_step_trunk_phase'] = -0.5
+
+        # add('foot_overshoot_phase', 0.0, 1.0)
+        # add('foot_overshoot_ratio', 0.0, 1.0)
+        param_dict['foot_overshoot_phase'] = 1
+        param_dict['foot_overshoot_ratio'] = 0.0
+
+        # add('trunk_y_offset', -0.03, 0.03)
+        # add('foot_rise', 0.04, 0.08)
+        # add('foot_apex_phase', 0.0, 1.0)
+        param_dict['trunk_y_offset'] = 0
+        param_dict['foot_rise'] = 0.1
+        param_dict['foot_apex_phase'] = 0.5
+        # todo put this as addition arguments to trial
+
+        # add('trunk_pitch', -1.0, 1.0)
+        # add('trunk_pitch_p_coef_forward', -5, 5)
+        # add('trunk_pitch_p_coef_turn', -5, 5)
+        param_dict['trunk_pitch'] = 0
+        param_dict['trunk_pitch_p_coef_forward'] = 0
+        param_dict['trunk_pitch_p_coef_turn'] = 0
+
+        # add('foot_z_pause', 0, 1)
+        # add('foot_put_down_phase', 0, 1)
+        # add('trunk_pause', 0, 1)
+        param_dict['foot_z_pause'] = 0
+        param_dict['foot_put_down_phase'] = 1
+        param_dict['trunk_pause'] = 0
+
+        # todo 'trunk' nochmal ander nennen? body?
+
+        # todo also find PID values, maybe in a second step after finding walking params
+        # todo de/activate phase reset while searching params? yes
+
+        if self.walk_as_node:
+            self.set_params(param_dict)
+        else:
+            self.current_params = param_dict
+            self.walk.set_engine_dyn_reconf(param_dict)
+
     def evaluate_direction(self, x, y, yaw, trial: optuna.Trial, iteration):
         start_time = self.sim.get_time()
         self.set_cmd_vel(x * iteration, y * iteration, yaw * iteration)
@@ -144,10 +204,9 @@ class AbstractWalkOptimization(AbstractRosOptimization):
             current_time = self.sim.get_time()
             joint_command = self.walk.step(current_time - self.last_time, self.current_speed, self.sim.get_imu_msg(),
                                            self.sim.get_joint_state_msg())
-            #print(joint_command)
+            # print(joint_command)
             self.sim.set_joints(joint_command)
             self.last_time = current_time
-
 
     def compute_cost(self, x, y, yaw):
         """
@@ -244,64 +303,7 @@ class WolfgangWalkOptimization(AbstractWalkOptimization):
             print(f'sim type {sim_type} not known')
 
     def suggest_walk_params(self, trial):
-        param_dict = {}
-
-        def add(name, min_value, max_value):
-            param_dict[name] = trial.suggest_uniform(name, min_value, max_value)
-
-        add('double_support_ratio', 0.0, 0.45)
-        add('freq', 1.5, 3)
-        add('foot_distance', 0.1, 0.3)
-        add('trunk_height', 0.38, 0.45)
-        add('trunk_phase', -0.5, 0.5)
-        add('trunk_swing', 0.0, 1.0)
-        add('trunk_x_offset', -0.03, 0.03)
-
-        add('trunk_x_offset_p_coef_forward', -1, 1)
-        add('trunk_x_offset_p_coef_turn', -1, 1)
-
-        # add('first_step_swing_factor', 0.0, 2)
-        # add('first_step_trunk_phase', -0.5, 0.5)
-        param_dict['first_step_swing_factor'] = 1
-        param_dict['first_step_trunk_phase'] = -0.5
-
-        # add('foot_overshoot_phase', 0.0, 1.0)
-        # add('foot_overshoot_ratio', 0.0, 1.0)
-        param_dict['foot_overshoot_phase'] = 1
-        param_dict['foot_overshoot_ratio'] = 0.0
-
-        # add('trunk_y_offset', -0.03, 0.03)
-        # add('foot_rise', 0.04, 0.08)
-        # add('foot_apex_phase', 0.0, 1.0)
-        param_dict['trunk_y_offset'] = 0
-        param_dict['foot_rise'] = 0.1
-        param_dict['foot_apex_phase'] = 0.5
-        # todo put this as addition arguments to trial
-
-        # add('trunk_pitch', -1.0, 1.0)
-        # add('trunk_pitch_p_coef_forward', -5, 5)
-        # add('trunk_pitch_p_coef_turn', -5, 5)
-        param_dict['trunk_pitch'] = 0
-        param_dict['trunk_pitch_p_coef_forward'] = 0
-        param_dict['trunk_pitch_p_coef_turn'] = 0
-
-        # add('foot_z_pause', 0, 1)
-        # add('foot_put_down_phase', 0, 1)
-        # add('trunk_pause', 0, 1)
-        param_dict['foot_z_pause'] = 0
-        param_dict['foot_put_down_phase'] = 1
-        param_dict['trunk_pause'] = 0
-
-        # todo 'trunk' nochmal ander nennen? body?
-
-        # todo also find PID values, maybe in a second step after finding walking params
-        # todo de/activate phase reset while searching params? yes
-
-        if self.walk_as_node:
-            self.set_params(param_dict)
-        else:
-            self.current_params = param_dict
-            self.walk.set_engine_dyn_reconf(param_dict)
+        self._suggest_walk_params(trial, (0.38, 0.45), (0.1, 0.3))
 
 
 class DarwinWalkOptimization(AbstractWalkOptimization):
@@ -310,14 +312,14 @@ class DarwinWalkOptimization(AbstractWalkOptimization):
         self.reset_height_offset = 0.09
         self.directions = [[0.05, 0, 0],
                            [-0.05, 0, 0],
-                           [0, 0.025, 0],
-                           [0, -0.025, 0],
-                           [0, 0, 0.25],
-                           [0, 0, -0.25],
-                           [0.05, 0.25, 0],
-                           [0.05, -0.25, 0],
-                           [0.05, 0, -0.25],
-                           [-0.05, 0, 0.25],
+                           # [0, 0.025, 0],
+                           # [0, -0.025, 0],
+                           # [0, 0, 0.25],
+                           # [0, 0, -0.25],
+                           # [0.05, 0.25, 0],
+                           # [0.05, -0.25, 0],
+                           # [0.05, 0, -0.25],
+                           # [-0.05, 0, 0.25],
                            ]
         if sim_type == 'pybullet':
             urdf_path = self.rospack.get_path('darwin_description') + '/urdf/robot.urdf'
@@ -329,62 +331,7 @@ class DarwinWalkOptimization(AbstractWalkOptimization):
             print(f'sim type {sim_type} not known')
 
     def suggest_walk_params(self, trial):
-        param_dict = {}
-
-        def add(name, min_value, max_value):
-            param_dict[name] = trial.suggest_uniform(name, min_value, max_value)
-
-        add('double_support_ratio', 0.0, 0.5)
-        add('freq', 1.5, 3)
-        # add('foot_distance', 0.08, 0.10)
-        param_dict['foot_distance'] = 0.10
-
-        add('trunk_height', 0.18, 0.24)
-        add('trunk_phase', -0.5, 0.5)
-        add('trunk_swing', 0.0, 1.0)
-        add('trunk_x_offset', -0.03, 0.03)
-
-        add('trunk_x_offset_p_coef_forward', -1, 1)
-        add('trunk_x_offset_p_coef_turn', -1, 1)
-
-        # add('first_step_swing_factor', 0.0, 2)
-        # add('first_step_trunk_phase', -0.5, 0.5)
-        param_dict['first_step_swing_factor'] = 1
-        param_dict['first_step_trunk_phase'] = -0.5
-
-        # add('foot_overshoot_phase', 0.0, 1.0)
-        # add('foot_overshoot_ratio', 0.0, 1.0)
-        param_dict['foot_overshoot_phase'] = 1
-        param_dict['foot_overshoot_ratio'] = 0.0
-
-        # add('trunk_y_offset', -0.03, 0.03)
-        # add('foot_rise', 0.04, 0.08)
-        # add('foot_apex_phase', 0.0, 1.0)
-        param_dict['trunk_y_offset'] = 0
-        param_dict['foot_rise'] = 0.05
-        param_dict['foot_apex_phase'] = 0.5
-        # todo put this as addition arguments to trial
-
-        # add('trunk_pitch', -1.0, 1.0)
-        # add('trunk_pitch_p_coef_forward', -5, 5)
-        # add('trunk_pitch_p_coef_turn', -5, 5)
-        param_dict['trunk_pitch'] = 0
-        param_dict['trunk_pitch_p_coef_forward'] = 0
-        param_dict['trunk_pitch_p_coef_turn'] = 0
-
-        # add('foot_z_pause', 0, 1)
-        # add('foot_put_down_phase', 0, 1)
-        # add('trunk_pause', 0, 1)
-        param_dict['foot_z_pause'] = 0
-        param_dict['foot_put_down_phase'] = 1
-        param_dict['trunk_pause'] = 0
-
-        if self.walk_as_node:
-            self.set_params(param_dict)
-        else:
-            self.current_params = param_dict
-            self.walk.set_engine_dyn_reconf(param_dict)
-
+        self._suggest_walk_params(trial, (0.20, 0.24), (0.08, 0.15))
 
 
 class OP3WalkOptimization(AbstractWalkOptimization):
@@ -412,63 +359,89 @@ class OP3WalkOptimization(AbstractWalkOptimization):
             print(f'sim type {sim_type} not known')
 
     def suggest_walk_params(self, trial):
-        param_dict = {}
+        self._suggest_walk_params(trial, (0.13, 0.24), (0.08, 0.15))
 
-        def add(name, min_value, max_value):
-            param_dict[name] = trial.suggest_uniform(name, min_value, max_value)
 
-        add('double_support_ratio', 0.0, 0.5)
-        add('freq', 1.5, 3)
-        add('foot_distance', 0.08, 0.15)
-
-        add('trunk_height', 0.2, 0.35)
-        add('trunk_phase', -0.5, 0.5)
-        add('trunk_swing', 0.0, 1.0)
-        add('trunk_x_offset', -0.03, 0.03)
-
-        add('trunk_x_offset_p_coef_forward', -1, 1)
-        add('trunk_x_offset_p_coef_turn', -1, 1)
-
-        # add('first_step_swing_factor', 0.0, 2)
-        # add('first_step_trunk_phase', -0.5, 0.5)
-        param_dict['first_step_swing_factor'] = 1
-        param_dict['first_step_trunk_phase'] = -0.5
-
-        # add('foot_overshoot_phase', 0.0, 1.0)
-        # add('foot_overshoot_ratio', 0.0, 1.0)
-        param_dict['foot_overshoot_phase'] = 1
-        param_dict['foot_overshoot_ratio'] = 0.0
-
-        # add('trunk_y_offset', -0.03, 0.03)
-        # add('foot_rise', 0.04, 0.08)
-        # add('foot_apex_phase', 0.0, 1.0)
-        param_dict['trunk_y_offset'] = 0
-        param_dict['foot_rise'] = 0.05
-        param_dict['foot_apex_phase'] = 0.5
-        # todo put this as addition arguments to trial
-
-        # add('trunk_pitch', -1.0, 1.0)
-        # add('trunk_pitch_p_coef_forward', -5, 5)
-        # add('trunk_pitch_p_coef_turn', -5, 5)
-        param_dict['trunk_pitch'] = 0
-        param_dict['trunk_pitch_p_coef_forward'] = 0
-        param_dict['trunk_pitch_p_coef_turn'] = 0
-
-        # add('foot_z_pause', 0, 1)
-        # add('foot_put_down_phase', 0, 1)
-        # add('trunk_pause', 0, 1)
-        param_dict['foot_z_pause'] = 0
-        param_dict['foot_put_down_phase'] = 1
-        param_dict['trunk_pause'] = 0
-
-        if self.walk_as_node:
-            self.set_params(param_dict)
+class NaoWalkOptimization(AbstractWalkOptimization):
+    def __init__(self, namespace, gui, walk_as_node, sim_type='webots'):
+        super(NaoWalkOptimization, self).__init__(namespace, 'nao', walk_as_node)
+        self.reset_height_offset = 0.12
+        self.directions = [[0.05, 0, 0],
+                           [-0.05, 0, 0],
+                           [0, 0.025, 0],
+                           [0, -0.025, 0],
+                           [0, 0, 0.25],
+                           [0, 0, -0.25],
+                           [0.05, 0.25, 0],
+                           [0.05, -0.25, 0],
+                           [0.05, 0, -0.25],
+                           [-0.05, 0, 0.25],
+                           ]
+        if sim_type == 'pybullet':
+            urdf_path = self.rospack.get_path('nao_description') + '/urdf/robot.urdf'
+            self.sim = PybulletSim(self.namespace, gui, urdf_path=urdf_path,
+                                   foot_link_names=['r_ank_roll_link', 'l_ank_roll_link'])
+        elif sim_type == 'webots':
+            self.sim = WebotsSim(self.namespace, gui)
         else:
-            self.current_params = param_dict
-            self.walk.set_engine_dyn_reconf(param_dict)
+            print(f'sim type {sim_type} not known')
 
+    def suggest_walk_params(self, trial):
+        self._suggest_walk_params(trial, (0.27, 0.32), (0.1, 0.17))
 
+class ReemcWalkOptimization(AbstractWalkOptimization):
+    def __init__(self, namespace, gui, walk_as_node, sim_type='webots'):
+        super(ReemcWalkOptimization, self).__init__(namespace, 'reemc', walk_as_node)
+        self.reset_height_offset = 0.12
+        self.directions = [[0.05, 0, 0],
+                           [-0.05, 0, 0],
+                           [0, 0.025, 0],
+                           [0, -0.025, 0],
+                           [0, 0, 0.25],
+                           [0, 0, -0.25],
+                           [0.05, 0.25, 0],
+                           [0.05, -0.25, 0],
+                           [0.05, 0, -0.25],
+                           [-0.05, 0, 0.25],
+                           ]
+        if sim_type == 'pybullet':
+            urdf_path = self.rospack.get_path('reemc_description') + '/urdf/robot.urdf'
+            self.sim = PybulletSim(self.namespace, gui, urdf_path=urdf_path,
+                                   foot_link_names=['r_ank_roll_link', 'l_ank_roll_link'])
+        elif sim_type == 'webots':
+            self.sim = WebotsSim(self.namespace, gui)
+        else:
+            print(f'sim type {sim_type} not known')
 
+    def suggest_walk_params(self, trial):
+        self._suggest_walk_params(trial, (0.6, 0.8), (0.15, 0.30))
+
+class TalosWalkOptimization(AbstractWalkOptimization):
+    def __init__(self, namespace, gui, walk_as_node, sim_type='webots'):
+        super(TalosWalkOptimization, self).__init__(namespace, 'talos', walk_as_node)
+        self.reset_height_offset = 0.12
+        self.directions = [[0.05, 0, 0],
+                           [-0.05, 0, 0],
+                           [0, 0.025, 0],
+                           [0, -0.025, 0],
+                           [0, 0, 0.25],
+                           [0, 0, -0.25],
+                           [0.05, 0.25, 0],
+                           [0.05, -0.25, 0],
+                           [0.05, 0, -0.25],
+                           [-0.05, 0, 0.25],
+                           ]
+        if sim_type == 'pybullet':
+            urdf_path = self.rospack.get_path('talos_description') + '/urdf/robot.urdf'
+            self.sim = PybulletSim(self.namespace, gui, urdf_path=urdf_path,
+                                   foot_link_names=['r_ank_roll_link', 'l_ank_roll_link'])
+        elif sim_type == 'webots':
+            self.sim = WebotsSim(self.namespace, gui)
+        else:
+            print(f'sim type {sim_type} not known')
+
+    def suggest_walk_params(self, trial):
+        self._suggest_walk_params(trial, (0.8, 1.2), (0.15, 0.4))
 
 
 def load_robot_param(namespace, rospack, name):
