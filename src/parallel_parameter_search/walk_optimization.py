@@ -143,12 +143,18 @@ class AbstractWalkOptimization(AbstractRosOptimization):
 
         node_param_dict = {}
         # walk engine should update at same speed as simulation
-        node_param_dict["engine_freq"] = 1 / self.sim.get_timestep
+        node_param_dict["engine_freq"] = 1 / self.sim.get_timestep()
         # don't use loop closure when optimizing parameter
         node_param_dict["pressure_phase_reset_active"] = False
         node_param_dict["effort_phase_reset_active"] = False
         node_param_dict["phase_rest_active"] = False
+        # make sure that steps are not limited
         node_param_dict["imu_active"] = False
+        node_param_dict["max_step_x"] = 100.0
+        node_param_dict["max_step_y"] = 100.0
+        node_param_dict["max_step_xy"] = 100.0
+        node_param_dict["max_step_z"] = 100.0
+        node_param_dict["max_step_angular"] = 100.0
 
         if self.walk_as_node:
             self.set_params(engine_param_dict)
