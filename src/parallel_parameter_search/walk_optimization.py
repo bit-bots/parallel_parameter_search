@@ -60,11 +60,13 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         self.reset()
 
         cost = 0
-        # starting with hardest first, to get faster early termination
-        # todo maybe start with half that speed but make more trials
-        # todo eine cleverere reinfolge für die verschiedenen fälle, auch abhängig davon welche geschafft oder nicht geschafft wurden
         # todo add scenarios where the speed command changes multiple times while the robot is already walking
-        # todo take into account that falling to a specific site is propably only depending on a subset of the parameters
+        # standing as first test, is not in loop as it will only be done once
+        early_term, cost_try = self.evaluate_direction(0, 0, 0, trial, 1, 2)
+        cost += cost_try
+        if early_term:
+            # terminate early and give 100 cost for each try left
+            return 100 * (self.number_of_iterations - 1) * len(self.directions) + 100 * len(self.directions) + cost
 
         for eval_try in range(1, self.number_of_iterations + 1):
             failed_directions_try = 0
@@ -72,7 +74,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
             for direction in self.directions:
                 d += 1
                 self.reset_position()
-                early_term, cost_try = self.evaluate_direction(*direction, trial, eval_try)
+                early_term, cost_try = self.evaluate_direction(*direction, trial, eval_try, self.time_limit)
                 cost += cost_try
                 # check if we failed in this direction and terminate this trial early
                 if early_term:
@@ -89,10 +91,14 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         raise NotImplementedError
 
     def _suggest_walk_params(self, trial, trunk_height, foot_distance, foot_rise):
-        param_dict = {}
+        engine_param_dict = {}
 
         def add(name, min_value, max_value):
-            param_dict[name] = trial.suggest_uniform(name, min_value, max_value)
+            engine_param_dict[name] = trial.suggest_uniform(name, min_value, max_value)
+
+        def fix(name, value):
+            engine_param_dict[name] = value
+            trial.set_user_attr(name, value)
 
         add('double_support_ratio', 0.0, 0.5)
         add('freq', 0.5, 3)
@@ -107,48 +113,52 @@ class AbstractWalkOptimization(AbstractRosOptimization):
 
         # add('first_step_swing_factor', 0.0, 2)
         # add('first_step_trunk_phase', -0.5, 0.5)
-        param_dict['first_step_swing_factor'] = 1
-        param_dict['first_step_trunk_phase'] = -0.5
+        fix('first_step_swing_factor', 1)
+        fix('first_step_trunk_phase', -0.5)
 
         # add('foot_overshoot_phase', 0.0, 1.0)
         # add('foot_overshoot_ratio', 0.0, 1.0)
-        param_dict['foot_overshoot_phase'] = 1
-        param_dict['foot_overshoot_ratio'] = 0.0
+        fix('foot_overshoot_phase', 1)
+        fix('foot_overshoot_ratio', 0.0)
 
         # add('trunk_y_offset', -0.03, 0.03)
         # add('foot_rise', 0.04, 0.08)
         # add('foot_apex_phase', 0.0, 1.0)
-        param_dict['trunk_y_offset'] = 0
-        param_dict['foot_rise'] = foot_rise
-        param_dict['foot_apex_phase'] = 0.5
-        # todo put this as addition arguments to trial
+        fix('trunk_y_offset', 0)
+        fix('foot_rise', foot_rise)
+        fix('foot_apex_phase', 0.5)
 
         add('trunk_pitch', -1.0, 1.0)
         # add('trunk_pitch_p_coef_forward', -5, 5)
         # add('trunk_pitch_p_coef_turn', -5, 5)
-        param_dict['trunk_pitch_p_coef_forward'] = 0
-        param_dict['trunk_pitch_p_coef_turn'] = 0
+        fix('trunk_pitch_p_coef_forward', 0)
+        fix('trunk_pitch_p_coef_turn', 0)
 
         # add('foot_z_pause', 0, 1)
         # add('foot_put_down_phase', 0, 1)
         # add('trunk_pause', 0, 1)
-        param_dict['foot_z_pause'] = 0
-        param_dict['foot_put_down_phase'] = 1
-        param_dict['trunk_pause'] = 0
+        fix('foot_z_pause', 0)
+        fix('foot_put_down_phase', 1)
+        fix('trunk_pause', 0)
 
-        # todo 'trunk' nochmal ander nennen? body?
-
-        # todo also find PID values, maybe in a second step after finding walking params
-        # todo de/activate phase reset while searching params? yes
+        node_param_dict = {}
+        # walk engine should update at same speed as simulation
+        node_param_dict["engine_freq"] = 1 / self.sim.get_timestep
+        # don't use loop closure when optimizing parameter
+        node_param_dict["pressure_phase_reset_active"] = False
+        node_param_dict["effort_phase_reset_active"] = False
+        node_param_dict["phase_rest_active"] = False
+        node_param_dict["imu_active"] = False
 
         if self.walk_as_node:
-            self.set_params(param_dict)
+            self.set_params(engine_param_dict)
+            self.set_params(node_param_dict)
         else:
-            self.current_params = param_dict
-            self.walk.set_engine_dyn_reconf(param_dict)
+            self.current_params = engine_param_dict
+            self.walk.set_engine_dyn_reconf(engine_param_dict)
+            self.walk.set_node_dyn_reconf(node_param_dict)
 
-    def evaluate_direction(self, x, y, yaw, trial: optuna.Trial, iteration):
-        # todo add standing as first test
+    def evaluate_direction(self, x, y, yaw, trial: optuna.Trial, iteration, time_limit):
         start_time = self.sim.get_time()
         self.set_cmd_vel(x * iteration, y * iteration, yaw * iteration)
         print(F'cmd: {x * iteration} {y * iteration} {yaw * iteration}')
@@ -156,11 +166,11 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         # wait till time for test is up or stopping condition has been reached
         while not rospy.is_shutdown():
             passed_time = self.sim.get_time() - start_time
-            if passed_time > self.time_limit:
+            if passed_time > time_limit:
                 # reached time limit, stop robot
                 self.set_cmd_vel(0, 0, 0)
 
-            if passed_time > self.time_limit + 5:
+            if passed_time > time_limit + 5:
                 # robot should have stopped now, evaluate the fitness
                 return self.compute_cost(x * iteration, y * iteration, yaw * iteration)
 
@@ -180,14 +190,9 @@ class AbstractWalkOptimization(AbstractRosOptimization):
                     time.sleep(0.01)
                 else:
                     current_time = self.sim.get_time()
-                    # print(current_time - self.last_time)
-                    # print(self.current_speed)
-                    # print(self.sim.get_imu_msg())
-                    # print(self.sim.get_joint_state_msg())
                     joint_command = self.walk.step(current_time - self.last_time, self.current_speed,
                                                    self.sim.get_imu_msg(),
                                                    self.sim.get_joint_state_msg())
-                    # print(joint_command)
                     self.sim.set_joints(joint_command)
                     self.last_time = current_time
                 self.sim.step_sim()
@@ -247,7 +252,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
                + abs(current_pose[2] - correct_pose[
             2]) * yaw_factor  # todo take closest distance in cricle through 0 into account
         # method doesn't work for going forward and turning at the same times
-        # todo better computation of correct end pose, maybe use foot position
+        # todo better computation of correct end pose, maybe use foot position. wakling provides foot position
         if yaw != 0:  # and (x != 0 or y != 0):
             # just give 0 cost for surviving
             cost = 0

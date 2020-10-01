@@ -1,6 +1,9 @@
 #%%
-
+import optuna
 from optuna import Study, load_study, visualization, importance
+
+study_summaries = optuna.study.get_all_study_summaries(storage="postgresql://bestmann:deepquintic@localhost/deep_quintic")
+print(study_summaries)
 
 study = load_study('pybullet3',  storage='postgresql://bestmann:deepquintic@localhost/deep_quintic')
 df = study.trials_dataframe()
