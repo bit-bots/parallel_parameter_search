@@ -60,9 +60,8 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         self.reset()
 
         cost = 0
-        # todo add scenarios where the speed command changes multiple times while the robot is already walking
         # standing as first test, is not in loop as it will only be done once
-        early_term, cost_try = self.evaluate_direction(0, 0, 0, trial, 1, 2)
+        early_term, cost_try = self.evaluate_direction(0, 0, 0, trial, 1, 0)
         cost += cost_try
         if early_term:
             # terminate early and give 100 cost for each try left
@@ -256,9 +255,8 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         cost = abs(current_pose[0] - correct_pose[0]) \
                + abs(current_pose[1] - correct_pose[1]) \
                + abs(current_pose[2] - correct_pose[
-            2]) * yaw_factor  # todo take closest distance in cricle through 0 into account
+            2]) * yaw_factor  # todo take closest distance in circle through 0 into account
         # method doesn't work for going forward and turning at the same times
-        # todo better computation of correct end pose, maybe use foot position. wakling provides foot position
         if yaw != 0:  # and (x != 0 or y != 0):
             # just give 0 cost for surviving
             cost = 0
@@ -327,7 +325,6 @@ class WolfgangWalkOptimization(AbstractWalkOptimization):
         if sim_type == 'pybullet':
             self.sim = PybulletSim(self.namespace, gui)
         elif sim_type == 'webots':
-            # todo
             self.sim = WebotsSim(self.namespace, gui)
         else:
             print(f'sim type {sim_type} not known')
@@ -337,7 +334,7 @@ class WolfgangWalkOptimization(AbstractWalkOptimization):
 
 
 class DarwinWalkOptimization(AbstractWalkOptimization):
-    def __init__(self, namespace, gui, walk_as_node, sim_type='webots'):
+    def __init__(self, namespace, gui, walk_as_node, sim_type='pybullet'):
         super(DarwinWalkOptimization, self).__init__(namespace, 'darwin', walk_as_node)
         self.reset_height_offset = 0.09
         self.directions = [[0.05, 0, 0],
@@ -355,6 +352,7 @@ class DarwinWalkOptimization(AbstractWalkOptimization):
             urdf_path = self.rospack.get_path('darwin_description') + '/urdf/robot.urdf'
             self.sim = PybulletSim(self.namespace, gui, urdf_path=urdf_path,
                                    foot_link_names=['MP_ANKLE2_L', 'MP_ANKLE2_R'])
+            self.sim.set_joints_dict({"LShoulderRoll": 0.5, "LElbow": -1.15, "RShoulderRoll": -0.5, "RElbow": 1.15})
         elif sim_type == 'webots':
             self.sim = WebotsSim(self.namespace, gui)
         else:
@@ -365,7 +363,7 @@ class DarwinWalkOptimization(AbstractWalkOptimization):
 
 
 class OP3WalkOptimization(AbstractWalkOptimization):
-    def __init__(self, namespace, gui, walk_as_node, sim_type='webots'):
+    def __init__(self, namespace, gui, walk_as_node, sim_type='pybullet'):
         super(OP3WalkOptimization, self).__init__(namespace, 'op3', walk_as_node)
         self.reset_height_offset = 0.12
         self.directions = [[0.05, 0, 0],
@@ -393,7 +391,7 @@ class OP3WalkOptimization(AbstractWalkOptimization):
 
 
 class NaoWalkOptimization(AbstractWalkOptimization):
-    def __init__(self, namespace, gui, walk_as_node, sim_type='webots'):
+    def __init__(self, namespace, gui, walk_as_node, sim_type='pybullet'):
         super(NaoWalkOptimization, self).__init__(namespace, 'nao', walk_as_node)
         self.reset_height_offset = 0.12
         self.directions = [[0.05, 0, 0],
@@ -410,7 +408,7 @@ class NaoWalkOptimization(AbstractWalkOptimization):
         if sim_type == 'pybullet':
             urdf_path = self.rospack.get_path('nao_description') + '/urdf/robot.urdf'
             self.sim = PybulletSim(self.namespace, gui, urdf_path=urdf_path,
-                                   foot_link_names=['r_ank_roll_link', 'l_ank_roll_link'])
+                                   foot_link_names=['l_ankle', 'r_ankle'])
         elif sim_type == 'webots':
             self.sim = WebotsSim(self.namespace, gui)
         else:
@@ -421,7 +419,7 @@ class NaoWalkOptimization(AbstractWalkOptimization):
 
 
 class ReemcWalkOptimization(AbstractWalkOptimization):
-    def __init__(self, namespace, gui, walk_as_node, sim_type='webots'):
+    def __init__(self, namespace, gui, walk_as_node, sim_type='pybullet'):
         super(ReemcWalkOptimization, self).__init__(namespace, 'reemc', walk_as_node)
         self.reset_height_offset = 0.12
         self.directions = [[0.05, 0, 0],
@@ -438,7 +436,7 @@ class ReemcWalkOptimization(AbstractWalkOptimization):
         if sim_type == 'pybullet':
             urdf_path = self.rospack.get_path('reemc_description') + '/urdf/robot.urdf'
             self.sim = PybulletSim(self.namespace, gui, urdf_path=urdf_path,
-                                   foot_link_names=['r_ank_roll_link', 'l_ank_roll_link'])
+                                   foot_link_names=['leg_left_6_link', 'leg_right_6_link'])
         elif sim_type == 'webots':
             self.sim = WebotsSim(self.namespace, gui)
         else:
@@ -449,7 +447,7 @@ class ReemcWalkOptimization(AbstractWalkOptimization):
 
 
 class TalosWalkOptimization(AbstractWalkOptimization):
-    def __init__(self, namespace, gui, walk_as_node, sim_type='webots'):
+    def __init__(self, namespace, gui, walk_as_node, sim_type='pybullet'):
         super(TalosWalkOptimization, self).__init__(namespace, 'talos', walk_as_node)
         self.reset_height_offset = 0.12
         self.directions = [[0.05, 0, 0],
@@ -466,7 +464,7 @@ class TalosWalkOptimization(AbstractWalkOptimization):
         if sim_type == 'pybullet':
             urdf_path = self.rospack.get_path('talos_description') + '/urdf/robot.urdf'
             self.sim = PybulletSim(self.namespace, gui, urdf_path=urdf_path,
-                                   foot_link_names=['r_ank_roll_link', 'l_ank_roll_link'])
+                                   foot_link_names=['leg_left_6_link', 'leg_right_6_link'])
         elif sim_type == 'webots':
             self.sim = WebotsSim(self.namespace, gui)
         else:

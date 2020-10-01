@@ -7,10 +7,10 @@ import rospkg
 import rospy
 from wolfgang_pybullet_sim.simulation import Simulation
 from wolfgang_pybullet_sim.ros_interface import ROSInterface
-from parallel_parameter_search.utils import  set_param_to_file, load_yaml_to_param
+from parallel_parameter_search.utils import set_param_to_file, load_yaml_to_param
 
 from darwin_description.darwin_webots_controller import DarwinWebotsController
-
+from bitbots_msgs.msg import JointCommand
 
 class AbstractSim:
 
@@ -41,6 +41,16 @@ class AbstractSim:
     def get_time(self):
         raise NotImplementedError
 
+    def set_joints(self, joint_command_msg):
+        raise NotImplementedError
+
+    def set_joints_dict(self, dict):
+        msg = JointCommand()
+        for key in dict.keys():
+            msg.joint_names.append(key)
+            msg.positions.append(dict[key])
+        self.set_joints(msg)
+
 class PybulletSim(AbstractSim):
 
     def __init__(self, namespace, gui, urdf_path=None, foot_link_names=[]):
@@ -49,7 +59,7 @@ class PybulletSim(AbstractSim):
         # load simuation params
         rospack = rospkg.RosPack()
         print(self.namespace)
-        load_yaml_to_param("/" +self.namespace, 'wolfgang_pybullet_sim', '/config/config.yaml', rospack)
+        load_yaml_to_param("/" + self.namespace, 'wolfgang_pybullet_sim', '/config/config.yaml', rospack)
         self.gui = gui
         self.sim: Simulation = Simulation(gui, urdf_path=urdf_path, foot_link_names=foot_link_names)
         self.sim_interface: ROSInterface = ROSInterface(self.sim, namespace="/" + self.namespace + '/', node=False)
@@ -83,6 +93,7 @@ class PybulletSim(AbstractSim):
 
     def get_timestep(self):
         return self.sim.timestep
+
 
 def fix_webots_folder(sim_proc_pid):
     # Fix for webots folder name on some systems
