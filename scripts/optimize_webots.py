@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 # this has to be first import, otherwise there will be an error
 from bitbots_quintic_walk import PyWalk
 import argparse
@@ -18,11 +20,6 @@ parser.add_argument('--storage', help='Database SQLAlchemy string, e.g. postgres
                     default=None, type=str, required=False)
 parser.add_argument('--name', help='Name of the study', default=None, type=str, required=True)
 args = parser.parse_args()
-
-# importlib.import_module(args.objective)
-# if not issubclass(args.objective, AbstractRosOptimization):
-#    print('Objective class is not a subclass of AbstractRosOptimization.')
-#    exit(1)
 
 seed = np.random.randint(2 ** 32 - 1)
 n_startup_trials = 1000

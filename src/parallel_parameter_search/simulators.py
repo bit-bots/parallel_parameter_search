@@ -3,12 +3,14 @@ import subprocess
 import sys
 import time
 
+import rospkg
 import rospy
 from wolfgang_pybullet_sim.simulation import Simulation
 from wolfgang_pybullet_sim.ros_interface import ROSInterface
+from parallel_parameter_search.utils import set_param_to_file, load_yaml_to_param
 
 from darwin_description.darwin_webots_controller import DarwinWebotsController
-
+from bitbots_msgs.msg import JointCommand
 
 class AbstractSim:
 
@@ -39,14 +41,28 @@ class AbstractSim:
     def get_time(self):
         raise NotImplementedError
 
+    def set_joints(self, joint_command_msg):
+        raise NotImplementedError
+
+    def set_joints_dict(self, dict):
+        msg = JointCommand()
+        for key in dict.keys():
+            msg.joint_names.append(key)
+            msg.positions.append(dict[key])
+        self.set_joints(msg)
+
 class PybulletSim(AbstractSim):
 
-    def __init__(self, namespace, gui):
+    def __init__(self, namespace, gui, urdf_path=None, foot_link_names=[]):
         super(AbstractSim, self).__init__()
         self.namespace = namespace
+        # load simuation params
+        rospack = rospkg.RosPack()
+        print(self.namespace)
+        load_yaml_to_param("/" + self.namespace, 'wolfgang_pybullet_sim', '/config/config.yaml', rospack)
         self.gui = gui
-        self.sim: Simulation = Simulation(gui)
-        self.sim_interface: ROSInterface = ROSInterface(self.sim, namespace=self.namespace + '/', node=False)
+        self.sim: Simulation = Simulation(gui, urdf_path=urdf_path, foot_link_names=foot_link_names)
+        self.sim_interface: ROSInterface = ROSInterface(self.sim, namespace="/" + self.namespace + '/', node=False)
 
     def step_sim(self):
         self.sim.step()
@@ -75,6 +91,21 @@ class PybulletSim(AbstractSim):
     def set_joints(self, joint_command_msg):
         self.sim_interface.joint_goal_cb(joint_command_msg)
 
+    def get_timestep(self):
+        return self.sim.timestep
+
+
+def fix_webots_folder(sim_proc_pid):
+    # Fix for webots folder name on some systems
+    time.sleep(1)  # Wait for webots
+    for folder in os.listdir('/tmp'):
+        if folder.startswith(f'webots-{sim_proc_pid}-'):
+            try:
+                os.remove(F'/tmp/webots-{sim_proc_pid}')
+            except FileNotFoundError:
+                pass
+            os.symlink(F'/tmp/{folder}', F'/tmp/webots-{sim_proc_pid}')
+
 
 class WebotsSim(AbstractSim):
 
@@ -83,12 +114,14 @@ class WebotsSim(AbstractSim):
         super().__init__()
         arguments = ["webots",
                      "--batch",
-                     "/home/marc/repositories/running_robot_competition/running_robot_environment/worlds/RunningRobotEnv_optim.wbt"]
+                     "/homes/10bestman/repositories/running_robot_competition/running_robot_environment/worlds/RunningRobotEnv_optim.wbt"]
         if not gui:
             arguments.append("--minimize")
         sim_proc = subprocess.Popen(arguments)
 
         os.environ["WEBOTS_PID"] = str(sim_proc.pid)
+        fix_webots_folder(sim_proc.pid)
+
         if gui:
             mode = 'run'
         else:
@@ -121,5 +154,9 @@ class WebotsSim(AbstractSim):
 
     def set_joints(self, joint_command_msg):
         self.robot_controller.command_cb(joint_command_msg)
+
+    def get_timestep(self):
+        # webots time step is in ms, so we need to convert
+        return self.robot_controller.timestep / 1000
 
 # todo gazebo

@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 # this has to be first import, otherwise there will be an error
 from bitbots_quintic_walk import PyWalk
 import cProfile as profile
@@ -15,7 +17,7 @@ import rospy
 from parallel_parameter_search.walk_optimization import WolfgangWalkOptimization
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--storage', help='Dataabase SQLAlchemy string, e.g. postgresql://USER:PASS@SERVER/DB_NAME',
+parser.add_argument('--storage', help='Database SQLAlchemy string, e.g. postgresql://USER:PASS@SERVER/DB_NAME',
                     default=None, type=str, required=False)
 parser.add_argument('--name', help='Name of the study', default=None, type=str, required=True)
 parser.add_argument('--objective', help='Name of the objective class. Has to be of type AbstractRosOptimization.',

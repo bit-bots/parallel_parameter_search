@@ -13,8 +13,8 @@ import tf
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 
-from parallel_parameter_search.abstract_ros_optimization import set_param_to_file, load_yaml_to_param, \
-    AbstractRosOptimization
+from parallel_parameter_search.abstract_ros_optimization import AbstractRosOptimization
+from parallel_parameter_search.utils import set_param_to_file, load_yaml_to_param
 from parallel_parameter_search.simulators import PybulletSim, WebotsSim
 
 
@@ -22,14 +22,14 @@ class AbstractWalkOptimization(AbstractRosOptimization):
 
     def __init__(self, namespace, robot_name, walk_as_node):
         super().__init__(namespace)
-        rospack = rospkg.RosPack()
+        self.rospack = rospkg.RosPack()
         # set robot urdf and srdf
-        load_robot_param(self.namespace, rospack, robot_name)
+        load_robot_param(self.namespace, self.rospack, robot_name)
 
         # load walk params
         load_yaml_to_param(self.namespace, 'bitbots_quintic_walk',
                            '/config/walking_' + robot_name + '_optimization.yaml',
-                           rospack)
+                           self.rospack)
 
         self.walk_as_node = walk_as_node
         self.current_speed = None
@@ -43,7 +43,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
             self.cmd_vel_pub = rospy.Publisher(self.namespace + '/cmd_vel', Twist, queue_size=10)
         else:
             load_yaml_to_param("/robot_description_kinematics", robot_name + '_moveit_config',
-                               '/config/kinematics.yaml', rospack)
+                               '/config/kinematics.yaml', self.rospack)
             # create walk as python class to call it later
             self.walk = PyWalk(self.namespace)
 
@@ -60,11 +60,12 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         self.reset()
 
         cost = 0
-        # starting with hardest first, to get faster early termination
-        # todo maybe start with half that speed but make more trials
-        # todo eine cleverere reinfolge für die verschiedenen fälle, auch abhängig davon welche geschafft oder nicht geschafft wurden
-        # todo add scenarios where the speed command changes multiple times while the robot is already walking
-        # todo take into account that falling to a specific site is propably only depending on a subset of the parameters
+        # standing as first test, is not in loop as it will only be done once
+        early_term, cost_try = self.evaluate_direction(0, 0, 0, trial, 1, 0)
+        cost += cost_try
+        if early_term:
+            # terminate early and give 100 cost for each try left
+            return 100 * (self.number_of_iterations - 1) * len(self.directions) + 100 * len(self.directions) + cost
 
         for eval_try in range(1, self.number_of_iterations + 1):
             failed_directions_try = 0
@@ -72,7 +73,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
             for direction in self.directions:
                 d += 1
                 self.reset_position()
-                early_term, cost_try = self.evaluate_direction(*direction, trial, eval_try)
+                early_term, cost_try = self.evaluate_direction(*direction, trial, eval_try, self.time_limit)
                 cost += cost_try
                 # check if we failed in this direction and terminate this trial early
                 if early_term:
@@ -88,7 +89,81 @@ class AbstractWalkOptimization(AbstractRosOptimization):
     def suggest_walk_params(self, trial):
         raise NotImplementedError
 
-    def evaluate_direction(self, x, y, yaw, trial: optuna.Trial, iteration):
+    def _suggest_walk_params(self, trial, trunk_height, foot_distance, foot_rise):
+        engine_param_dict = {}
+
+        def add(name, min_value, max_value):
+            engine_param_dict[name] = trial.suggest_uniform(name, min_value, max_value)
+
+        def fix(name, value):
+            engine_param_dict[name] = value
+            trial.set_user_attr(name, value)
+
+        add('double_support_ratio', 0.0, 0.5)
+        add('freq', 0.5, 3)
+        add('foot_distance', foot_distance[0], foot_distance[1])
+        add('trunk_height', trunk_height[0], trunk_height[1])
+        add('trunk_phase', -0.5, 0.5)
+        add('trunk_swing', 0.0, 1.0)
+        add('trunk_x_offset', -0.03, 0.03)
+
+        add('trunk_x_offset_p_coef_forward', -1, 1)
+        add('trunk_x_offset_p_coef_turn', -1, 1)
+
+        # add('first_step_swing_factor', 0.0, 2)
+        # add('first_step_trunk_phase', -0.5, 0.5)
+        fix('first_step_swing_factor', 1)
+        fix('first_step_trunk_phase', -0.5)
+
+        # add('foot_overshoot_phase', 0.0, 1.0)
+        # add('foot_overshoot_ratio', 0.0, 1.0)
+        fix('foot_overshoot_phase', 1)
+        fix('foot_overshoot_ratio', 0.0)
+
+        # add('trunk_y_offset', -0.03, 0.03)
+        # add('foot_rise', 0.04, 0.08)
+        # add('foot_apex_phase', 0.0, 1.0)
+        fix('trunk_y_offset', 0)
+        fix('foot_rise', foot_rise)
+        fix('foot_apex_phase', 0.5)
+
+        add('trunk_pitch', -1.0, 1.0)
+        # add('trunk_pitch_p_coef_forward', -5, 5)
+        # add('trunk_pitch_p_coef_turn', -5, 5)
+        fix('trunk_pitch_p_coef_forward', 0)
+        fix('trunk_pitch_p_coef_turn', 0)
+
+        # add('foot_z_pause', 0, 1)
+        # add('foot_put_down_phase', 0, 1)
+        # add('trunk_pause', 0, 1)
+        fix('foot_z_pause', 0)
+        fix('foot_put_down_phase', 1)
+        fix('trunk_pause', 0)
+
+        node_param_dict = {}
+        # walk engine should update at same speed as simulation
+        node_param_dict["engine_freq"] = 1 / self.sim.get_timestep()
+        # don't use loop closure when optimizing parameter
+        node_param_dict["pressure_phase_reset_active"] = False
+        node_param_dict["effort_phase_reset_active"] = False
+        node_param_dict["phase_rest_active"] = False
+        # make sure that steps are not limited
+        node_param_dict["imu_active"] = False
+        node_param_dict["max_step_x"] = 100.0
+        node_param_dict["max_step_y"] = 100.0
+        node_param_dict["max_step_xy"] = 100.0
+        node_param_dict["max_step_z"] = 100.0
+        node_param_dict["max_step_angular"] = 100.0
+
+        if self.walk_as_node:
+            self.set_params(engine_param_dict)
+            self.set_params(node_param_dict)
+        else:
+            self.current_params = engine_param_dict
+            self.walk.set_engine_dyn_reconf(engine_param_dict)
+            self.walk.set_node_dyn_reconf(node_param_dict)
+
+    def evaluate_direction(self, x, y, yaw, trial: optuna.Trial, iteration, time_limit):
         start_time = self.sim.get_time()
         self.set_cmd_vel(x * iteration, y * iteration, yaw * iteration)
         print(F'cmd: {x * iteration} {y * iteration} {yaw * iteration}')
@@ -96,11 +171,11 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         # wait till time for test is up or stopping condition has been reached
         while not rospy.is_shutdown():
             passed_time = self.sim.get_time() - start_time
-            if passed_time > self.time_limit:
+            if passed_time > time_limit:
                 # reached time limit, stop robot
                 self.set_cmd_vel(0, 0, 0)
 
-            if passed_time > self.time_limit + 5:
+            if passed_time > time_limit + 5:
                 # robot should have stopped now, evaluate the fitness
                 return self.compute_cost(x * iteration, y * iteration, yaw * iteration)
 
@@ -120,14 +195,9 @@ class AbstractWalkOptimization(AbstractRosOptimization):
                     time.sleep(0.01)
                 else:
                     current_time = self.sim.get_time()
-                    #print(current_time - self.last_time)
-                    #print(self.current_speed)
-                    #print(self.sim.get_imu_msg())
-                    #print(self.sim.get_joint_state_msg())
                     joint_command = self.walk.step(current_time - self.last_time, self.current_speed,
                                                    self.sim.get_imu_msg(),
                                                    self.sim.get_joint_state_msg())
-                    #print(joint_command)
                     self.sim.set_joints(joint_command)
                     self.last_time = current_time
                 self.sim.step_sim()
@@ -144,8 +214,29 @@ class AbstractWalkOptimization(AbstractRosOptimization):
             current_time = self.sim.get_time()
             joint_command = self.walk.step(current_time - self.last_time, self.current_speed, self.sim.get_imu_msg(),
                                            self.sim.get_joint_state_msg())
+            # print(joint_command)
             self.sim.set_joints(joint_command)
             self.last_time = current_time
+
+    def complete_walking_step(self, number_steps=1, fake=False):
+        for i in range(number_steps):
+            # does a double step
+            while not rospy.is_shutdown():
+                current_time = self.sim.get_time()
+                joint_command = self.walk.step(current_time - self.last_time, self.current_speed,
+                                               self.sim.get_imu_msg(),
+                                               self.sim.get_joint_state_msg())
+                self.sim.set_joints(joint_command)
+                self.last_time = current_time
+                if not fake:
+                    self.sim.step_sim()
+                phase = self.walk.get_phase()
+                # phase will advance by the simulation time times walk frequency
+                next_phase = phase + self.sim.get_timestep() * self.walk.get_freq()
+                # do double step to always have torso at same position
+                if (phase >= 0.5 and next_phase >= 1.0):  # or (phase < 0.5 and next_phase >= 0.5):
+                    # next time the walking step will change
+                    break
 
     def compute_cost(self, x, y, yaw):
         """
@@ -164,9 +255,8 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         cost = abs(current_pose[0] - correct_pose[0]) \
                + abs(current_pose[1] - correct_pose[1]) \
                + abs(current_pose[2] - correct_pose[
-            2]) * yaw_factor  # todo take closest distance in cricle through 0 into account
+            2]) * yaw_factor  # todo take closest distance in circle through 0 into account
         # method doesn't work for going forward and turning at the same times
-        # todo better computation of correct end pose, maybe use foot position
         if yaw != 0:  # and (x != 0 or y != 0):
             # just give 0 cost for surviving
             cost = 0
@@ -186,7 +276,6 @@ class AbstractWalkOptimization(AbstractRosOptimization):
 
     def reset(self):
         # reset simulation
-        # self.sim.reset()
         # let the robot do a few steps in the air to get correct walkready position
         self.sim.set_gravity(False)
         self.sim.reset_robot_pose((0, 0, 1), (0, 0, 0, 1))
@@ -194,12 +283,12 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         if self.walk_as_node:
             self.sim.run_simulation(duration=2, sleep=0.01)
         else:
-            self.run_walking(duration=2)
+            self.complete_walking_step()
         self.set_cmd_vel(0, 0, 0)
         if self.walk_as_node:
             self.sim.run_simulation(duration=2, sleep=0.01)
         else:
-            self.run_walking(duration=2)
+            self.complete_walking_step()
         self.sim.set_gravity(True)
         self.reset_position()
         if self.walk_as_node:
@@ -219,7 +308,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
 
 
 class WolfgangWalkOptimization(AbstractWalkOptimization):
-    def __init__(self, namespace, gui, walk_as_node):
+    def __init__(self, namespace, gui, walk_as_node, sim_type='pybullet'):
         super(WolfgangWalkOptimization, self).__init__(namespace, 'wolfgang', walk_as_node)
         self.reset_height_offset = 0.005
         self.directions = [[0.1, 0, 0],
@@ -233,71 +322,19 @@ class WolfgangWalkOptimization(AbstractWalkOptimization):
                            [0.1, 0.05, 0.5],
                            [-0.1, -0.05, -0.5]
                            ]
-        self.sim = PybulletSim(self.namespace, gui)
+        if sim_type == 'pybullet':
+            self.sim = PybulletSim(self.namespace, gui)
+        elif sim_type == 'webots':
+            self.sim = WebotsSim(self.namespace, gui)
+        else:
+            print(f'sim type {sim_type} not known')
 
     def suggest_walk_params(self, trial):
-        param_dict = {}
-
-        def add(name, min_value, max_value):
-            param_dict[name] = trial.suggest_uniform(name, min_value, max_value)
-
-        add('double_support_ratio', 0.0, 0.45)
-        add('freq', 1.5, 3)
-        add('foot_distance', 0.1, 0.3)
-        add('trunk_height', 0.38, 0.45)
-        add('trunk_phase', -0.5, 0.5)
-        add('trunk_swing', 0.0, 1.0)
-        add('trunk_x_offset', -0.03, 0.03)
-
-        add('trunk_x_offset_p_coef_forward', -1, 1)
-        add('trunk_x_offset_p_coef_turn', -1, 1)
-
-        # add('first_step_swing_factor', 0.0, 2)
-        # add('first_step_trunk_phase', -0.5, 0.5)
-        param_dict['first_step_swing_factor'] = 1
-        param_dict['first_step_trunk_phase'] = -0.5
-
-        # add('foot_overshoot_phase', 0.0, 1.0)
-        # add('foot_overshoot_ratio', 0.0, 1.0)
-        param_dict['foot_overshoot_phase'] = 1
-        param_dict['foot_overshoot_ratio'] = 0.0
-
-        # add('trunk_y_offset', -0.03, 0.03)
-        # add('foot_rise', 0.04, 0.08)
-        # add('foot_apex_phase', 0.0, 1.0)
-        param_dict['trunk_y_offset'] = 0
-        param_dict['foot_rise'] = 0.1
-        param_dict['foot_apex_phase'] = 0.5
-        # todo put this as addition arguments to trial
-
-        # add('trunk_pitch', -1.0, 1.0)
-        # add('trunk_pitch_p_coef_forward', -5, 5)
-        # add('trunk_pitch_p_coef_turn', -5, 5)
-        param_dict['trunk_pitch'] = 0
-        param_dict['trunk_pitch_p_coef_forward'] = 0
-        param_dict['trunk_pitch_p_coef_turn'] = 0
-
-        # add('foot_z_pause', 0, 1)
-        # add('foot_put_down_phase', 0, 1)
-        # add('trunk_pause', 0, 1)
-        param_dict['foot_z_pause'] = 0
-        param_dict['foot_put_down_phase'] = 1
-        param_dict['trunk_pause'] = 0
-
-        # todo 'trunk' nochmal ander nennen? body?
-
-        # todo also find PID values, maybe in a second step after finding walking params
-        # todo de/activate phase reset while searching params? yes
-
-        if self.walk_as_node:
-            self.set_params(param_dict)
-        else:
-            self.current_params = param_dict
-            self.walk.set_engine_dyn_reconf(param_dict)
+        self._suggest_walk_params(trial, (0.38, 0.45), (0.1, 0.3), 0.05)
 
 
 class DarwinWalkOptimization(AbstractWalkOptimization):
-    def __init__(self, namespace, gui, walk_as_node):
+    def __init__(self, namespace, gui, walk_as_node, sim_type='pybullet'):
         super(DarwinWalkOptimization, self).__init__(namespace, 'darwin', walk_as_node)
         self.reset_height_offset = 0.09
         self.directions = [[0.05, 0, 0],
@@ -311,62 +348,130 @@ class DarwinWalkOptimization(AbstractWalkOptimization):
                            [0.05, 0, -0.25],
                            [-0.05, 0, 0.25],
                            ]
-        self.sim = WebotsSim(self.namespace, gui)
+        if sim_type == 'pybullet':
+            urdf_path = self.rospack.get_path('darwin_description') + '/urdf/robot.urdf'
+            self.sim = PybulletSim(self.namespace, gui, urdf_path=urdf_path,
+                                   foot_link_names=['MP_ANKLE2_L', 'MP_ANKLE2_R'])
+            self.sim.set_joints_dict({"LShoulderRoll": 0.5, "LElbow": -1.15, "RShoulderRoll": -0.5, "RElbow": 1.15})
+        elif sim_type == 'webots':
+            self.sim = WebotsSim(self.namespace, gui)
+        else:
+            print(f'sim type {sim_type} not known')
 
     def suggest_walk_params(self, trial):
-        param_dict = {}
+        self._suggest_walk_params(trial, (0.20, 0.24), (0.08, 0.15), 0.02)
 
-        def add(name, min_value, max_value):
-            param_dict[name] = trial.suggest_uniform(name, min_value, max_value)
 
-        add('double_support_ratio', 0.0, 0.5)
-        add('freq', 1.5, 3)
-        add('foot_distance', 0.08, 0.17)
-        add('trunk_height', 0.18, 0.24)
-        add('trunk_phase', -0.5, 0.5)
-        add('trunk_swing', 0.0, 1.0)
-        add('trunk_x_offset', -0.03, 0.03)
-
-        add('trunk_x_offset_p_coef_forward', -1, 1)
-        add('trunk_x_offset_p_coef_turn', -1, 1)
-
-        #add('first_step_swing_factor', 0.0, 2)
-        #add('first_step_trunk_phase', -0.5, 0.5)
-        param_dict['first_step_swing_factor'] = 1
-        param_dict['first_step_trunk_phase'] = -0.5
-
-        #add('foot_overshoot_phase', 0.0, 1.0)
-        #add('foot_overshoot_ratio', 0.0, 1.0)
-        param_dict['foot_overshoot_phase'] = 1
-        param_dict['foot_overshoot_ratio'] = 0.0
-
-        # add('trunk_y_offset', -0.03, 0.03)
-        # add('foot_rise', 0.04, 0.08)
-        # add('foot_apex_phase', 0.0, 1.0)
-        param_dict['trunk_y_offset'] = 0
-        param_dict['foot_rise'] = 0.05
-        param_dict['foot_apex_phase'] = 0.5
-        # todo put this as addition arguments to trial
-
-        # add('trunk_pitch', -1.0, 1.0)
-        # add('trunk_pitch_p_coef_forward', -5, 5)
-        # add('trunk_pitch_p_coef_turn', -5, 5)
-        param_dict['trunk_pitch'] = 0
-        param_dict['trunk_pitch_p_coef_forward'] = 0
-        param_dict['trunk_pitch_p_coef_turn'] = 0
-
-        # add('foot_z_pause', 0, 1)
-        # add('foot_put_down_phase', 0, 1)
-        # add('trunk_pause', 0, 1)
-        param_dict['foot_z_pause'] = 0
-        param_dict['foot_put_down_phase'] = 1
-        param_dict['trunk_pause'] = 0
-
-        if self.walk_as_node:
-            self.set_params(param_dict)
+class OP3WalkOptimization(AbstractWalkOptimization):
+    def __init__(self, namespace, gui, walk_as_node, sim_type='pybullet'):
+        super(OP3WalkOptimization, self).__init__(namespace, 'op3', walk_as_node)
+        self.reset_height_offset = 0.12
+        self.directions = [[0.05, 0, 0],
+                           [-0.05, 0, 0],
+                           [0, 0.025, 0],
+                           [0, -0.025, 0],
+                           [0, 0, 0.25],
+                           [0, 0, -0.25],
+                           [0.05, 0.25, 0],
+                           [0.05, -0.25, 0],
+                           [0.05, 0, -0.25],
+                           [-0.05, 0, 0.25],
+                           ]
+        if sim_type == 'pybullet':
+            urdf_path = self.rospack.get_path('op3_description') + '/urdf/robot.urdf'
+            self.sim = PybulletSim(self.namespace, gui, urdf_path=urdf_path,
+                                   foot_link_names=['r_ank_roll_link', 'l_ank_roll_link'])
+        elif sim_type == 'webots':
+            self.sim = WebotsSim(self.namespace, gui)
         else:
-            self.current_params = param_dict
-            self.walk.set_engine_dyn_reconf(param_dict)
+            print(f'sim type {sim_type} not known')
+
+    def suggest_walk_params(self, trial):
+        self._suggest_walk_params(trial, (0.13, 0.24), (0.08, 0.15), 0.02)
+
+
+class NaoWalkOptimization(AbstractWalkOptimization):
+    def __init__(self, namespace, gui, walk_as_node, sim_type='pybullet'):
+        super(NaoWalkOptimization, self).__init__(namespace, 'nao', walk_as_node)
+        self.reset_height_offset = 0.12
+        self.directions = [[0.05, 0, 0],
+                           [-0.05, 0, 0],
+                           [0, 0.025, 0],
+                           [0, -0.025, 0],
+                           [0, 0, 0.25],
+                           [0, 0, -0.25],
+                           [0.05, 0.25, 0],
+                           [0.05, -0.25, 0],
+                           [0.05, 0, -0.25],
+                           [-0.05, 0, 0.25],
+                           ]
+        if sim_type == 'pybullet':
+            urdf_path = self.rospack.get_path('nao_description') + '/urdf/robot.urdf'
+            self.sim = PybulletSim(self.namespace, gui, urdf_path=urdf_path,
+                                   foot_link_names=['l_ankle', 'r_ankle'])
+        elif sim_type == 'webots':
+            self.sim = WebotsSim(self.namespace, gui)
+        else:
+            print(f'sim type {sim_type} not known')
+
+    def suggest_walk_params(self, trial):
+        self._suggest_walk_params(trial, (0.27, 0.32), (0.1, 0.17), 0.03)
+
+
+class ReemcWalkOptimization(AbstractWalkOptimization):
+    def __init__(self, namespace, gui, walk_as_node, sim_type='pybullet'):
+        super(ReemcWalkOptimization, self).__init__(namespace, 'reemc', walk_as_node)
+        self.reset_height_offset = 0.12
+        self.directions = [[0.05, 0, 0],
+                           [-0.05, 0, 0],
+                           [0, 0.025, 0],
+                           [0, -0.025, 0],
+                           [0, 0, 0.25],
+                           [0, 0, -0.25],
+                           [0.05, 0.25, 0],
+                           [0.05, -0.25, 0],
+                           [0.05, 0, -0.25],
+                           [-0.05, 0, 0.25],
+                           ]
+        if sim_type == 'pybullet':
+            urdf_path = self.rospack.get_path('reemc_description') + '/urdf/robot.urdf'
+            self.sim = PybulletSim(self.namespace, gui, urdf_path=urdf_path,
+                                   foot_link_names=['leg_left_6_link', 'leg_right_6_link'])
+        elif sim_type == 'webots':
+            self.sim = WebotsSim(self.namespace, gui)
+        else:
+            print(f'sim type {sim_type} not known')
+
+    def suggest_walk_params(self, trial):
+        self._suggest_walk_params(trial, (0.6, 0.8), (0.15, 0.30), 0.1)
+
+
+class TalosWalkOptimization(AbstractWalkOptimization):
+    def __init__(self, namespace, gui, walk_as_node, sim_type='pybullet'):
+        super(TalosWalkOptimization, self).__init__(namespace, 'talos', walk_as_node)
+        self.reset_height_offset = 0.12
+        self.directions = [[0.05, 0, 0],
+                           [-0.05, 0, 0],
+                           [0, 0.025, 0],
+                           [0, -0.025, 0],
+                           [0, 0, 0.25],
+                           [0, 0, -0.25],
+                           [0.05, 0.25, 0],
+                           [0.05, -0.25, 0],
+                           [0.05, 0, -0.25],
+                           [-0.05, 0, 0.25],
+                           ]
+        if sim_type == 'pybullet':
+            urdf_path = self.rospack.get_path('talos_description') + '/urdf/robot.urdf'
+            self.sim = PybulletSim(self.namespace, gui, urdf_path=urdf_path,
+                                   foot_link_names=['leg_left_6_link', 'leg_right_6_link'])
+        elif sim_type == 'webots':
+            self.sim = WebotsSim(self.namespace, gui)
+        else:
+            print(f'sim type {sim_type} not known')
+
+    def suggest_walk_params(self, trial):
+        self._suggest_walk_params(trial, (0.8, 1.2), (0.15, 0.4), 0.1)
 
 
 def load_robot_param(namespace, rospack, name):
