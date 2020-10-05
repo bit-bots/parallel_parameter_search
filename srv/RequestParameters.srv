@@ -1,0 +1,9 @@
+#request
+
+---
+#response
+
+bool set_available       # false if there are no more parameter sets to evaluate. You should finish your worker if this is true
+uint32 set_number        # has to be send back to the master with the fitness result
+string[] parameter_names # names of the parameters as they are called on the dyn reconf server
+float64[] parameters     # the parameters which are to be evaluated. The meaning of these have to be specified by the programmer
