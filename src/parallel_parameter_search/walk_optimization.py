@@ -219,6 +219,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
             self.last_time = current_time
 
     def complete_walking_step(self, number_steps=1, fake=False):
+        start_time = self.sim.get_time()
         for i in range(number_steps):
             # does a double step
             while not rospy.is_shutdown():
@@ -236,6 +237,9 @@ class AbstractWalkOptimization(AbstractRosOptimization):
                 # do double step to always have torso at same position
                 if (phase >= 0.5 and next_phase >= 1.0):  # or (phase < 0.5 and next_phase >= 0.5):
                     # next time the walking step will change
+                    break
+                if self.sim.get_time() - start_time > 5:
+                    # if walking does not perform step correctly due to impossible IK problems, do a timeout
                     break
 
     def compute_cost(self, x, y, yaw):
@@ -365,7 +369,7 @@ class DarwinWalkOptimization(AbstractWalkOptimization):
 class OP3WalkOptimization(AbstractWalkOptimization):
     def __init__(self, namespace, gui, walk_as_node, sim_type='pybullet'):
         super(OP3WalkOptimization, self).__init__(namespace, 'op3', walk_as_node)
-        self.reset_height_offset = 0.12
+        self.reset_height_offset = 0.01
         self.directions = [[0.05, 0, 0],
                            [-0.05, 0, 0],
                            [0, 0.025, 0],
@@ -381,6 +385,7 @@ class OP3WalkOptimization(AbstractWalkOptimization):
             urdf_path = self.rospack.get_path('op3_description') + '/urdf/robot.urdf'
             self.sim = PybulletSim(self.namespace, gui, urdf_path=urdf_path,
                                    foot_link_names=['r_ank_roll_link', 'l_ank_roll_link'])
+            self.sim.set_joints_dict({"l_sho_roll": 1.20, "r_sho_roll": -1.20})
         elif sim_type == 'webots':
             self.sim = WebotsSim(self.namespace, gui)
         else:
@@ -393,7 +398,7 @@ class OP3WalkOptimization(AbstractWalkOptimization):
 class NaoWalkOptimization(AbstractWalkOptimization):
     def __init__(self, namespace, gui, walk_as_node, sim_type='pybullet'):
         super(NaoWalkOptimization, self).__init__(namespace, 'nao', walk_as_node)
-        self.reset_height_offset = 0.12
+        self.reset_height_offset = 0.01
         self.directions = [[0.05, 0, 0],
                            [-0.05, 0, 0],
                            [0, 0.025, 0],
@@ -465,6 +470,7 @@ class TalosWalkOptimization(AbstractWalkOptimization):
             urdf_path = self.rospack.get_path('talos_description') + '/urdf/robot.urdf'
             self.sim = PybulletSim(self.namespace, gui, urdf_path=urdf_path,
                                    foot_link_names=['leg_left_6_link', 'leg_right_6_link'])
+            self.sim.set_joints_dict({"arm_left_4_joint": -1.57, "arm_right_4_joint": -1.57})
         elif sim_type == 'webots':
             self.sim = WebotsSim(self.namespace, gui)
         else:

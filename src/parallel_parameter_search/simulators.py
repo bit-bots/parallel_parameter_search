@@ -9,8 +9,11 @@ from wolfgang_pybullet_sim.simulation import Simulation
 from wolfgang_pybullet_sim.ros_interface import ROSInterface
 from parallel_parameter_search.utils import set_param_to_file, load_yaml_to_param
 
-from darwin_description.darwin_webots_controller import DarwinWebotsController
 from bitbots_msgs.msg import JointCommand
+
+from bitbots_meta.wolfgang_robot.wolfgang_webots_sim.src.wolfgang_webots_sim.utils import fix_webots_folder
+from bitbots_meta.wolfgang_robot.wolfgang_webots_sim.src.wolfgang_webots_sim.webots_controller import WebotsController
+
 
 class AbstractSim:
 
@@ -58,7 +61,7 @@ class PybulletSim(AbstractSim):
         self.namespace = namespace
         # load simuation params
         rospack = rospkg.RosPack()
-        print(self.namespace)
+        #print(self.namespace)
         load_yaml_to_param("/" + self.namespace, 'wolfgang_pybullet_sim', '/config/config.yaml', rospack)
         self.gui = gui
         self.sim: Simulation = Simulation(gui, urdf_path=urdf_path, foot_link_names=foot_link_names)
@@ -95,26 +98,17 @@ class PybulletSim(AbstractSim):
         return self.sim.timestep
 
 
-def fix_webots_folder(sim_proc_pid):
-    # Fix for webots folder name on some systems
-    time.sleep(1)  # Wait for webots
-    for folder in os.listdir('/tmp'):
-        if folder.startswith(f'webots-{sim_proc_pid}-'):
-            try:
-                os.remove(F'/tmp/webots-{sim_proc_pid}')
-            except FileNotFoundError:
-                pass
-            os.symlink(F'/tmp/{folder}', F'/tmp/webots-{sim_proc_pid}')
-
-
 class WebotsSim(AbstractSim):
 
     def __init__(self, namespace, gui):
         # start webots
         super().__init__()
+        rospack = rospkg.RosPack()
+        path = rospack.get_path("wolfgang_webots_sim")
+
         arguments = ["webots",
                      "--batch",
-                     "/homes/10bestman/repositories/running_robot_competition/running_robot_environment/worlds/RunningRobotEnv_optim.wbt"]
+                     path +"/worlds/flat_world.wbt"]
         if not gui:
             arguments.append("--minimize")
         sim_proc = subprocess.Popen(arguments)
@@ -126,7 +120,7 @@ class WebotsSim(AbstractSim):
             mode = 'run'
         else:
             mode = 'fast'
-        self.robot_controller = DarwinWebotsController(namespace, False, mode)
+        self.robot_controller = WebotsController(namespace, False, mode)
 
     def step_sim(self):
         self.robot_controller.step()
