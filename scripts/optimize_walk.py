@@ -29,7 +29,7 @@ args = parser.parse_args()
 seed = np.random.randint(2 ** 32 - 1)
 n_startup_trials = 1000
 
-sampler = TPESampler(n_startup_trials=n_startup_trials, seed=seed, multivariant=True)
+sampler = TPESampler(n_startup_trials=n_startup_trials, seed=seed, multivariate=True)
 #sampler = CmaEsSampler(seed=seed)
 
 study = optuna.create_study(study_name=args.name, storage=args.storage, direction='minimize',

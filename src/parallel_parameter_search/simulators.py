@@ -11,8 +11,8 @@ from parallel_parameter_search.utils import set_param_to_file, load_yaml_to_para
 
 from bitbots_msgs.msg import JointCommand
 
-from bitbots_meta.wolfgang_robot.wolfgang_webots_sim.src.wolfgang_webots_sim.utils import fix_webots_folder
-from bitbots_meta.wolfgang_robot.wolfgang_webots_sim.src.wolfgang_webots_sim.webots_controller import WebotsController
+from wolfgang_webots_sim.utils import fix_webots_folder
+from wolfgang_webots_sim.webots_controller import WebotsController
 
 
 class AbstractSim:

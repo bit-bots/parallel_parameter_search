@@ -53,6 +53,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         # needs to be specified by subclasses
         self.directions = None
         self.reset_height_offset = None
+        self.reset_rpy_offset = [0,0,0]
 
     def objective(self, trial):
         # get parameter to evaluate from optuna
@@ -89,7 +90,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
     def suggest_walk_params(self, trial):
         raise NotImplementedError
 
-    def _suggest_walk_params(self, trial, trunk_height, foot_distance, foot_rise):
+    def _suggest_walk_params(self, trial, trunk_height, foot_distance, foot_rise, trunk_x, z_movement):
         engine_param_dict = {}
 
         def add(name, min_value, max_value):
@@ -105,10 +106,13 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         add('trunk_height', trunk_height[0], trunk_height[1])
         add('trunk_phase', -0.5, 0.5)
         add('trunk_swing', 0.0, 1.0)
-        add('trunk_x_offset', -0.03, 0.03)
+        add('trunk_x_offset', -trunk_x, trunk_x)
+        add('trunk_z_movement', 0, z_movement)
 
         add('trunk_x_offset_p_coef_forward', -1, 1)
         add('trunk_x_offset_p_coef_turn', -1, 1)
+
+        add('trunk_pitch', -1.0, 1.0)
 
         # add('first_step_swing_factor', 0.0, 2)
         # add('first_step_trunk_phase', -0.5, 0.5)
@@ -127,7 +131,6 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         fix('foot_rise', foot_rise)
         fix('foot_apex_phase', 0.5)
 
-        add('trunk_pitch', -1.0, 1.0)
         # add('trunk_pitch_p_coef_forward', -5, 5)
         # add('trunk_pitch_p_coef_turn', -5, 5)
         fix('trunk_pitch_p_coef_forward', 0)
@@ -181,7 +184,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
 
             # test if the robot has fallen down
             pos, rpy = self.sim.get_robot_pose_rpy()
-            if abs(rpy[0]) > math.radians(45) or abs(rpy[1]) > math.radians(45):
+            if abs(rpy[0]) > math.radians(45) or abs(rpy[1]) > math.radians(45) or pos[2] < 0.05:
                 # add extra information to trial
                 trial.set_user_attr('early_termination_at', (
                     x * iteration, y * iteration, yaw * iteration))
@@ -274,7 +277,8 @@ class AbstractWalkOptimization(AbstractRosOptimization):
     def reset_position(self):
         height = self.current_params['trunk_height'] + self.reset_height_offset
         pitch = self.current_params['trunk_pitch']
-        (x, y, z, w) = tf.transformations.quaternion_from_euler(0, pitch, 0)
+        (x, y, z, w) = tf.transformations.quaternion_from_euler(self.reset_rpy_offset[0], self.reset_rpy_offset[1] + pitch,
+                                                                self.reset_rpy_offset[2])
 
         self.sim.reset_robot_pose((0, 0, height), (x, y, z, w))
 
@@ -296,9 +300,9 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         self.sim.set_gravity(True)
         self.reset_position()
         if self.walk_as_node:
-            self.sim.run_simulation(duration=2, sleep=0.01)
+            self.sim.run_simulation(duration=1, sleep=0.01)
         else:
-            self.run_walking(duration=2)
+            self.run_walking(duration=1)
 
     def set_cmd_vel(self, x, y, yaw):
         msg = Twist()
@@ -334,7 +338,7 @@ class WolfgangWalkOptimization(AbstractWalkOptimization):
             print(f'sim type {sim_type} not known')
 
     def suggest_walk_params(self, trial):
-        self._suggest_walk_params(trial, (0.38, 0.45), (0.1, 0.3), 0.05)
+        self._suggest_walk_params(trial, (0.38, 0.45), (0.1, 0.3), 0.05, 0.03, 0.03)
 
 
 class DarwinWalkOptimization(AbstractWalkOptimization):
@@ -363,7 +367,7 @@ class DarwinWalkOptimization(AbstractWalkOptimization):
             print(f'sim type {sim_type} not known')
 
     def suggest_walk_params(self, trial):
-        self._suggest_walk_params(trial, (0.20, 0.24), (0.08, 0.15), 0.02)
+        self._suggest_walk_params(trial, (0.20, 0.24), (0.08, 0.15), 0.02, 0.02, 0.02)
 
 
 class OP3WalkOptimization(AbstractWalkOptimization):
@@ -392,7 +396,7 @@ class OP3WalkOptimization(AbstractWalkOptimization):
             print(f'sim type {sim_type} not known')
 
     def suggest_walk_params(self, trial):
-        self._suggest_walk_params(trial, (0.13, 0.24), (0.08, 0.15), 0.02)
+        self._suggest_walk_params(trial, (0.13, 0.24), (0.08, 0.15), 0.02, 0.02, 0.02)
 
 
 class NaoWalkOptimization(AbstractWalkOptimization):
@@ -414,19 +418,22 @@ class NaoWalkOptimization(AbstractWalkOptimization):
             urdf_path = self.rospack.get_path('nao_description') + '/urdf/robot.urdf'
             self.sim = PybulletSim(self.namespace, gui, urdf_path=urdf_path,
                                    foot_link_names=['l_ankle', 'r_ankle'])
+            self.sim.set_joints_dict(
+                {"LShoulderPitch": 1.57, "RShoulderPitch": 1.57, 'LShoulderRoll': 0.3, 'RShoulderRoll': -0.3})
         elif sim_type == 'webots':
             self.sim = WebotsSim(self.namespace, gui)
         else:
             print(f'sim type {sim_type} not known')
 
     def suggest_walk_params(self, trial):
-        self._suggest_walk_params(trial, (0.27, 0.32), (0.1, 0.17), 0.03)
+        self._suggest_walk_params(trial, (0.27, 0.32), (0.1, 0.17), 0.03, 0.02, 0.02)
 
 
 class ReemcWalkOptimization(AbstractWalkOptimization):
     def __init__(self, namespace, gui, walk_as_node, sim_type='pybullet'):
         super(ReemcWalkOptimization, self).__init__(namespace, 'reemc', walk_as_node)
-        self.reset_height_offset = 0.12
+        self.reset_height_offset = -0.1
+        self.reset_rpy_offset = (-0.1, 0.15, -0.5)
         self.directions = [[0.05, 0, 0],
                            [-0.05, 0, 0],
                            [0, 0.025, 0],
@@ -448,13 +455,14 @@ class ReemcWalkOptimization(AbstractWalkOptimization):
             print(f'sim type {sim_type} not known')
 
     def suggest_walk_params(self, trial):
-        self._suggest_walk_params(trial, (0.6, 0.8), (0.15, 0.30), 0.1)
+        self._suggest_walk_params(trial, (0.5, 0.7), (0.15, 0.30), 0.1, 0.1, 0.05)
 
 
 class TalosWalkOptimization(AbstractWalkOptimization):
     def __init__(self, namespace, gui, walk_as_node, sim_type='pybullet'):
         super(TalosWalkOptimization, self).__init__(namespace, 'talos', walk_as_node)
-        self.reset_height_offset = 0.12
+        self.reset_height_offset = -0.19
+        self.reset_rpy_offset = (0, 0.15, 0)
         self.directions = [[0.05, 0, 0],
                            [-0.05, 0, 0],
                            [0, 0.025, 0],
@@ -477,7 +485,7 @@ class TalosWalkOptimization(AbstractWalkOptimization):
             print(f'sim type {sim_type} not known')
 
     def suggest_walk_params(self, trial):
-        self._suggest_walk_params(trial, (0.8, 1.2), (0.15, 0.4), 0.1)
+        self._suggest_walk_params(trial, (0.6, 0.8), (0.15, 0.4), 0.1, 0.15, 0.08)
 
 
 def load_robot_param(namespace, rospack, name):
