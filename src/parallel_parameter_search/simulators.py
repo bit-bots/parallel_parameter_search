@@ -12,7 +12,10 @@ from parallel_parameter_search.utils import set_param_to_file, load_yaml_to_para
 from bitbots_msgs.msg import JointCommand
 
 from wolfgang_webots_sim.utils import fix_webots_folder
-from wolfgang_webots_sim.webots_controller import WebotsController
+try:
+    from wolfgang_webots_sim.webots_controller import WebotsController
+except:
+    print("Could not load webots sim. If you want to use it, source the setenvs.sh")
 
 
 class AbstractSim:
@@ -54,9 +57,18 @@ class AbstractSim:
             msg.positions.append(dict[key])
         self.set_joints(msg)
 
+    def randomize_terrain(self, max_height):
+        raise NotImplementedError
+
+    def get_pressure_left(self):
+        raise NotImplementedError
+
+    def get_pressure_right(self):
+        raise NotImplementedError
+
 class PybulletSim(AbstractSim):
 
-    def __init__(self, namespace, gui, urdf_path=None, foot_link_names=[]):
+    def __init__(self, namespace, gui, urdf_path=None, foot_link_names=[], terrain=False):
         super(AbstractSim, self).__init__()
         self.namespace = namespace
         # load simuation params
@@ -64,7 +76,7 @@ class PybulletSim(AbstractSim):
         #print(self.namespace)
         load_yaml_to_param("/" + self.namespace, 'wolfgang_pybullet_sim', '/config/config.yaml', rospack)
         self.gui = gui
-        self.sim: Simulation = Simulation(gui, urdf_path=urdf_path, foot_link_names=foot_link_names)
+        self.sim: Simulation = Simulation(gui, urdf_path=urdf_path, foot_link_names=foot_link_names, terrain=terrain)
         self.sim_interface: ROSInterface = ROSInterface(self.sim, namespace="/" + self.namespace + '/', node=False)
 
     def step_sim(self):
@@ -97,6 +109,14 @@ class PybulletSim(AbstractSim):
     def get_timestep(self):
         return self.sim.timestep
 
+    def randomize_terrain(self, max_height):
+        self.sim.terrain.randomize(max_height)
+
+    def get_pressure_left(self):
+        return self.sim_interface.get_pressure_filtered_left()
+
+    def get_pressure_right(self):
+        return self.sim_interface.get_pressure_filtered_right()
 
 class WebotsSim(AbstractSim):
 
