@@ -208,6 +208,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         msg = Twist()
         msg.linear.x = x
         msg.linear.y = y
+        msg.linear.z = 0
         msg.angular.z = yaw
         if self.walk_as_node:
             self.cmd_vel_pub.publish(msg)
