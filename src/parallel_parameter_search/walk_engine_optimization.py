@@ -58,13 +58,18 @@ class AbstractWalkEngine(AbstractWalkOptimization):
         add('trunk_height', trunk_height[0], trunk_height[1])
         add('trunk_phase', -0.5, 0.5)
         add('trunk_swing', 0.0, 1.0)
-        add('trunk_x_offset', -trunk_x, trunk_x)
         add('trunk_z_movement', 0, z_movement)
+
+        add('trunk_x_offset', -trunk_x, trunk_x)
+        add('trunk_y_offset', -0.03, 0.03)
 
         add('trunk_x_offset_p_coef_forward', -1, 1)
         add('trunk_x_offset_p_coef_turn', -1, 1)
 
         add('trunk_pitch', -1.0, 1.0)
+
+        fix('foot_rise', foot_rise)
+
 
         # add('first_step_swing_factor', 0.0, 2)
         # add('first_step_trunk_phase', -0.5, 0.5)
@@ -76,11 +81,8 @@ class AbstractWalkEngine(AbstractWalkOptimization):
         fix('foot_overshoot_phase', 1)
         fix('foot_overshoot_ratio', 0.0)
 
-        # add('trunk_y_offset', -0.03, 0.03)
         # add('foot_rise', 0.04, 0.08)
         # add('foot_apex_phase', 0.0, 1.0)
-        fix('trunk_y_offset', 0)
-        fix('foot_rise', foot_rise)
         fix('foot_apex_phase', 0.5)
 
         # add('trunk_pitch_p_coef_forward', -5, 5)
@@ -140,7 +142,7 @@ class WolfgangWalkEngine(AbstractWalkEngine):
                            ]
 
     def suggest_walk_params(self, trial):
-        self._suggest_walk_params(trial, (0.38, 0.45), (0.1, 0.3), 0.05, 0.03, 0.03)
+        self._suggest_walk_params(trial, (0.38, 0.42), (0.15, 0.25), 0.1, 0.03, 0.03)
 
 
 class DarwinWalkEngine(AbstractWalkEngine):
