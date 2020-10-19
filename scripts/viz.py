@@ -2,10 +2,11 @@
 import optuna
 from optuna import Study, load_study, visualization, importance
 
-study_summaries = optuna.study.get_all_study_summaries(storage="postgresql://bestmann:deepquintic@localhost/deep_quintic")
-print(study_summaries)
+study_summaries = optuna.study.get_all_study_summaries(storage="postgresql://bestmann:deepquintic@server/deep_quintic")
+for study in study_summaries:
+    print(f"{study.study_name}\n  {study.n_trials}\n  {study.datetime_start}")
 
-study = load_study('pybullet3',  storage='postgresql://bestmann:deepquintic@localhost/deep_quintic')
+study = load_study('ol_wolfgang_4',  storage='postgresql://bestmann:deepquintic@server/deep_quintic')
 df = study.trials_dataframe()
 #print(df)
 print(df.keys())
@@ -14,8 +15,9 @@ len(df)
 
 #%%
 
-visualization.plot_optimization_history(study)
-
+fig = visualization.plot_optimization_history(study)
+fig.write_image("/tmp/study_fig.pdf")
+exit(0)
 #%%
 
 df['state'].value_counts()

@@ -62,7 +62,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
     def suggest_walk_params(self, trial):
         raise NotImplementedError
 
-    def evaluate_direction(self, x, y, yaw, trial: optuna.Trial, iteration, time_limit):
+    def evaluate_direction(self, x, y, yaw, trial: optuna.Trial, iteration, time_limit, cost_time=False):
         start_time = self.sim.get_time()
         self.set_cmd_vel(x * iteration, y * iteration, yaw * iteration)
         print(F'cmd: {x * iteration} {y * iteration} {yaw * iteration}')
@@ -76,7 +76,10 @@ class AbstractWalkOptimization(AbstractRosOptimization):
 
             if passed_time > time_limit + 5:
                 # robot should have stopped now, evaluate the fitness
-                return self.compute_cost(x * iteration, y * iteration, yaw * iteration)
+                if cost_time:
+                    return False, 0
+                else:
+                    return self.compute_cost(x * iteration, y * iteration, yaw * iteration)
 
             # test if the robot has fallen down
             pos, rpy = self.sim.get_robot_pose_rpy()
@@ -84,8 +87,11 @@ class AbstractWalkOptimization(AbstractRosOptimization):
                 # add extra information to trial
                 trial.set_user_attr('early_termination_at', (
                     x * iteration, y * iteration, yaw * iteration))
-                early_term, cost = self.compute_cost(x * iteration, y * iteration, yaw * iteration)
-                return True, cost
+                if cost_time:
+                    return True, passed_time
+                else:
+                    early_term, cost = self.compute_cost(x * iteration, y * iteration, yaw * iteration)
+                    return True, cost
 
             try:
                 if self.walk_as_node:
@@ -171,6 +177,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         if yaw == 0 and ((x != 0 and abs(current_pose[0]) < 0.5 * abs(correct_pose[0])) or (
                 y != 0 and abs(current_pose[1]) < 0.5 * abs(correct_pose[1]))):
             early_term = True
+            print("didn't move")
         return early_term, cost
 
     def reset_position(self):

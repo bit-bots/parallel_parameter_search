@@ -30,14 +30,24 @@ parser.add_argument('--gui', help="Activate gui", action='store_true')
 parser.add_argument('--node', help="Run walking as extra node", action='store_true')
 parser.add_argument('--type', help='Optimization type that should be used {engine, stabilization} ', default=None,
                     type=str, required=True)
+parser.add_argument('--startup', help='Startup trials', default=1000,
+                    type=int, required=True)
+parser.add_argument('--trials', help='Trials to be evaluated', default=10000,
+                    type=int, required=True)
+parser.add_argument('--sampler', help='Which sampler {TPE, CMAES}', default=10000,
+                    type=str, required=True)
 
 args = parser.parse_args()
 
 seed = np.random.randint(2 ** 32 - 1)
-n_startup_trials = 1000
+n_startup_trials = args.startup
 
-sampler = TPESampler(n_startup_trials=n_startup_trials, seed=seed, multivariate=True)
-# sampler = CmaEsSampler(seed=seed)
+if args.sampler == "TPE":
+    sampler = TPESampler(n_startup_trials=n_startup_trials, seed=seed, multivariate=False)
+elif args.sampler == "CMAES":
+    sampler = CmaEsSampler(n_startup_trials=n_startup_trials, seed=seed)
+else:
+    print("sampler not correctly specified")
 
 study = optuna.create_study(study_name=args.name, storage=args.storage, direction='minimize',
                             sampler=sampler, load_if_exists=True)
@@ -73,4 +83,4 @@ elif args.type == "stabilization":
         print(f"robot type \"{args.robot}\" not known.")
 else:
     print(f"Optimization type {args.type} not known.")
-study.optimize(objective.objective, n_trials=1000, show_progress_bar=True)
+study.optimize(objective.objective, n_trials=args.trials, show_progress_bar=True)
