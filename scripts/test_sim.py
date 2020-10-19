@@ -14,9 +14,6 @@ import numpy as np
 
 import rospy
 
-from parallel_parameter_search.walk_optimization import DarwinWalkOptimization, WolfgangWalkOptimization, \
-    OP3WalkOptimization, NaoWalkOptimization, ReemcWalkOptimization, TalosWalkOptimization
-
 from parallel_parameter_search.simulators import PybulletSim, WebotsSim
 
 parser = argparse.ArgumentParser()

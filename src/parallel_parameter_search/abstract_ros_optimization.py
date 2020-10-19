@@ -61,6 +61,7 @@ class AbstractRosOptimization:
             msg = Clock()
             while not stop_clock or rospy.is_shutdown():
                 self.sim.step_sim()
+                #print("clock")
                 # this magic sleep is necessary because of reasons
                 sleep(0.01)
                 msg.clock = rospy.Time.from_sec(self.sim.get_time())

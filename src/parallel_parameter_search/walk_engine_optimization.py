@@ -25,8 +25,8 @@ class AbstractWalkEngine(AbstractWalkOptimization):
         early_term, cost_try = self.evaluate_direction(0, 0, 0, trial, 1, 0)
         cost += cost_try
         if early_term:
-            # terminate early and give 10 cost for each try left
-            return 10 * (self.number_of_iterations - 1) * len(self.directions) + 10 * len(self.directions) + cost
+            # terminate early and give 1 cost for each try left
+            return 1 * (self.number_of_iterations - 1) * len(self.directions) + 1 * len(self.directions) + cost
 
         for iteration in range(1, self.number_of_iterations + 1):
             d = 0
@@ -37,8 +37,8 @@ class AbstractWalkEngine(AbstractWalkOptimization):
                 cost += cost_try
                 # check if we failed in this direction and terminate this trial early
                 if early_term:
-                    # terminate early and give 100 cost for each try left
-                    return 10 * (self.number_of_iterations - iteration) * len(self.directions) + 10 * (
+                    # terminate early and give 1 cost for each try left
+                    return 1 * (self.number_of_iterations - iteration) * len(self.directions) + 1 * (
                             len(self.directions) - d) + cost
         return cost
 
@@ -66,7 +66,7 @@ class AbstractWalkEngine(AbstractWalkOptimization):
         add('trunk_x_offset_p_coef_forward', -1, 1)
         add('trunk_x_offset_p_coef_turn', -1, 1)
 
-        add('trunk_pitch', -1.0, 1.0)
+        add('trunk_pitch', -0.5, 0.5)
 
         fix('foot_rise', foot_rise)
 
@@ -123,6 +123,8 @@ class AbstractWalkEngine(AbstractWalkOptimization):
         # necessary for correct reset
         self.trunk_height = self.current_params["trunk_height"]
         self.trunk_pitch = self.current_params["trunk_pitch"]
+        self.trunk_pitch_p_coef_forward = self.current_params["trunk_pitch_p_coef_forward"]
+        self.trunk_pitch_p_coef_turn = self.current_params["trunk_pitch_p_coef_turn"]
 
 
 class WolfgangWalkEngine(AbstractWalkEngine):
@@ -239,7 +241,7 @@ class TalosWalkEngine(AbstractWalkEngine):
     def __init__(self, namespace, gui, walk_as_node, sim_type='pybullet'):
         super(TalosWalkEngine, self).__init__(namespace, gui, 'talos', walk_as_node, sim_type,
                                               foot_link_names=['leg_left_6_link', 'leg_right_6_link'])
-        self.reset_height_offset = -0.19
+        self.reset_height_offset = -0.13
         self.reset_rpy_offset = (0, 0.15, 0)
         self.directions = [[0.05, 0, 0],
                            [-0.05, 0, 0],
