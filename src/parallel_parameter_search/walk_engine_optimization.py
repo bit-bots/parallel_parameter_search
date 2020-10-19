@@ -25,8 +25,8 @@ class AbstractWalkEngine(AbstractWalkOptimization):
         early_term, cost_try = self.evaluate_direction(0, 0, 0, trial, 1, 0)
         cost += cost_try
         if early_term:
-            # terminate early and give 100 cost for each try left
-            return 100 * (self.number_of_iterations - 1) * len(self.directions) + 100 * len(self.directions) + cost
+            # terminate early and give 10 cost for each try left
+            return 10 * (self.number_of_iterations - 1) * len(self.directions) + 10 * len(self.directions) + cost
 
         for iteration in range(1, self.number_of_iterations + 1):
             d = 0
@@ -38,7 +38,7 @@ class AbstractWalkEngine(AbstractWalkOptimization):
                 # check if we failed in this direction and terminate this trial early
                 if early_term:
                     # terminate early and give 100 cost for each try left
-                    return 100 * (self.number_of_iterations - iteration) * len(self.directions) + 100 * (
+                    return 10 * (self.number_of_iterations - iteration) * len(self.directions) + 10 * (
                             len(self.directions) - d) + cost
         return cost
 

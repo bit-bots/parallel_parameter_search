@@ -66,7 +66,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         start_time = self.sim.get_time()
         self.set_cmd_vel(x * iteration, y * iteration, yaw * iteration)
         print(F'cmd: {x * iteration} {y * iteration} {yaw * iteration}')
-
+        orientation_diff = 0.0
         # wait till time for test is up or stopping condition has been reached
         while not rospy.is_shutdown():
             passed_time = self.sim.get_time() - start_time
@@ -76,17 +76,19 @@ class AbstractWalkOptimization(AbstractRosOptimization):
 
             if passed_time > time_limit + 5:
                 # robot should have stopped now, evaluate the fitness
-                return self.compute_cost(x * iteration, y * iteration, yaw * iteration)
+                early_term, cost = self.compute_cost(x * iteration, y * iteration, yaw * iteration)
+                return early_term, orientation_diff / passed_time
 
             # test if the robot has fallen down
             pos, rpy = self.sim.get_robot_pose_rpy()
+            orientation_diff += rpy[0] + rpy[1] - self.trunk_pitch
             if abs(rpy[0]) > math.radians(45) or abs(rpy[1]) > math.radians(45) or pos[2] < 0.05:
                 # add extra information to trial
                 trial.set_user_attr('early_termination_at', (
                     x * iteration, y * iteration, yaw * iteration))
                 early_term, cost = self.compute_cost(x * iteration, y * iteration, yaw * iteration)
-                return True, cost
-
+                #return True, cost
+                return True, orientation_diff / passed_time
             try:
                 if self.walk_as_node:
                     # give time to other algorithms to compute their responses
