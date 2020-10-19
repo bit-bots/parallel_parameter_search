@@ -24,6 +24,17 @@ class AbstractWalkStabilization(AbstractWalkOptimization):
         self.trunk_height = rosparam.get_param(self.namespace + "/walking/engine/trunk_height")
         self.trunk_pitch = rosparam.get_param(self.namespace + "/walking/engine/trunk_pitch")
 
+        # self.walk.spin_ros()
+        self.foot_x_client = dynamic_reconfigure.client.Client(self.namespace + '/' + 'walking/pid_foot_pos_x/',
+                                                               timeout=60)
+        self.foot_y_client = dynamic_reconfigure.client.Client(self.namespace + '/' + 'walking/pid_foot_pos_y/',
+                                                               timeout=60)
+        self.hip_pitch_client = dynamic_reconfigure.client.Client(self.namespace + '/' + 'walking/pid_hip_pitch/',
+                                                                  timeout=60)
+        self.hip_roll_client = dynamic_reconfigure.client.Client(self.namespace + '/' + 'walking/pid_hip_roll/',
+                                                                 timeout=60)
+
+
     def objective(self, trial):
         # get parameter to evaluate from optuna
         self.suggest_walk_params(trial)
@@ -57,7 +68,8 @@ class AbstractWalkStabilization(AbstractWalkOptimization):
             self.randomize_terrain(self.start_terrain_height * iteration)
         return cost
 
-    def _suggest_walk_params(self, trial, pressure_reset, effort_reset, phase_rest, stability_stop, foot_pid):
+    def _suggest_walk_params(self, trial, pressure_reset, effort_reset, phase_rest, stability_stop, foot_pid,
+                             hip_pid):
         # optimal engine parameters are already loaded from yaml
         node_param_dict = {}
 
@@ -92,28 +104,38 @@ class AbstractWalkStabilization(AbstractWalkOptimization):
             add("imu_pitch_vel_threshold", 0.0, 10.0)
             add("imu_roll_vel_threshold", 0.0, 10.0)
 
+        def pid_params(name, client, p, i, d, i_clamp):
+            pid_dict = {"p": trial.suggest_uniform(name + "_p", p[0], p[1]),
+                        "d": trial.suggest_uniform(name + "_d", i[0], i[1]),
+                        "i": trial.suggest_uniform(name + "_i", d[0], d[1]),
+                        "i_clamp_min": i_clamp[0],
+                        "i_clamp_max": i_clamp[1]}
+            self.set_params(pid_dict, client, self.walk)
+
         if foot_pid:
-            pid_dict = {"p": trial.suggest_uniform("foot_x_p", 0, 1)}
-            self.foot_x_client = dynamic_reconfigure.client.Client(self.namespace + '/' + 'walking/pid_foot_pos_x/',
-                                                                   timeout=60)
-            self.foot_y_client = dynamic_reconfigure.client.Client(self.namespace + '/' + 'walking/pid_foot_pos_x/',
-                                                                   timeout=60)
-            self.set_params(pid_dict, self.foot_x_client, self.walk)
+            pid_params("foot_x", self.foot_x_client, (-10, 10), (-1, 1), (-0.1, 0.1), (-10, 10))
+            pid_params("foot_y", self.foot_y_client, (-10, 10), (-1, 1), (-0.1, 0.1), (-10, 10))
 
-            pid_dict = {"p": trial.suggest_uniform("foot_y_p", 0, 1)}
-            self.set_params(pid_dict, self.foot_y_client, self.walk)
+        if hip_pid:
+            pid_params("hip_pitch", self.hip_pitch_client, (-10, 10), (-1, 1), (-0.1, 0.1), (-10, 10))
+            pid_params("hip_roll", self.hip_roll_client, (-10, 10), (-1, 1), (-0.1, 0.1), (-10, 10))
 
-            # add("/pid_foot_pos_x/p", 0, 10)
-            # add("/pid_foot_pos_x/d", 0, 10)
-            # add("/pid_foot_pos_y/p", 0, 10)
-            # add("/pid_foot_pos_y/d", 0, 10)
+        # ankle
+
+        # (cop)
+
+        # trunk fused
+
+        # trunk rpy
+
+        # trunk gyro
+
 
         if self.walk_as_node:
             self.set_params(node_param_dict)
         else:
             self.current_params = node_param_dict
             self.walk.set_node_dyn_reconf(node_param_dict)
-            # set via dyn reconf for pid
 
 
 class WolfgangWalkStabilization(AbstractWalkStabilization):

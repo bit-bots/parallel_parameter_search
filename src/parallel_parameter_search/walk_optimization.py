@@ -49,7 +49,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
             self.walk = PyWalk(self.namespace)
 
         self.number_of_iterations = 10
-        self.time_limit = 20
+        self.time_limit = 10
 
         # needs to be specified by subclasses
         self.directions = None
@@ -62,27 +62,37 @@ class AbstractWalkOptimization(AbstractRosOptimization):
     def suggest_walk_params(self, trial):
         raise NotImplementedError
 
+    def correct_pitch(self, x, y, yaw):
+        return self.trunk_pitch + self.trunk_pitch_p_coef_forward * x + self.trunk_pitch_p_coef_turn * yaw
+
     def evaluate_direction(self, x, y, yaw, trial: optuna.Trial, iteration, time_limit, cost_time=False):
         start_time = self.sim.get_time()
         self.set_cmd_vel(x * iteration, y * iteration, yaw * iteration)
         print(F'cmd: {x * iteration} {y * iteration} {yaw * iteration}')
-
+        orientation_diff = 0.0
         # wait till time for test is up or stopping condition has been reached
         while not rospy.is_shutdown():
             passed_time = self.sim.get_time() - start_time
+            passed_timesteps = passed_time / self.sim.get_timestep()
+            if passed_timesteps == 0:
+                # edge case with division by zero
+                passed_timesteps = 1
             if passed_time > time_limit:
                 # reached time limit, stop robot
                 self.set_cmd_vel(0, 0, 0)
 
-            if passed_time > time_limit + 5:
+            if passed_time > time_limit + 2:
                 # robot should have stopped now, evaluate the fitness
                 if cost_time:
                     return False, 0
                 else:
-                    return self.compute_cost(x * iteration, y * iteration, yaw * iteration)
+                    #return self.compute_cost(x * iteration, y * iteration, yaw * iteration)
+                    early_term, cost = self.compute_cost(x * iteration, y * iteration, yaw * iteration)
+                    return early_term, orientation_diff / passed_timesteps
 
             # test if the robot has fallen down
             pos, rpy = self.sim.get_robot_pose_rpy()
+            orientation_diff += abs(rpy[0]) + abs(rpy[1] - self.correct_pitch(x, y, yaw))
             if abs(rpy[0]) > math.radians(45) or abs(rpy[1]) > math.radians(45) or pos[2] < 0.05:
                 # add extra information to trial
                 trial.set_user_attr('early_termination_at', (
@@ -91,8 +101,8 @@ class AbstractWalkOptimization(AbstractRosOptimization):
                     return True, passed_time
                 else:
                     early_term, cost = self.compute_cost(x * iteration, y * iteration, yaw * iteration)
-                    return True, cost
-
+                    # return True, cost
+                    return True, orientation_diff / passed_timesteps
             try:
                 if self.walk_as_node:
                     # give time to other algorithms to compute their responses
@@ -206,15 +216,16 @@ class AbstractWalkOptimization(AbstractRosOptimization):
             self.complete_walking_step()
         self.sim.set_gravity(True)
         self.reset_position()
-        if self.walk_as_node:
-            self.sim.run_simulation(duration=1, sleep=0.01)
-        else:
-            self.run_walking(duration=1)
+        # if self.walk_as_node:
+        #    self.sim.run_simulation(duration=1, sleep=0.01)
+        # else:
+        #    self.run_walking(duration=1)
 
     def set_cmd_vel(self, x, y, yaw):
         msg = Twist()
         msg.linear.x = x
         msg.linear.y = y
+        msg.linear.z = 0
         msg.angular.z = yaw
         if self.walk_as_node:
             self.cmd_vel_pub.publish(msg)
