@@ -14,9 +14,10 @@ import numpy as np
 import rospy
 
 from parallel_parameter_search.walk_engine_optimization import DarwinWalkEngine, WolfgangWalkEngine, OP3WalkEngine, \
-    NaoWalkEngine, ReemcWalkEngine, TalosWalkEngine
+    NaoWalkEngine, ReemcWalkEngine, TalosWalkEngine, AtlasWalkEngine
 
 from parallel_parameter_search.walk_stabilization import WolfgangWalkStabilization
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--storage', help='Database SQLAlchemy string, e.g. postgresql://USER:PASS@SERVER/DB_NAME',
@@ -65,6 +66,8 @@ if args.type == "engine":
         objective = ReemcWalkEngine('worker', gui=args.gui, walk_as_node=args.node, sim_type=args.sim)
     elif args.robot == "talos":
         objective = TalosWalkEngine('worker', gui=args.gui, walk_as_node=args.node, sim_type=args.sim)
+    elif args.robot == "atlas":
+        objective = AtlasWalkEngine('worker', gui=args.gui, walk_as_node=args.node, sim_type=args.sim)
     else:
         print(f"robot type \"{args.robot}\" not known.")
 elif args.type == "stabilization":

@@ -16,7 +16,7 @@ from wolfgang_webots_sim.utils import fix_webots_folder
 try:
     from wolfgang_webots_sim.webots_controller import WebotsController
 except:
-    print("Could not load webots sim. If you want to use it, source the setenvs.sh")
+    rospy.logerr("Could not load webots sim. If you want to use it, source the setenvs.sh")
 
 
 class AbstractSim:
@@ -153,6 +153,9 @@ class WebotsSim(AbstractSim):
 
     def reset_robot_pose(self, pos, quat):
         self.robot_controller.reset_robot_pose(pos, quat)
+
+    def set_robot_pose_rpy(self, pos, rpy):
+        self.robot_controller.set_robot_pose_rpy(pos, rpy)
 
     def get_robot_pose_rpy(self):
         return self.robot_controller.get_robot_pose_rpy()

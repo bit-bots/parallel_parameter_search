@@ -1,3 +1,6 @@
+import math
+
+import rospy
 from parallel_parameter_search.walk_optimization import AbstractWalkOptimization
 
 from parallel_parameter_search.simulators import PybulletSim, WebotsSim
@@ -85,7 +88,7 @@ class AbstractWalkEngine(AbstractWalkOptimization):
         # fix('foot_rise', foot_rise)
 
         add('first_step_swing_factor', 0.0, 2)
-        #fix('first_step_swing_factor', 1)
+        # fix('first_step_swing_factor', 1)
         fix('first_step_trunk_phase', -0.5)
 
         # add('foot_overshoot_phase', 0.0, 1.0)
@@ -149,7 +152,7 @@ class WolfgangWalkEngine(AbstractWalkEngine):
 
 
 class DarwinWalkEngine(AbstractWalkEngine):
-    def __init__(self, namespace, gui, walk_as_node, sim_type='pybullet'):
+    def __init__(self, namespace, gui, walk_as_node, sim_type='webots'):
         super(DarwinWalkEngine, self).__init__(namespace, gui, 'darwin', walk_as_node, sim_type,
                                                foot_link_names=['MP_ANKLE2_L', 'MP_ANKLE2_R'],
                                                start_speeds=[0.05, 0.025, 0.25])
@@ -160,7 +163,7 @@ class DarwinWalkEngine(AbstractWalkEngine):
 
 
 class OP3WalkEngine(AbstractWalkEngine):
-    def __init__(self, namespace, gui, walk_as_node, sim_type='pybullet'):
+    def __init__(self, namespace, gui, walk_as_node, sim_type='webots'):
         super(OP3WalkEngine, self).__init__(namespace, gui, 'op3', walk_as_node, sim_type,
                                             foot_link_names=['r_ank_roll_link', 'l_ank_roll_link'],
                                             start_speeds=[0.05, 0.025, 0.25])
@@ -175,7 +178,7 @@ class OP3WalkEngine(AbstractWalkEngine):
 
 
 class NaoWalkEngine(AbstractWalkEngine):
-    def __init__(self, namespace, gui, walk_as_node, sim_type='pybullet'):
+    def __init__(self, namespace, gui, walk_as_node, sim_type='webots'):
         super(NaoWalkEngine, self).__init__(namespace, gui, 'nao', walk_as_node, sim_type,
                                             foot_link_names=['l_ankle', 'r_ankle'], start_speeds=[0.05, 0.025, 0.25])
         self.reset_height_offset = 0.01
@@ -214,3 +217,14 @@ class TalosWalkEngine(AbstractWalkEngine):
     def suggest_walk_params(self, trial):
         self._suggest_walk_params(trial, (0.6, 0.75), (0.15, 0.4), 0.1, 0.15, 0.08)
 
+
+class AtlasWalkEngine(AbstractWalkEngine):
+    def __init__(self, namespace, gui, walk_as_node, sim_type='pybullet'):
+        super(AtlasWalkEngine, self).__init__(namespace, gui, 'atlas', walk_as_node, sim_type,
+                                              foot_link_names=['l_sole', 'r_sole'],
+                                              start_speeds=[0.02, 0.01, 0.01])
+        self.reset_height_offset = 0.0
+        self.reset_rpy_offset = (0, 0, 0)
+
+    def suggest_walk_params(self, trial):
+        self._suggest_walk_params(trial, (0.6, 0.75), (0.15, 0.4), 0.1, 0.15, 0.08)
