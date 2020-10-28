@@ -4,7 +4,7 @@ from parallel_parameter_search.simulators import PybulletSim, WebotsSim
 
 
 class AbstractWalkEngine(AbstractWalkOptimization):
-    def __init__(self, namespace, gui, robot, walk_as_node, sim_type='pybullet', foot_link_names=()):
+    def __init__(self, namespace, gui, robot, walk_as_node, sim_type='pybullet', foot_link_names=(), start_speeds=None):
         super(AbstractWalkEngine, self).__init__(namespace, robot, walk_as_node)
         if sim_type == 'pybullet':
             urdf_path = self.rospack.get_path(robot + '_description') + '/urdf/robot.urdf'
@@ -15,6 +15,17 @@ class AbstractWalkEngine(AbstractWalkOptimization):
         else:
             print(f'sim type {sim_type} not known')
 
+        if not start_speeds:
+            print("please set start speeds")
+            exit(1)
+        self.directions = [[start_speeds[0], 0, 0],
+                           [0, start_speeds[1], 0],
+                           [0, 0, start_speeds[2]],
+                           [-start_speeds[0], - start_speeds[1], 0],
+                           [-start_speeds[0], 0, start_speeds[2]],
+                           [start_speeds[0], start_speeds[1], start_speeds[2]]
+                           ]
+
     def objective(self, trial):
         # get parameter to evaluate from optuna
         self.suggest_walk_params(trial)
@@ -22,7 +33,7 @@ class AbstractWalkEngine(AbstractWalkOptimization):
 
         cost = 0
         # standing as first test, is not in loop as it will only be done once
-        early_term, cost_try = self.evaluate_direction(0, 0, 0, trial, 1, 0)
+        early_term, cost_try = self.evaluate_direction(0, 0, 0, trial, 1, 1)
         cost += cost_try
         if early_term:
             # terminate early and give 1 cost for each try left
@@ -53,7 +64,7 @@ class AbstractWalkEngine(AbstractWalkOptimization):
             trial.set_user_attr(name, value)
 
         add('double_support_ratio', 0.0, 0.5)
-        add('freq', 0.5, 3)
+        add('freq', 0.5, 5)
 
         add('foot_distance', foot_distance[0], foot_distance[1])
         add('trunk_height', trunk_height[0], trunk_height[1])
@@ -68,15 +79,10 @@ class AbstractWalkEngine(AbstractWalkOptimization):
         add('trunk_pitch_p_coef_forward', -5, 5)
         add('trunk_pitch_p_coef_turn', -5, 5)
 
-        fix('trunk_x_offset_p_coef_forward', 0)
-        #add('trunk_x_offset_p_coef_forward', -1, 1)
-        fix('trunk_x_offset_p_coef_turn', 0)
-        #add('trunk_x_offset_p_coef_turn', -1, 1)
-
         add('trunk_pitch', -0.5, 0.5)
-        #fix('trunk_pitch', 0.0)
+        # fix('trunk_pitch', 0.0)
         add('foot_rise', 0.05, 0.15)
-        #fix('foot_rise', foot_rise)
+        # fix('foot_rise', foot_rise)
 
         add('first_step_swing_factor', 0.0, 2)
         #fix('first_step_swing_factor', 1)
@@ -122,25 +128,21 @@ class AbstractWalkEngine(AbstractWalkOptimization):
         # necessary for correct reset
         self.trunk_height = self.current_params["trunk_height"]
         self.trunk_pitch = self.current_params["trunk_pitch"]
-        self.trunk_pitch_p_coef_forward = self.current_params["trunk_pitch_p_coef_forward"]
-        self.trunk_pitch_p_coef_turn = self.current_params["trunk_pitch_p_coef_turn"]
+        try:
+            self.trunk_pitch_p_coef_forward = self.current_params["trunk_pitch_p_coef_forward"]
+        except:
+            self.trunk_pitch_p_coef_forward = 0.0
+        try:
+            self.trunk_pitch_p_coef_turn = self.current_params["trunk_pitch_p_coef_turn"]
+        except:
+            self.trunk_pitch_p_coef_turn = 0.0
 
 
 class WolfgangWalkEngine(AbstractWalkEngine):
     def __init__(self, namespace, gui, walk_as_node, sim_type='pybullet'):
-        super(WolfgangWalkEngine, self).__init__(namespace, gui, 'wolfgang', walk_as_node, sim_type)
+        super(WolfgangWalkEngine, self).__init__(namespace, gui, 'wolfgang', walk_as_node, sim_type,
+                                                 start_speeds=[0.2, 0.1, 0.25])
         self.reset_height_offset = 0.005
-        self.directions = [[0.1, 0, 0],
-                           [-0.1, 0, 0],
-                           [0, 0.05, 0],
-                           [0, -0.05, 0],
-                           [0, 0, 0.5],
-                           [0, 0, -0.5],
-                           [0.1, 0, 0.5],
-                           [0, 0.05, -0.5],
-                           [0.1, 0.05, 0.5],
-                           [-0.1, -0.05, -0.5]
-                           ]
 
     def suggest_walk_params(self, trial):
         self._suggest_walk_params(trial, (0.38, 0.42), (0.15, 0.25), 0.1, 0.03, 0.03)
@@ -149,19 +151,9 @@ class WolfgangWalkEngine(AbstractWalkEngine):
 class DarwinWalkEngine(AbstractWalkEngine):
     def __init__(self, namespace, gui, walk_as_node, sim_type='pybullet'):
         super(DarwinWalkEngine, self).__init__(namespace, gui, 'darwin', walk_as_node, sim_type,
-                                               foot_link_names=['MP_ANKLE2_L', 'MP_ANKLE2_R'])
+                                               foot_link_names=['MP_ANKLE2_L', 'MP_ANKLE2_R'],
+                                               start_speeds=[0.05, 0.025, 0.25])
         self.reset_height_offset = 0.09
-        self.directions = [[0.05, 0, 0],
-                           [-0.05, 0, 0],
-                           [0, 0.025, 0],
-                           [0, -0.025, 0],
-                           [0, 0, 0.25],
-                           [0, 0, -0.25],
-                           [0.05, 0.25, 0],
-                           [0.05, -0.25, 0],
-                           [0.05, 0, -0.25],
-                           [-0.05, 0, 0.25],
-                           ]
 
     def suggest_walk_params(self, trial):
         self._suggest_walk_params(trial, (0.20, 0.24), (0.08, 0.15), 0.02, 0.02, 0.02)
@@ -170,22 +162,13 @@ class DarwinWalkEngine(AbstractWalkEngine):
 class OP3WalkEngine(AbstractWalkEngine):
     def __init__(self, namespace, gui, walk_as_node, sim_type='pybullet'):
         super(OP3WalkEngine, self).__init__(namespace, gui, 'op3', walk_as_node, sim_type,
-                                            foot_link_names=['r_ank_roll_link', 'l_ank_roll_link'])
+                                            foot_link_names=['r_ank_roll_link', 'l_ank_roll_link'],
+                                            start_speeds=[0.05, 0.025, 0.25])
         self.reset_height_offset = 0.01
-        self.directions = [[0.05, 0, 0],
-                           [-0.05, 0, 0],
-                           [0, 0.025, 0],
-                           [0, -0.025, 0],
-                           [0, 0, 0.25],
-                           [0, 0, -0.25],
-                           [0.05, 0.25, 0],
-                           [0.05, -0.25, 0],
-                           [0.05, 0, -0.25],
-                           [-0.05, 0, 0.25],
-                           ]
+
         if sim_type == 'pybullet':
             pass
-            #self.sim.set_joints_dict({"l_sho_roll": 1.0, "r_sho_roll": -1.0})
+            # self.sim.set_joints_dict({"l_sho_roll": 1.0, "r_sho_roll": -1.0})
 
     def suggest_walk_params(self, trial):
         self._suggest_walk_params(trial, (0.13, 0.24), (0.08, 0.15), 0.02, 0.02, 0.02)
@@ -194,19 +177,9 @@ class OP3WalkEngine(AbstractWalkEngine):
 class NaoWalkEngine(AbstractWalkEngine):
     def __init__(self, namespace, gui, walk_as_node, sim_type='pybullet'):
         super(NaoWalkEngine, self).__init__(namespace, gui, 'nao', walk_as_node, sim_type,
-                                            foot_link_names=['l_ankle', 'r_ankle'])
+                                            foot_link_names=['l_ankle', 'r_ankle'], start_speeds=[0.05, 0.025, 0.25])
         self.reset_height_offset = 0.01
-        self.directions = [[0.05, 0, 0],
-                           [-0.05, 0, 0],
-                           [0, 0.025, 0],
-                           [0, -0.025, 0],
-                           [0, 0, 0.25],
-                           [0, 0, -0.25],
-                           [0.05, 0.25, 0],
-                           [0.05, -0.25, 0],
-                           [0.05, 0, -0.25],
-                           [-0.05, 0, 0.25],
-                           ]
+
         if sim_type == 'pybullet':
             self.sim.set_joints_dict(
                 {"LShoulderPitch": 1.57, "RShoulderPitch": 1.57, 'LShoulderRoll': 0.3, 'RShoulderRoll': -0.3})
@@ -218,44 +191,26 @@ class NaoWalkEngine(AbstractWalkEngine):
 class ReemcWalkEngine(AbstractWalkEngine):
     def __init__(self, namespace, gui, walk_as_node, sim_type='pybullet'):
         super(ReemcWalkEngine, self).__init__(namespace, gui, 'reemc', walk_as_node, sim_type,
-                                              foot_link_names=['leg_left_6_link', 'leg_right_6_link'])
+                                              foot_link_names=['leg_left_6_link', 'leg_right_6_link'],
+                                              start_speeds=[0.1, 0.05, 0.5])
         self.reset_height_offset = -0.1
         self.reset_rpy_offset = (-0.1, 0.15, -0.5)
-        self.directions = [[0.1, 0, 0],
-                           [-0.1, 0, 0],
-                           [0, 0.05, 0],
-                           [0, -0.05, 0],
-                           [0, 0, 0.5],
-                           [0, 0, -0.5],
-                           [0.1, 0, 0.5],
-                           [0, 0.05, -0.5],
-                           [0.1, 0.05, 0.5],
-                           [-0.1, -0.05, -0.5]
-                           ]
 
     def suggest_walk_params(self, trial):
-        self._suggest_walk_params(trial, (0.5, 0.7), (0.15, 0.30), 0.1, 0.1, 0.05)
+        self._suggest_walk_params(trial, (0.5, 0.65), (0.15, 0.30), 0.1, 0.15, 0.05)
 
 
 class TalosWalkEngine(AbstractWalkEngine):
     def __init__(self, namespace, gui, walk_as_node, sim_type='pybullet'):
         super(TalosWalkEngine, self).__init__(namespace, gui, 'talos', walk_as_node, sim_type,
-                                              foot_link_names=['leg_left_6_link', 'leg_right_6_link'])
+                                              foot_link_names=['leg_left_6_link', 'leg_right_6_link'],
+                                              start_speeds=[0.02, 0.01, 0.01])
         self.reset_height_offset = -0.13
         self.reset_rpy_offset = (0, 0.15, 0)
-        self.directions = [[0.2, 0, 0],
-                           [-0.2, 0, 0],
-                           [0, 0.1, 0],
-                           [0, -0.1, 0],
-                           [0, 0, 0.5],
-                           [0, 0, -0.5],
-                           [0.2, 0, 0.5],
-                           [0, 0.1, -0.5],
-                           [0.2, 0.1, 0.5],
-                           [-0.2, -0.1, -0.5]
-                           ]
+
         if sim_type == 'pybullet':
             self.sim.set_joints_dict({"arm_left_4_joint": -1.57, "arm_right_4_joint": -1.57})
 
     def suggest_walk_params(self, trial):
-        self._suggest_walk_params(trial, (0.6, 0.8), (0.15, 0.4), 0.1, 0.15, 0.08)
+        self._suggest_walk_params(trial, (0.6, 0.75), (0.15, 0.4), 0.1, 0.15, 0.08)
+

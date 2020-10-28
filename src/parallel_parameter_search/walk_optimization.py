@@ -66,6 +66,8 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         return self.trunk_pitch + self.trunk_pitch_p_coef_forward * x + self.trunk_pitch_p_coef_turn * yaw
 
     def evaluate_direction(self, x, y, yaw, trial: optuna.Trial, iteration, time_limit, cost_time=False):
+        if time_limit == 0:
+            time_limit = 1
         start_time = self.sim.get_time()
         self.set_cmd_vel(x * iteration, y * iteration, yaw * iteration)
         print(F'cmd: {x * iteration} {y * iteration} {yaw * iteration}')
@@ -86,7 +88,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
                 if cost_time:
                     return False, 0
                 else:
-                    #return self.compute_cost(x * iteration, y * iteration, yaw * iteration)
+                    # return self.compute_cost(x * iteration, y * iteration, yaw * iteration)
                     early_term, cost = self.compute_cost(x * iteration, y * iteration, yaw * iteration)
                     return early_term, orientation_diff / passed_timesteps
 
@@ -98,11 +100,10 @@ class AbstractWalkOptimization(AbstractRosOptimization):
                 trial.set_user_attr('early_termination_at', (
                     x * iteration, y * iteration, yaw * iteration))
                 if cost_time:
-                    return True, passed_time
+                    return True, 1 - min(1, (passed_time / (time_limit + 2)))
                 else:
-                    early_term, cost = self.compute_cost(x * iteration, y * iteration, yaw * iteration)
                     # return True, cost
-                    return True, orientation_diff / passed_timesteps
+                    return True, 1 - min(1, (passed_time / (time_limit + 2)))
             try:
                 if self.walk_as_node:
                     # give time to other algorithms to compute their responses

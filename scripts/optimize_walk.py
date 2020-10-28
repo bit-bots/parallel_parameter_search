@@ -51,6 +51,7 @@ else:
 
 study = optuna.create_study(study_name=args.name, storage=args.storage, direction='minimize',
                             sampler=sampler, load_if_exists=True)
+study.set_user_attr("sampler", args.sampler)
 if args.type == "engine":
     if args.robot == "darwin":
         objective = DarwinWalkEngine('worker', gui=args.gui, walk_as_node=args.node, sim_type=args.sim)
