@@ -23,6 +23,9 @@ class AbstractWalkStabilization(AbstractWalkOptimization):
         # needed to reset robot pose correctly
         self.trunk_height = rosparam.get_param(self.namespace + "/walking/engine/trunk_height")
         self.trunk_pitch = rosparam.get_param(self.namespace + "/walking/engine/trunk_pitch")
+        self.trunk_pitch_p_coef_forward = rosparam.get_param(
+            self.namespace + "/walking/engine/trunk_pitch_p_coef_forward")
+        self.trunk_pitch_p_coef_turn = rosparam.get_param(self.namespace + "/walking/engine/trunk_pitch_p_coef_turn")
 
         # self.walk.spin_ros()
         self.foot_x_client = dynamic_reconfigure.client.Client(self.namespace + '/' + 'walking/pid_foot_pos_x/',
@@ -33,7 +36,26 @@ class AbstractWalkStabilization(AbstractWalkOptimization):
                                                                   timeout=60)
         self.hip_roll_client = dynamic_reconfigure.client.Client(self.namespace + '/' + 'walking/pid_hip_roll/',
                                                                  timeout=60)
-
+        self.ankle_pitch_client_left = dynamic_reconfigure.client.Client(
+            self.namespace + '/' + 'walking/pid_ankle_left_pitch/', timeout=60)
+        self.ankle_roll_client_left = dynamic_reconfigure.client.Client(
+            self.namespace + '/' + 'walking/pid_ankle_left_roll/', timeout=60)
+        self.ankle_pitch_client_right = dynamic_reconfigure.client.Client(
+            self.namespace + '/' + 'walking/pid_ankle_right_pitch/', timeout=60)
+        self.ankle_roll_client_right = dynamic_reconfigure.client.Client(
+            self.namespace + '/' + 'walking/pid_ankle_right_roll/', timeout=60)
+        self.trunk_pitch_client = dynamic_reconfigure.client.Client(self.namespace + '/' + 'walking/pid_trunk_pitch/',
+                                                                    timeout=60)
+        self.trunk_roll_client = dynamic_reconfigure.client.Client(self.namespace + '/' + 'walking/pid_trunk_roll/',
+                                                                   timeout=60)
+        self.trunk_fused_pitch_client = dynamic_reconfigure.client.Client(
+            self.namespace + '/' + 'walking/pid_trunk_fused_pitch/', timeout=60)
+        self.trunk_fused_roll_client = dynamic_reconfigure.client.Client(
+            self.namespace + '/' + 'walking/pid_trunk_fused_roll/', timeout=60)
+        self.gyro_pitch_client = dynamic_reconfigure.client.Client(self.namespace + '/' + 'walking/pid_trunk_pitch/',
+                                                                   timeout=60)
+        self.gyro_roll_client = dynamic_reconfigure.client.Client(self.namespace + '/' + 'walking/pid_trunk_roll/',
+                                                                  timeout=60)
 
     def objective(self, trial):
         # get parameter to evaluate from optuna
@@ -45,31 +67,35 @@ class AbstractWalkStabilization(AbstractWalkOptimization):
         self.walk.reset()
 
         cost = 0
-        # standing as first test, is not in loop as it will only be done once
-        early_term, cost_try = self.evaluate_direction(0, 0, 0, trial, 1, 0)
-        cost += cost_try
-        if early_term:
-            # terminate early and give 100 cost for each try left
-            return 100 * (self.number_of_iterations - 1) * len(self.directions) + 100 * len(self.directions) + cost
+        if False:
+            # standing as first test, is not in loop as it will only be done once
+            early_term, cost_try = self.evaluate_direction(0, 0, 0, trial, 1, 0)
+            cost += cost_try
+            if early_term:
+                # terminate early and give 100 cost for each try left
+                return 1 * (self.number_of_iterations - 1) * len(self.directions) + 1 * len(self.directions) + cost
 
         for iteration in range(1, self.number_of_iterations + 1):
             d = 0
             for direction in self.directions:
                 d += 1
                 self.reset_position()
-                early_term, cost_try = self.evaluate_direction(*direction, trial, iteration, self.time_limit)
+                early_term, cost_try = self.evaluate_direction(*direction, trial, 1, self.time_limit)
                 cost += cost_try
                 # check if we failed in this direction and terminate this trial early
                 if early_term:
                     # terminate early and give 100 cost for each try left
-                    return 100 * (self.number_of_iterations - iteration) * len(self.directions) + 100 * (
+                    return 1 * (self.number_of_iterations - iteration) * len(self.directions) + 1 * (
                             len(self.directions) - d) + cost
             # increase difficulty of terrain
-            self.randomize_terrain(self.start_terrain_height * iteration)
+            next_height = self.start_terrain_height + self.height_per_iteration * iteration
+            self.sim.randomize_terrain(next_height)
+            print(f"height {next_height}")
         return cost
 
-    def _suggest_walk_params(self, trial, pressure_reset, effort_reset, phase_rest, stability_stop, foot_pid,
-                             hip_pid):
+    def _suggest_walk_params(self, trial, pressure_reset=False, effort_reset=False, phase_rest=False,
+                             stability_stop=False, foot_pid=False, hip_pid=False, ankle_pid=False, trunk_fused=False,
+                             trunk_rpy=False, gyro=False):
         # optimal engine parameters are already loaded from yaml
         node_param_dict = {}
 
@@ -110,26 +136,37 @@ class AbstractWalkStabilization(AbstractWalkOptimization):
                         "i": trial.suggest_uniform(name + "_i", d[0], d[1]),
                         "i_clamp_min": i_clamp[0],
                         "i_clamp_max": i_clamp[1]}
-            self.set_params(pid_dict, client, self.walk)
+            if isinstance(client, list):
+                for c in client:
+                    self.set_params(pid_dict, client, self.walk)
+            else:
+                self.set_params(pid_dict, client, self.walk)
 
         if foot_pid:
-            pid_params("foot_x", self.foot_x_client, (-10, 10), (-1, 1), (-0.1, 0.1), (-10, 10))
-            pid_params("foot_y", self.foot_y_client, (-10, 10), (-1, 1), (-0.1, 0.1), (-10, 10))
+            pid_params("foot_x", self.foot_x_client, (-0.1, 0.1), (-0.1, 0.1), (-0.0, 0.0), (-10, 10))
+            pid_params("foot_y", self.foot_y_client, (-0.1, 0.1), (-0.1, 0.1), (-0.0, 0.0), (-10, 10))
 
         if hip_pid:
-            pid_params("hip_pitch", self.hip_pitch_client, (-10, 10), (-1, 1), (-0.1, 0.1), (-10, 10))
-            pid_params("hip_roll", self.hip_roll_client, (-10, 10), (-1, 1), (-0.1, 0.1), (-10, 10))
+            pid_params("hip_pitch", self.hip_pitch_client, (-2, 2), (-0.2, 0.2), (-0.001, 0.001), (-1, 1))
+            pid_params("hip_roll", self.hip_roll_client, (-2, 2), (-0.2, 0.2), (-0.001, 0.001), (-1, 1))
 
-        # ankle
+        if ankle_pid:
+            pid_params("ankle_pitch", [self.ankle_pitch_client_left, self.ankle_pitch_client_right], (-10, 10), (-1, 1),
+                       (-0.1, 0.1), (-10, 10))
+            pid_params("ankle_roll", [self.ankle_roll_client_left, self.ankle_roll_client_right], (-10, 10), (-1, 1),
+                       (-0.1, 0.1), (-10, 10))
 
-        # (cop)
+        if trunk_fused:
+            pid_params("fused_pitch", self.trunk_fused_pitch_client, (-2, 2), (-0.2, 0.2), (-0.001, 0.001), (-1, 1))
+            pid_params("fused_roll", self.trunk_fused_roll_client, (-2, 2), (-0.2, 0.2), (-0.001, 0.001), (-1, 1))
 
-        # trunk fused
+        if trunk_rpy:
+            pid_params("trunk_pitch", self.trunk_pitch_client, (-2, 2), (-0.2, 0.2), (-0.001, 0.001), (-1, 1))
+            pid_params("trunk_roll", self.trunk_roll_client, (-2, 2), (-0.2, 0.2), (-0.001, 0.001), (-1, 1))
 
-        # trunk rpy
-
-        # trunk gyro
-
+        if gyro:
+            pid_params("gyro_pitch", self.gyro_pitch_client, (-2, 2), (-0.2, 0.2), (-0.001, 0.001), (-1, 1))
+            pid_params("gyro_roll", self.gyro_roll_client, (-2, 2), (-0.2, 0.2), (-0.001, 0.001), (-1, 1))
 
         if self.walk_as_node:
             self.set_params(node_param_dict)
@@ -142,18 +179,16 @@ class WolfgangWalkStabilization(AbstractWalkStabilization):
     def __init__(self, namespace, gui, walk_as_node, sim_type='pybullet'):
         super(WolfgangWalkStabilization, self).__init__(namespace, gui, walk_as_node, "wolfgang", sim_type)
         self.reset_height_offset = 0.005
-        self.start_terrain_height = 0.01
-        self.directions = [[0.1, 0, 0],
-                           [-0.1, 0, 0],
-                           [0, 0.05, 0],
-                           [0, -0.05, 0],
-                           [0, 0, 0.5],
-                           [0, 0, -0.5],
-                           [0.1, 0, 0.5],
-                           [0, 0.05, -0.5],
-                           [0.1, 0.05, 0.5],
-                           [-0.1, -0.05, -0.5]
+        self.start_terrain_height = 0.015
+        self.height_per_iteration = 0.0025
+        start_speeds = (0.4, 0.2, 0.25)
+        self.directions = [[start_speeds[0], 0, 0],
+                           # [0, start_speeds[1], 0],
+                           # [0, 0, start_speeds[2]],
+                           # [-start_speeds[0], - start_speeds[1], 0],
+                           # [-start_speeds[0], 0, start_speeds[2]],
+                           # [start_speeds[0], start_speeds[1], start_speeds[2]]
                            ]
 
     def suggest_walk_params(self, trial):
-        self._suggest_walk_params(trial, False, False, False, False, True)
+        self._suggest_walk_params(trial, phase_rest=True, pressure_reset=True, trunk_rpy=True)

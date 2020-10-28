@@ -65,12 +65,17 @@ class AbstractWalkOptimization(AbstractRosOptimization):
     def correct_pitch(self, x, y, yaw):
         return self.trunk_pitch + self.trunk_pitch_p_coef_forward * x + self.trunk_pitch_p_coef_turn * yaw
 
-    def evaluate_direction(self, x, y, yaw, trial: optuna.Trial, iteration, time_limit, cost_time=False):
+    def evaluate_direction(self, x, y, yaw, trial: optuna.Trial, iteration, time_limit, cost_time=False,
+                           start_speed=True):
         if time_limit == 0:
             time_limit = 1
-        start_time = self.sim.get_time()
-        self.set_cmd_vel(x * iteration, y * iteration, yaw * iteration)
+        if start_speed:
+            # start robot slowly
+            self.set_cmd_vel(x * iteration / 4, y * iteration / 4, yaw * iteration / 4)
+        else:
+            self.set_cmd_vel(x * iteration, y * iteration, yaw * iteration)
         print(F'cmd: {x * iteration} {y * iteration} {yaw * iteration}')
+        start_time = self.sim.get_time()
         orientation_diff = 0.0
         # wait till time for test is up or stopping condition has been reached
         while not rospy.is_shutdown():
@@ -79,6 +84,12 @@ class AbstractWalkOptimization(AbstractRosOptimization):
             if passed_timesteps == 0:
                 # edge case with division by zero
                 passed_timesteps = 1
+            if start_speed:
+                if passed_time > 2:
+                    # use real speed
+                    self.set_cmd_vel(x * iteration, y * iteration, yaw * iteration)
+                elif passed_time > 1:
+                    self.set_cmd_vel(x * iteration / 2, y * iteration / 2, yaw * iteration / 2)
             if passed_time > time_limit:
                 # reached time limit, stop robot
                 self.set_cmd_vel(0, 0, 0)
@@ -95,7 +106,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
             # test if the robot has fallen down
             pos, rpy = self.sim.get_robot_pose_rpy()
             orientation_diff += abs(rpy[0]) + abs(rpy[1] - self.correct_pitch(x, y, yaw))
-            if abs(rpy[0]) > math.radians(45) or abs(rpy[1]) > math.radians(45) or pos[2] < 0.05:
+            if abs(rpy[0]) > math.radians(45) or abs(rpy[1]) > math.radians(45) or pos[2] < self.trunk_height/2:
                 # add extra information to trial
                 trial.set_user_attr('early_termination_at', (
                     x * iteration, y * iteration, yaw * iteration))
