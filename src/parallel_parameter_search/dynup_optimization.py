@@ -20,11 +20,19 @@ from sensor_msgs.msg import Imu, JointState
 
 
 class AbstractDynupOptimization(AbstractRosOptimization):
-    def __init__(self, namespace, robot_name):
+    def __init__(self, namespace, gui, robot, sim_type, foot_link_names=()):
         super().__init__(namespace)
         self.rospack = rospkg.RosPack()
         # set robot urdf and srdf
-        load_robot_param(self.namespace, self.rospack, robot_name)
+        load_robot_param(self.namespace, self.rospack, robot)
+        if sim_type == 'pybullet':
+            urdf_path = self.rospack.get_path(robot + '_description') + '/urdf/robot.urdf'
+            self.sim = PybulletSim(self.namespace, gui, urdf_path=urdf_path,
+                           foot_link_names=foot_link_names)
+        elif sim_type == 'webots':
+            self.sim = WebotsSim(self.namespace, gui, robot)
+        else:
+            print(f'sim type {sim_type} not known')
         # load dynup params
         load_yaml_to_param(self.namespace, 'bitbots_dynup',
                            '/config/dynup_optimization.yaml',
@@ -82,6 +90,13 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         self.sim.set_gravity(True)
         self.reset_position()
 
+class WolfgangOptimization(AbstractDynupOptimization):
+    def __init__(self, namespace, gui, walk_as_node, sim_type='pybullet'):
+        super(WolfgangOptimization, self).__init__(namespace, gui, 'wolfgang', sim_type)
+        self.reset_height_offset = 0.005
+
+def suggest_walk_params(self, trial):
+    self._suggest_walk_params(trial, (0.38, 0.42), (0.15, 0.25), 0.1, 0.03, 0.03)
 
 def load_robot_param(namespace, rospack, name):
     rospy.set_param(namespace + '/robot_type_name', name)
