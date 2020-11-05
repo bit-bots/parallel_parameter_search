@@ -82,7 +82,7 @@ class PybulletSim(AbstractSim):
         self.sim_interface: ROSInterface = ROSInterface(self.sim, namespace="/" + self.namespace + '/', node=False)
 
     def step_sim(self):
-        self.sim.step()
+        self.sim_interface.step()
 
     def set_gravity(self, on):
         self.sim.set_gravity(on)

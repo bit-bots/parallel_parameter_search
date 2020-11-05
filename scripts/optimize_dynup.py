@@ -24,7 +24,6 @@ parser.add_argument('--robot', help='Robot model that should be used {wolfgang, 
 parser.add_argument('--sim', help='Simulator type that should be used {pybullet, webots} ', default=None, type=str,
                     required=True)
 parser.add_argument('--gui', help="Activate gui", action='store_true')
-parser.add_argument('--node', help="Run walking as extra node", action='store_true')
 parser.add_argument('--startup', help='Startup trials', default=1000,
                     type=int, required=True)
 parser.add_argument('--trials', help='Trials to be evaluated', default=10000,
@@ -49,7 +48,7 @@ study = optuna.create_study(study_name=args.name, storage=args.storage, directio
 study.set_user_attr("sampler", args.sampler)
 
 if args.robot == "wolfgang":
-    objective = WolfgangOptimization('worker', gui=args.gui, walk_as_node=args.node, sim_type=args.sim)
+    objective = WolfgangOptimization('worker', gui=args.gui, sim_type=args.sim)
 else:
     print(f"robot type \"{args.robot}\" not known.")
 
