@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from bitbots_msgs.msg import DynUpGoal
+from bitbots_msgs.msg import DynUpGoal, DynUpActionFeedback, DynUpActionGoal, DynUpActionResult
 import bitbots_dynup
 
 import math
@@ -42,21 +42,26 @@ class AbstractDynupOptimization(AbstractRosOptimization):
                                               namespace=self.namespace)
         self.robot_state_publisher = roslaunch.core.Node('robot_state_publisher', 'robot_state_publisher', 'robot_state_publisher',
                                                          namespace=self.namespace)
-        self.dynup_node.remap_args = [("/tf", "tf"),("/tf_static", "tf_static"),("/clock", "clock")]
+        self.dynup_node.remap_args = [("/tf", "tf"),("animation_motor_goals", "DynamixelController/command"),("/tf_static", "tf_static"),("/clock", "clock")]
         self.robot_state_publisher.remap_args = [("/tf", "tf"),("/tf_static", "tf_static"),("/clock", "clock")]
         load_yaml_to_param("/robot_description_kinematics", robot + '_moveit_config',
                            '/config/kinematics.yaml', self.rospack)
         self.launch.launch(self.robot_state_publisher)
         self.launch.launch(self.dynup_node)
         # self.dynconf_client = dynamic_reconfigure.client.Client(self.namespace + '/' + 'dynup', timeout=10)
-        self.dynup_request_pub = rospy.Publisher(self.namespace + '/dynup', DynUpGoal, queue_size=10)
+        self.dynup_request_pub = rospy.Publisher(self.namespace + '/dynup/goal', DynUpActionGoal, queue_size=10)
         self.number_of_iterations = 10
-        self.time_limit = 10
+        self.time_limit = 20
         self.time_difference = 0
         self.reset_height_offset = None
         self.reset_rpy_offset = [0, math.pi / 2, 0]
         self.trunk_height = 0.38  # rosparam.get_param(self.namespace + "/dynup/trunk_height")
         self.trunk_pitch = 0.18  # TODO
+
+        self.feedback_subscriber = rospy.Subscriber("dynup/feedback", DynUpActionFeedback, self.feedback_cb)
+
+    def feedback_cb(self, msg):
+        rospy.logerr(msg)
 
     def objective(self, trial):
         self.suggest_params(trial)
@@ -67,9 +72,14 @@ class AbstractDynupOptimization(AbstractRosOptimization):
 
     def run_attempt(self):
         start_time = self.sim.get_time()
-        msg = DynUpGoal()
-        msg.front = 1
+        msg = DynUpActionGoal()
+        msg.goal.front = 1
         self.dynup_request_pub.publish(msg)
+        start_time = self.sim.get_time()
+        while not rospy.is_shutdown():
+            self.sim.step_sim()
+            if self.sim.get_time() - start_time > self.time_limit:
+                return
         #self.time_difference = self.sim.get_time() - start_time
 
     def compute_cost(self):
@@ -87,7 +97,6 @@ class AbstractDynupOptimization(AbstractRosOptimization):
 
     def reset(self):
         # reset simulation
-        # let the robot do a few steps in the air to get correct walkready position
         self.sim.set_gravity(False)
         self.sim.reset_robot_pose((0, 0, 1), (0, 0, 0, 1))
         self.reset_position()
