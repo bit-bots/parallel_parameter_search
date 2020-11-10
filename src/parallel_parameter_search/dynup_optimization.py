@@ -58,10 +58,12 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         self.trunk_height = 0.38  # rosparam.get_param(self.namespace + "/dynup/trunk_height")
         self.trunk_pitch = 0.18  # TODO
 
-        self.feedback_subscriber = rospy.Subscriber("dynup/feedback", DynUpActionFeedback, self.feedback_cb)
+        self.result_subscriber = rospy.Subscriber(self.namespace + "/dynup/result", DynUpActionResult, self.result_cb)
+        self.trial_finished = False
 
-    def feedback_cb(self, msg):
-        rospy.logerr(msg)
+    def result_cb(self, msg):
+        self.trial_finished = True
+        rospy.logerr("Trial Finished.")
 
     def objective(self, trial):
         self.suggest_params(trial)
@@ -76,9 +78,15 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         msg.goal.front = 1
         self.dynup_request_pub.publish(msg)
         start_time = self.sim.get_time()
+        second_time = self.sim.get_time() + self.time_limit
         while not rospy.is_shutdown():
             self.sim.step_sim()
-            if self.sim.get_time() - start_time > self.time_limit:
+            if self.trial_finished:
+                second_time = self.sim.get_time()
+                self.trial_finished = False
+            if self.sim.get_time() - start_time > self.time_limit or self.sim.get_time() - second_time > 3:
+                print("Time: " + str(self.sim.get_time() - start_time))
+                self.trial_finished = False
                 return
         #self.time_difference = self.sim.get_time() - start_time
 
