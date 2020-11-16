@@ -310,14 +310,14 @@ class DarwinWalkOptimization(AbstractWalkOptimization):
         self.reset_height_offset = 0.09
         self.directions = [[0.05, 0, 0],
                            [-0.05, 0, 0],
-                           [0, 0.025, 0],
-                           [0, -0.025, 0],
-                           [0, 0, 0.25],
-                           [0, 0, -0.25],
-                           [0.05, 0.25, 0],
-                           [0.05, -0.25, 0],
-                           [0.05, 0, -0.25],
-                           [-0.05, 0, 0.25],
+                           [0, 0.0125, 0],
+                           [0, -0.0125, 0],
+                           [0, 0, 0.125],
+                           [0, 0, -0.125],
+                           [0.05, 0.025, 0],
+                           [0.05, -0.025, 0],
+                           [0.05, 0, -0.025],
+                           [-0.05, 0, 0.025],
                            ]
         if sim_type == 'pybullet':
             urdf_path = self.rospack.get_path('darwin_description') + '/urdf/robot.urdf'
@@ -335,8 +335,9 @@ class DarwinWalkOptimization(AbstractWalkOptimization):
             param_dict[name] = trial.suggest_uniform(name, min_value, max_value)
 
         add('double_support_ratio', 0.0, 0.5)
-        add('freq', 1.5, 3)
-        # add('foot_distance', 0.08, 0.10)
+        add('freq', 2, 10)
+        #param_dict['freq'] = 1
+        #add('foot_distance', 0.08, 0.10)
         param_dict['foot_distance'] = 0.10
 
         add('trunk_height', 0.18, 0.24)
