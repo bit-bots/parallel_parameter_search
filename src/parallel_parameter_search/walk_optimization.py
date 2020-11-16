@@ -16,6 +16,7 @@ from nav_msgs.msg import Odometry
 from parallel_parameter_search.abstract_ros_optimization import AbstractRosOptimization
 from parallel_parameter_search.utils import set_param_to_file, load_yaml_to_param
 from parallel_parameter_search.simulators import PybulletSim, WebotsSim
+from sensor_msgs.msg import Imu, JointState
 
 
 class AbstractWalkOptimization(AbstractRosOptimization):
@@ -48,71 +49,72 @@ class AbstractWalkOptimization(AbstractRosOptimization):
             self.walk = PyWalk(self.namespace)
 
         self.number_of_iterations = 10
-        self.time_limit = 20
+        self.time_limit = 10
 
         # needs to be specified by subclasses
         self.directions = None
         self.reset_height_offset = None
+        self.reset_rpy_offset = [0, 0, 0]
 
     def objective(self, trial):
-        # get parameter to evaluate from optuna
-        self.suggest_walk_params(trial)
-        self.reset()
-
-        cost = 0
-        # starting with hardest first, to get faster early termination
-        # todo maybe start with half that speed but make more trials
-        # todo eine cleverere reinfolge für die verschiedenen fälle, auch abhängig davon welche geschafft oder nicht geschafft wurden
-        # todo add scenarios where the speed command changes multiple times while the robot is already walking
-        # todo take into account that falling to a specific site is propably only depending on a subset of the parameters
-
-        for eval_try in range(1, self.number_of_iterations + 1):
-            failed_directions_try = 0
-            d = 0
-            for direction in self.directions:
-                d += 1
-                self.reset_position()
-                early_term, cost_try = self.evaluate_direction(*direction, trial, eval_try)
-                cost += cost_try
-                # check if we failed in this direction and terminate this trial early
-                if early_term:
-                    # terminate early and give 100 cost for each try left
-                    return 100 * (self.number_of_iterations - eval_try) * len(self.directions) + 100 * (
-                            len(self.directions) - d) + cost
-            if failed_directions_try == len(self.directions):
-                # terminate early if we didn't succeed at all
-                # add future costs of missed trials
-                return cost + (self.number_of_iterations - eval_try) * len(self.directions) * 100
-        return cost
+        raise NotImplementedError
 
     def suggest_walk_params(self, trial):
         raise NotImplementedError
 
-    def evaluate_direction(self, x, y, yaw, trial: optuna.Trial, iteration):
-        start_time = self.sim.get_time()
-        self.set_cmd_vel(x * iteration, y * iteration, yaw * iteration)
-        print(F'cmd: {x * iteration} {y * iteration} {yaw * iteration}')
+    def correct_pitch(self, x, y, yaw):
+        return self.trunk_pitch + self.trunk_pitch_p_coef_forward * x + self.trunk_pitch_p_coef_turn * yaw
 
+    def evaluate_direction(self, x, y, yaw, trial: optuna.Trial, iteration, time_limit, cost_time=False,
+                           start_speed=True):
+        if time_limit == 0:
+            time_limit = 1
+        if start_speed:
+            # start robot slowly
+            self.set_cmd_vel(x * iteration / 4, y * iteration / 4, yaw * iteration / 4)
+        else:
+            self.set_cmd_vel(x * iteration, y * iteration, yaw * iteration)
+        print(F'cmd: {x * iteration} {y * iteration} {yaw * iteration}')
+        start_time = self.sim.get_time()
+        orientation_diff = 0.0
         # wait till time for test is up or stopping condition has been reached
         while not rospy.is_shutdown():
             passed_time = self.sim.get_time() - start_time
-            if passed_time > self.time_limit:
+            passed_timesteps = passed_time / self.sim.get_timestep()
+            if passed_timesteps == 0:
+                # edge case with division by zero
+                passed_timesteps = 1
+            if start_speed:
+                if passed_time > 2:
+                    # use real speed
+                    self.set_cmd_vel(x * iteration, y * iteration, yaw * iteration)
+                elif passed_time > 1:
+                    self.set_cmd_vel(x * iteration / 2, y * iteration / 2, yaw * iteration / 2)
+            if passed_time > time_limit:
                 # reached time limit, stop robot
                 self.set_cmd_vel(0, 0, 0)
 
-            if passed_time > self.time_limit + 5:
+            if passed_time > time_limit + 2:
                 # robot should have stopped now, evaluate the fitness
-                return self.compute_cost(x * iteration, y * iteration, yaw * iteration)
+                if cost_time:
+                    return False, 0
+                else:
+                    # return self.compute_cost(x * iteration, y * iteration, yaw * iteration)
+                    early_term, cost = self.compute_cost(x * iteration, y * iteration, yaw * iteration)
+                    return early_term, orientation_diff / passed_timesteps
 
             # test if the robot has fallen down
             pos, rpy = self.sim.get_robot_pose_rpy()
-            if abs(rpy[0]) > math.radians(45) or abs(rpy[1]) > math.radians(45):
+            orientation_diff += abs(rpy[0]) + abs(rpy[1] - self.correct_pitch(x, y, yaw))
+            if abs(rpy[0]) > math.radians(45) or abs(rpy[1]) > math.radians(45) or pos[2] < self.trunk_height/2:
                 # add extra information to trial
                 trial.set_user_attr('early_termination_at', (
                     x * iteration, y * iteration, yaw * iteration))
-                early_term, cost = self.compute_cost(x * iteration, y * iteration, yaw * iteration)
-                return True, cost
-
+                if cost_time:
+                    return True, 1 - min(1, (passed_time / (time_limit + 2)))
+                else:
+                    # return True, cost
+                    return True, 1 - min(1, (passed_time / (time_limit + 2)))
             try:
                 if self.walk_as_node:
                     # give time to other algorithms to compute their responses
@@ -120,14 +122,10 @@ class AbstractWalkOptimization(AbstractRosOptimization):
                     time.sleep(0.01)
                 else:
                     current_time = self.sim.get_time()
-                    # print(current_time - self.last_time)
-                    # print(self.current_speed)
-                    # print(self.sim.get_imu_msg())
-                    # print(self.sim.get_joint_state_msg())
                     joint_command = self.walk.step(current_time - self.last_time, self.current_speed,
                                                    self.sim.get_imu_msg(),
-                                                   self.sim.get_joint_state_msg())
-                    # print(joint_command)
+                                                   self.sim.get_joint_state_msg(),
+                                                   self.sim.get_pressure_left(), self.sim.get_pressure_right())
                     self.sim.set_joints(joint_command)
                     self.last_time = current_time
                 self.sim.step_sim()
@@ -143,11 +141,36 @@ class AbstractWalkOptimization(AbstractRosOptimization):
             self.sim.step_sim()
             current_time = self.sim.get_time()
             joint_command = self.walk.step(current_time - self.last_time, self.current_speed, self.sim.get_imu_msg(),
-                                           self.sim.get_joint_state_msg())
-            #print(joint_command)
+                                           self.sim.get_joint_state_msg(), self.sim.get_pressure_left(),
+                                           self.sim.get_pressure_right())
+            # print(joint_command)
             self.sim.set_joints(joint_command)
             self.last_time = current_time
 
+    def complete_walking_step(self, number_steps=1, fake=False):
+        start_time = self.sim.get_time()
+        for i in range(number_steps):
+            # does a double step
+            while not rospy.is_shutdown():
+                current_time = self.sim.get_time()
+                joint_command = self.walk.step(current_time - self.last_time, self.current_speed,
+                                               self.sim.get_imu_msg(),
+                                               self.sim.get_joint_state_msg(), self.sim.get_pressure_left(),
+                                               self.sim.get_pressure_right())
+                self.sim.set_joints(joint_command)
+                self.last_time = current_time
+                if not fake:
+                    self.sim.step_sim()
+                phase = self.walk.get_phase()
+                # phase will advance by the simulation time times walk frequency
+                next_phase = phase + self.sim.get_timestep() * self.walk.get_freq()
+                # do double step to always have torso at same position
+                if (phase >= 0.5 and next_phase >= 1.0):  # or (phase < 0.5 and next_phase >= 0.5):
+                    # next time the walking step will change
+                    break
+                if self.sim.get_time() - start_time > 5:
+                    # if walking does not perform step correctly due to impossible IK problems, do a timeout
+                    break
 
     def compute_cost(self, x, y, yaw):
         """
@@ -166,9 +189,8 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         cost = abs(current_pose[0] - correct_pose[0]) \
                + abs(current_pose[1] - correct_pose[1]) \
                + abs(current_pose[2] - correct_pose[
-            2]) * yaw_factor  # todo take closest distance in cricle through 0 into account
+            2]) * yaw_factor  # todo take closest distance in circle through 0 into account
         # method doesn't work for going forward and turning at the same times
-        # todo better computation of correct end pose, maybe use foot position
         if yaw != 0:  # and (x != 0 or y != 0):
             # just give 0 cost for surviving
             cost = 0
@@ -177,18 +199,20 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         if yaw == 0 and ((x != 0 and abs(current_pose[0]) < 0.5 * abs(correct_pose[0])) or (
                 y != 0 and abs(current_pose[1]) < 0.5 * abs(correct_pose[1]))):
             early_term = True
+            print("didn't move")
         return early_term, cost
 
     def reset_position(self):
-        height = self.current_params['trunk_height'] + self.reset_height_offset
-        pitch = self.current_params['trunk_pitch']
-        (x, y, z, w) = tf.transformations.quaternion_from_euler(0, pitch, 0)
+        height = self.trunk_height + self.reset_height_offset
+        pitch = self.trunk_pitch
+        (x, y, z, w) = tf.transformations.quaternion_from_euler(self.reset_rpy_offset[0],
+                                                                self.reset_rpy_offset[1] + pitch,
+                                                                self.reset_rpy_offset[2])
 
         self.sim.reset_robot_pose((0, 0, height), (x, y, z, w))
 
     def reset(self):
         # reset simulation
-        # self.sim.reset()
         # let the robot do a few steps in the air to get correct walkready position
         self.sim.set_gravity(False)
         self.sim.reset_robot_pose((0, 0, 1), (0, 0, 0, 1))
@@ -196,23 +220,24 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         if self.walk_as_node:
             self.sim.run_simulation(duration=2, sleep=0.01)
         else:
-            self.run_walking(duration=2)
+            self.complete_walking_step()
         self.set_cmd_vel(0, 0, 0)
         if self.walk_as_node:
             self.sim.run_simulation(duration=2, sleep=0.01)
         else:
-            self.run_walking(duration=2)
+            self.complete_walking_step()
         self.sim.set_gravity(True)
         self.reset_position()
-        if self.walk_as_node:
-            self.sim.run_simulation(duration=2, sleep=0.01)
-        else:
-            self.run_walking(duration=2)
+        # if self.walk_as_node:
+        #    self.sim.run_simulation(duration=1, sleep=0.01)
+        # else:
+        #    self.run_walking(duration=1)
 
     def set_cmd_vel(self, x, y, yaw):
         msg = Twist()
         msg.linear.x = x
         msg.linear.y = y
+        msg.linear.z = 0
         msg.angular.z = yaw
         if self.walk_as_node:
             self.cmd_vel_pub.publish(msg)
