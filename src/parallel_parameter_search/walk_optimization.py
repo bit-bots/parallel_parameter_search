@@ -191,7 +191,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
                + abs(current_pose[2] - correct_pose[
             2]) * yaw_factor  # todo take closest distance in circle through 0 into account
         # method doesn't work for going forward and turning at the same times
-        if yaw != 0:  # and (x != 0 or y != 0):
+        if yaw != 0:
             # just give 0 cost for surviving
             cost = 0
         # test if robot moved at all for simple case
