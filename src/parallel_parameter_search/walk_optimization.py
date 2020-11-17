@@ -174,7 +174,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
 
     def compute_cost(self, x, y, yaw):
         """
-        x,y,yaw have to be either 1 for being goo, -1 for being bad or 0 for making no difference
+        x,y,yaw have to be either 1 for being good, -1 for being bad or 0 for making no difference
         """
         # factor to increase the weight of the yaw since it is a different unit then x and y
         yaw_factor = 5
