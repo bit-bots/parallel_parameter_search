@@ -228,10 +228,6 @@ class AbstractWalkOptimization(AbstractRosOptimization):
             self.complete_walking_step()
         self.sim.set_gravity(True)
         self.reset_position()
-        # if self.walk_as_node:
-        #    self.sim.run_simulation(duration=1, sleep=0.01)
-        # else:
-        #    self.run_walking(duration=1)
 
     def set_cmd_vel(self, x, y, yaw):
         msg = Twist()
