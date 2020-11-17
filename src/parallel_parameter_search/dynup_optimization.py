@@ -1,22 +1,20 @@
 #!/usr/bin/env python3
 
-from bitbots_msgs.msg import DynUpGoal, DynUpActionFeedback, DynUpActionGoal, DynUpActionResult
-import bitbots_dynup
+from bitbots_msgs.msg import DynUpActionGoal, DynUpActionResult, JointCommand
+
 
 import math
-import time
 
-import dynamic_reconfigure.client
-import optuna
 import roslaunch
 import rospkg
-import rospy, rosparam
+import rospy
 import tf
 
 from parallel_parameter_search.abstract_ros_optimization import AbstractRosOptimization
 from parallel_parameter_search.utils import set_param_to_file, load_yaml_to_param
 from parallel_parameter_search.simulators import PybulletSim
-from sensor_msgs.msg import Imu, JointState
+from sensor_msgs.msg import Imu
+
 
 
 class AbstractDynupOptimization(AbstractRosOptimization):
@@ -48,8 +46,9 @@ class AbstractDynupOptimization(AbstractRosOptimization):
                            '/config/kinematics.yaml', self.rospack)
         self.launch.launch(self.robot_state_publisher)
         self.launch.launch(self.dynup_node)
-        # self.dynconf_client = dynamic_reconfigure.client.Client(self.namespace + '/' + 'dynup', timeout=10)
+
         self.dynup_request_pub = rospy.Publisher(self.namespace + '/dynup/goal', DynUpActionGoal, queue_size=10)
+        self.dynamixel_controller_pub = rospy.Publisher(self.namespace + "/DynamixelController/command", JointCommand)
         self.number_of_iterations = 10
         self.time_limit = 20
         self.time_difference = 0
@@ -59,20 +58,35 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         self.trunk_pitch = 0.18  # TODO
 
         self.result_subscriber = rospy.Subscriber(self.namespace + "/dynup/result", DynUpActionResult, self.result_cb)
-        self.trial_finished = False
+        self.dynup_complete = False
+
+        self.imu_subscriber = rospy.Subscriber(self.namespace + "/imu/data", Imu, self.imu_cb)
+
+        self.imu_offset_sum = 0
+        self.trunk_height_offset_sum = 0
+        self.trial_duration = 0
+        self.trial_running = False
 
     def result_cb(self, msg):
-        self.trial_finished = True
-        rospy.logerr("Trial Finished.")
+        self.dynup_complete = True
+        rospy.logerr("Dynup complete.")
+
+    def imu_cb(self, msg):
+        self.imu_offset_sum += abs(abs(msg.orientation.y)-0.07)
+        pos, rpy = self.sim.get_robot_pose_rpy()
+        self.trunk_height_offset_sum += pos[2]
+
+
+
 
     def objective(self, trial):
         self.suggest_params(trial)
         self.reset()
         self.run_attempt()
-
-        return 1
+        return self.imu_offset_sum + self.trunk_height_offset_sum + 10 * self.trial_duration
 
     def run_attempt(self):
+        self.trial_running = True
         start_time = self.sim.get_time()
         msg = DynUpActionGoal()
         msg.goal.front = 1
@@ -81,17 +95,15 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         second_time = self.sim.get_time() + self.time_limit
         while not rospy.is_shutdown():
             self.sim.step_sim()
-            if self.trial_finished:
+            if self.dynup_complete:
                 second_time = self.sim.get_time()
-                self.trial_finished = False
+                self.dynup_complete = False
             if self.sim.get_time() - start_time > self.time_limit or self.sim.get_time() - second_time > 3:
-                print("Time: " + str(self.sim.get_time() - start_time))
-                self.trial_finished = False
+                self.trial_duration = self.sim.get_time() - start_time
+                self.dynup_complete = False
+                self.trial_running = False
                 return
         #self.time_difference = self.sim.get_time() - start_time
-
-    def compute_cost(self):
-        return 1.0
 
     def reset_position(self):
 
@@ -104,12 +116,26 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         self.sim.reset_robot_pose((0, 0, height), (x, y, z, w))
 
     def reset(self):
+        # reset params
+        self.imu_offset_sum = 0
+        self.trunk_height_offset_sum = 0
         # reset simulation
         self.sim.set_gravity(False)
         self.sim.reset_robot_pose((0, 0, 1), (0, 0, 0, 1))
+        time = self.sim.get_time()
+        while not time - self.sim.get_time() < -2:
+            msg = JointCommand()
+            msg.joint_names = ["HeadPan", "HeadTilt", "LElbow", "LShoulderPitch", "LShoulderRoll", "RElbow",
+                               "RShoulderPitch", "RShoulderRoll", "LHipYaw", "LHipRoll", "LHipPitch", "LKnee",
+                               "LAnklePitch", "LAnkleRoll", "RHipYaw", "RHipRoll", "RHipPitch", "RKnee", "RAnklePitch",
+                               "RAnkleRoll"]
+            msg.positions = [0, 0, 0.79, 0, 0, -0.79, 0, 0, -0.01, 0.06, 0.47, 1.01, -0.45, 0.06, 0.01, -0.06, -0.47,
+                             -1.01, 0.45, -0.06]
+            self.dynamixel_controller_pub.publish(msg)
+            self.sim.step_sim()
         self.reset_position()
         self.sim.set_gravity(True)
-        self.sim.run_simulation(duration=2, sleep=0.01)
+
 
 
 class WolfgangOptimization(AbstractDynupOptimization):
