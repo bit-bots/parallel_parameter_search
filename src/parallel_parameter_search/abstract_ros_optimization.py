@@ -15,11 +15,6 @@ class AbstractRosOptimization:
         rospy.set_param('/use_sim_time', True)
         self.current_params = None
 
-        # unfortunately we can not start the node in our namespace. therefore it is anonymous, so names don't collide
-        # rospy.names._set_caller_id('/bbb')
-        # print(rosgraph.names.get_ros_namespace(argv='__ns:=/bbb'))
-        # rospy.init_node('optimizer', anonymous=True)#, argv='__ns:=/aaa')
-
         self.launch = roslaunch.scriptapi.ROSLaunch()
         self.launch.start()
         node_names = rosnode.get_node_names()
@@ -44,12 +39,6 @@ class AbstractRosOptimization:
         self.dynconf_client = None
         self.sim = None
 
-        while False:
-            try:
-                self.launch.spin_once()
-            except KeyboardInterrupt:
-                exit(0)
-
     def set_params(self, param_dict, client, node_to_spin=None):
         self.current_params = param_dict
         # need to let run clock while setting parameters, otherwise service system behind it will block
@@ -61,7 +50,6 @@ class AbstractRosOptimization:
             msg = Clock()
             while not stop_clock or rospy.is_shutdown():
                 self.sim.step_sim()
-                #print("clock")
                 # this magic sleep is necessary because of reasons
                 sleep(0.01)
                 msg.clock = rospy.Time.from_sec(self.sim.get_time())

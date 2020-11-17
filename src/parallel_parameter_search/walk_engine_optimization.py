@@ -131,14 +131,8 @@ class AbstractWalkEngine(AbstractWalkOptimization):
         # necessary for correct reset
         self.trunk_height = self.current_params["trunk_height"]
         self.trunk_pitch = self.current_params["trunk_pitch"]
-        try:
-            self.trunk_pitch_p_coef_forward = self.current_params["trunk_pitch_p_coef_forward"]
-        except:
-            self.trunk_pitch_p_coef_forward = 0.0
-        try:
-            self.trunk_pitch_p_coef_turn = self.current_params["trunk_pitch_p_coef_turn"]
-        except:
-            self.trunk_pitch_p_coef_turn = 0.0
+        self.trunk_pitch_p_coef_forward = self.current_params.get("trunk_pitch_p_coef_forward", 0)
+        self.trunk_pitch_p_coef_turn = self.current_params.get("trunk_pitch_p_coef_turn", 0)
 
 
 class WolfgangWalkEngine(AbstractWalkEngine):
@@ -168,10 +162,6 @@ class OP3WalkEngine(AbstractWalkEngine):
                                             foot_link_names=['r_ank_roll_link', 'l_ank_roll_link'],
                                             start_speeds=[0.05, 0.025, 0.25])
         self.reset_height_offset = 0.01
-
-        if sim_type == 'pybullet':
-            pass
-            # self.sim.set_joints_dict({"l_sho_roll": 1.0, "r_sho_roll": -1.0})
 
     def suggest_walk_params(self, trial):
         self._suggest_walk_params(trial, (0.13, 0.24), (0.08, 0.15), 0.02, 0.02, 0.02)

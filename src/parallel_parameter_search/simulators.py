@@ -186,5 +186,3 @@ class WebotsSim(AbstractSim):
     def get_pressure_right(self):
         rospy.logwarn_once("pressure method not implemented")
         return FootPressure()
-
-# todo gazebo
