@@ -166,7 +166,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
 
     def compute_cost(self, x, y, yaw):
         """
-        x,y,yaw have to be either 1 for being goo, -1 for being bad or 0 for making no difference
+        x,y,yaw have to be either 1 for being good, -1 for being bad or 0 for making no difference
         """
         # factor to increase the weight of the yaw since it is a different unit then x and y
         yaw_factor = 5
@@ -182,7 +182,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
                + abs(current_pose[2] - correct_pose[
             2]) * yaw_factor
         # method doesn't work for going forward and turning at the same times
-        if yaw != 0:  # and (x != 0 or y != 0):
+        if yaw != 0:
             # just give 0 cost for surviving
             cost = 0
         # test if robot moved at all for simple case
@@ -219,10 +219,6 @@ class AbstractWalkOptimization(AbstractRosOptimization):
             self.complete_walking_step()
         self.sim.set_gravity(True)
         self.reset_position()
-        # if self.walk_as_node:
-        #    self.sim.run_simulation(duration=1, sleep=0.01)
-        # else:
-        #    self.run_walking(duration=1)
 
     def set_cmd_vel(self, x, y, yaw):
         msg = Twist()
