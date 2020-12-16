@@ -21,6 +21,7 @@ from sensor_msgs.msg import Imu, JointState
 class AbstractMoveBaseOptimization(AbstractRosOptimization):
 
     def __init__(self, namespace, robot_name, gui='false', sim_type='pybullet', foot_link_names=()):
+        #todo add option to just run in visualization??? no fall detection put much faster
         super().__init__(namespace)
         self.rospack = rospkg.RosPack()
         # set robot urdf and srdf
@@ -107,17 +108,18 @@ class AbstractMoveBaseOptimization(AbstractRosOptimization):
                                                      self.result_cb,
                                                      queue_size=1)
 
-        self.number_of_iterations = 10
-        self.time_limit = 100
+        self.number_of_iterations = 1
+        #todo maybe reset timelimit based on best time
+        self.time_limit = 60
 
         # needs to be specified by subclasses
         self.reset_height_offset = None
         self.reset_rpy_offset = [0, 0, 0]
 
         self.goals = [create_goal_msg(1, 0, 0),
-                      create_goal_msg(-1, 0, 0),
                       create_goal_msg(0, 1, 0),
                       create_goal_msg(0, 0, math.pi / 2),
+                      create_goal_msg(-1, 0, 0),
                       create_goal_msg(2, 3, math.pi / 2)]
 
     def objective(self, trial: optuna.Trial):
@@ -150,19 +152,19 @@ class AbstractMoveBaseOptimization(AbstractRosOptimization):
             param_dict[name] = value
             trial.set_user_attr(name, value)
 
-        add('max_vel_x', 0, 1)
-        add('max_vel_y', 0, 1)
-        add('max_vel_trans', 0, trial.params["max_vel_x"] + trial.params["max_vel_y"])
-        add('max_vel_theta', 0, 10)
-        fix('min_vel_x', - trial.params["max_vel_x"])
+        add('max_vel_x', 0.1, 1)
+        add('min_vel_x', -1, -0.05)
+        add('max_vel_y', 0.08, 1)
         fix('min_vel_y', - trial.params["max_vel_y"])
+        add('max_vel_trans', 0, trial.params["max_vel_x"] + trial.params["max_vel_y"])
         fix('min_vel_trans', 0)
+        add('max_vel_theta', 0.7, 10)
         fix('min_vel_theta', 0)
 
-        add('acc_lim_x', 0, 5)
-        add('acc_lim_y', 0, 5)
-        add('acc_lim_trans', 0, 5)
-        add('acc_lim_theta', 0, 50)
+        add('acc_lim_x', 1, 5)
+        add('acc_lim_y', 1, 5)
+        add('acc_lim_trans', 1, 5)
+        add('acc_lim_theta', 4, 50)
 
         add('path_distance_bias', 0, 10)
         add('goal_distance_bias', 0, 10)
@@ -224,6 +226,7 @@ class AbstractMoveBaseOptimization(AbstractRosOptimization):
         return False
 
     def reset_position(self):
+        self.sim.run_simulation(1, 0.001)
         height = self.trunk_height + self.reset_height_offset
         pitch = self.trunk_pitch
         (x, y, z, w) = tf.transformations.quaternion_from_euler(self.reset_rpy_offset[0],
@@ -231,6 +234,8 @@ class AbstractMoveBaseOptimization(AbstractRosOptimization):
                                                                 self.reset_rpy_offset[2])
 
         self.sim.reset_robot_pose((0, 0, height), (x, y, z, w))
+        self.sim.run_simulation(1, 0.001)
+
 
     def reset(self):
         # cancel goals and wait till robot stopped in walkready

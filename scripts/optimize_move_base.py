@@ -13,14 +13,14 @@ import rospy
 
 from parallel_parameter_search.move_base_optimization import WolfgangMoveBaseOptimization
 
-
 parser = argparse.ArgumentParser()
 parser.add_argument('--storage', help='Database SQLAlchemy string, e.g. postgresql://USER:PASS@SERVER/DB_NAME',
                     default=None, type=str, required=False)
 parser.add_argument('--name', help='Name of the study', default=None, type=str, required=True)
 parser.add_argument('--robot', help='Robot model that should be used {wolfgang, darwin, op3, nao, Talos, reemc} ',
                     default='wolfgang', type=str, required=False)
-parser.add_argument('--sim', help='Simulator type that should be used {pybullet, webots} ', default='pybullet', type=str,
+parser.add_argument('--sim', help='Simulator type that should be used {pybullet, webots} ', default='pybullet',
+                    type=str,
                     required=False)
 parser.add_argument('--gui', help="Activate gui", action='store_true')
 parser.add_argument('--startup', help='Startup trials', default=1000,
@@ -50,4 +50,17 @@ if args.robot == "wolfgang":
 else:
     print(f"robot type \"{args.robot}\" not known.")
 
+# give known set of parameters as initial knowledge
+study.enqueue_trial({"max_vel_x": 0.1,
+                     "min_vel_x": -0.05,
+                     "max_vel_y": 0.08,
+                     "max_vel_theta": 0.7,
+                     "acc_lim_x": 1.0,
+                     "acc_lim_y": 1.0,
+                     "acc_lim_theta": 4.0,
+                     "acc_trans_limit": 1.0,
+                     "path_distance_bias": 5,
+                     "goal_distance_bias": 10.0,
+                     "occdist_scale": 0.1,
+                     "twirling_scale": 5.0})
 study.optimize(objective.objective, n_trials=args.trials, show_progress_bar=True)
