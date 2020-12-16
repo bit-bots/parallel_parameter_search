@@ -24,21 +24,35 @@ class AbstractMoveBaseOptimization(AbstractRosOptimization):
         # set robot urdf and srdf
         load_robot_param(self.namespace, self.rospack, robot_name)
 
-        # start move base launch file, since its easier
+        if sim_type == 'pybullet':
+            urdf_path = self.rospack.get_path(robot_name + '_description') + '/urdf/robot.urdf'
+            self.sim = PybulletSim(self.namespace, gui, urdf_path=urdf_path,
+                                   foot_link_names=foot_link_names, ros_active=True)
+        elif sim_type == 'webots':
+            self.sim = WebotsSim(self.namespace, gui, robot_name)
+        else:
+            print(f'sim type {sim_type} not known')
+
+        # start move base launch file, since its easier. provide namespace as argument
         uuid = roslaunch.rlutil.get_or_generate_uuid(None, False)
         roslaunch.configure_logging(uuid)
         path = self.rospack.get_path("bitbots_move_base")
-        self.launch.parent = roslaunch.parent.ROSLaunchParent(uuid, [path + "/launch/pathfinding_move_base.launch"],
-                                                              namespace=self.namespace)
+        cli_args = [path + "/launch/move_base_in_ns.launch", 'ns:=' + self.namespace]
+        roslaunch_args = cli_args[1:]
+        roslaunch_file = [(roslaunch.rlutil.resolve_launch_arguments(cli_args)[0], roslaunch_args)]
+        self.launch.parent = roslaunch.parent.ROSLaunchParent(uuid, roslaunch_file)
         self.launch.start()
 
         # start walking with special parameters that have no limits
         # todo which walk parameter file should be used. maybe find better solution for this
         load_yaml_to_param(self.namespace, 'bitbots_quintic_walk',
-                           '/config/walking_' + robot_name + '_no_limits.yaml', self.rospack)
+                           '/config/walking_' + robot_name + '_robot_no_limits.yaml', self.rospack)
         self.walk_node = roslaunch.core.Node('bitbots_quintic_walk', 'WalkNode', 'walking', namespace=self.namespace)
         self.walk_node.remap_args = [("walking_motor_goals", "DynamixelController/command"), ("/clock", "clock")]
         self.launch.launch(self.walk_node)
+
+        # let nodes start
+        self.sim.run_simulation(1, 0.01)
 
         self.dynconf_client = dynamic_reconfigure.client.Client(self.namespace + '/move_base/DWAPlannerROS', timeout=60)
 
@@ -48,15 +62,6 @@ class AbstractMoveBaseOptimization(AbstractRosOptimization):
         # needs to be specified by subclasses
         self.reset_height_offset = None
         self.reset_rpy_offset = [0, 0, 0]
-
-        if sim_type == 'pybullet':
-            urdf_path = self.rospack.get_path(robot_name + '_description') + '/urdf/robot.urdf'
-            self.sim = PybulletSim(self.namespace, gui, urdf_path=urdf_path,
-                                   foot_link_names=foot_link_names)
-        elif sim_type == 'webots':
-            self.sim = WebotsSim(self.namespace, gui, robot_name)
-        else:
-            print(f'sim type {sim_type} not known')
 
         self.goals = [create_goal_msg(1, 0, 0),
                       create_goal_msg(-1, 0, 0),
@@ -84,7 +89,8 @@ class AbstractMoveBaseOptimization(AbstractRosOptimization):
                             len(self.directions) - d) + cost
         return cost
 
-    def suggest_walk_params(self, trial):
+    def suggest_params(self, trial):
+        # todo
         raise NotImplementedError
 
     def is_goal_reached(self):
@@ -172,5 +178,6 @@ def create_goal_msg(x, y, yaw):
 
 class WolfgangMoveBaseOptimization(AbstractMoveBaseOptimization):
     def __init__(self, namespace, gui, sim_type='pybullet'):
-        super(AbstractMoveBaseOptimization, self).__init__(namespace, gui, 'wolfgang', sim_type)
+        super(WolfgangMoveBaseOptimization, self).__init__(namespace=namespace, gui=gui, robot_name='wolfgang',
+                                                           sim_type=sim_type)
         self.reset_height_offset = 0.005
