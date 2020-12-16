@@ -33,26 +33,49 @@ class AbstractMoveBaseOptimization(AbstractRosOptimization):
         else:
             print(f'sim type {sim_type} not known')
 
-        # start move base launch file, since its easier. provide namespace as argument
-        uuid = roslaunch.rlutil.get_or_generate_uuid(None, False)
-        roslaunch.configure_logging(uuid)
-        path = self.rospack.get_path("bitbots_move_base")
-        cli_args = [path + "/launch/move_base_in_ns.launch", 'ns:=' + self.namespace]
-        roslaunch_args = cli_args[1:]
-        roslaunch_file = [(roslaunch.rlutil.resolve_launch_arguments(cli_args)[0], roslaunch_args)]
-        self.launch.parent = roslaunch.parent.ROSLaunchParent(uuid, roslaunch_file)
-        self.launch.start()
-
+        # start robot state publisher for tf
+        self.state_publisher = roslaunch.core.Node('robot_state_publisher', 'robot_state_publisher',
+                                                   'robot_state_publisher', namespace=self.namespace)
+        self.state_publisher.remap_args = [("/clock", "clock"), ("/tf", "tf"), ("/tf_static", "tf_static")]
+        self.launch.launch(self.state_publisher)
+        # we also need tf of base footprint
+        self.state_publisher = roslaunch.core.Node('humanoid_base_footprint', 'base_footprint',
+                                                   'base_footprint_publisher', namespace=self.namespace)
+        self.state_publisher.remap_args = [("/clock", "clock"), ("/tf", "tf"), ("/tf_static", "tf_static")]
+        self.launch.launch(self.state_publisher)
+        # start move base node
+        self.map_node = roslaunch.core.Node('map_server', 'map_server', 'map_server', namespace=self.namespace,
+                                            args="$(find bitbots_localization)/models/field2019.yaml")
+        self.map_node.remap_args = [("/clock", "clock"), ("/tf", "tf"), ("/tf_static", "tf_static")]
+        self.launch.launch(self.map_node)
+        self.tf_map_node = roslaunch.core.Node('bitbots_move_base', 'tf_map_odom.py', 'tf_odom_to_map',
+                                               namespace=self.namespace)
+        self.tf_map_node.remap_args = [("/clock", "clock"), ("/tf", "tf"), ("/tf_static", "tf_static")]
+        self.launch.launch(self.tf_map_node)
+        load_yaml_to_param(self.namespace + '/move_base/global_costmap', 'bitbots_move_base',
+                           '/config/costmap_common_config.yaml', self.rospack)
+        load_yaml_to_param(self.namespace + '/move_base/local_costmap', 'bitbots_move_base',
+                           '/config/costmap_common_config.yaml', self.rospack)
+        load_yaml_to_param(self.namespace + '/move_base', 'bitbots_move_base', '/config/local_costmap_config.yaml',
+                           self.rospack)
+        load_yaml_to_param(self.namespace + '/move_base', 'bitbots_move_base', '/config/global_costmap_config.yaml', self.rospack)
+        load_yaml_to_param(self.namespace + '/move_base', 'bitbots_move_base', '/config/move_base_config.yaml', self.rospack)
+        load_yaml_to_param(self.namespace + '/move_base', 'bitbots_move_base', '/config/dwa_local_planner_config.yaml', self.rospack)
+        load_yaml_to_param(self.namespace + '/move_base', 'bitbots_move_base', '/config/global_planner_config.yaml', self.rospack)
+        self.move_base_node = roslaunch.core.Node('move_base', 'move_base', 'move_base', namespace=self.namespace)
+        self.move_base_node.remap_args = [("/clock", "clock"), ("/tf", "tf"), ("/tf_static", "tf_static")]
+        self.launch.launch(self.move_base_node)
         # start walking with special parameters that have no limits
         # todo which walk parameter file should be used. maybe find better solution for this
         load_yaml_to_param(self.namespace, 'bitbots_quintic_walk',
                            '/config/walking_' + robot_name + '_robot_no_limits.yaml', self.rospack)
         self.walk_node = roslaunch.core.Node('bitbots_quintic_walk', 'WalkNode', 'walking', namespace=self.namespace)
-        self.walk_node.remap_args = [("walking_motor_goals", "DynamixelController/command"), ("/clock", "clock")]
+        self.walk_node.remap_args = [("walking_motor_goals", "DynamixelController/command"), ("/clock", "clock"),
+                                     ("/tf", "tf"), ("/tf_static", "tf_static")]
         self.launch.launch(self.walk_node)
 
         # let nodes start
-        self.sim.run_simulation(1, 0.01)
+        self.sim.run_simulation(100, 0.01)
 
         self.dynconf_client = dynamic_reconfigure.client.Client(self.namespace + '/move_base/DWAPlannerROS', timeout=60)
 
