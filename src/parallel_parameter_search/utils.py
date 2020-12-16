@@ -24,6 +24,17 @@ def load_yaml_to_param(namespace, package, file, rospack):
             rospy.set_param(namespace + '/' + key, value)
 
 
+def load_robot_param(namespace, rospack, name):
+    rospy.set_param(namespace + '/robot_type_name', name)
+    set_param_to_file(namespace + "/robot_description", name + '_description', '/urdf/robot.urdf', rospack)
+    set_param_to_file(namespace + "/robot_description_semantic", name + '_moveit_config',
+                      '/config/' + name + '.srdf', rospack)
+    load_yaml_to_param(namespace + "/robot_description_kinematics", name + '_moveit_config',
+                       '/config/kinematics.yaml', rospack)
+    load_yaml_to_param(namespace + "/robot_description_planning", name + '_moveit_config',
+                       '/config/joint_limits.yaml', rospack)
+
+
 def fused_from_quat(q):
     # Fused yaw of Quaternion
     fused_yaw = 2.0 * math.atan2(q[2], q[3])  # Output of atan2 is [-pi,pi], so this expression is in [-2*pi,2*pi]
