@@ -12,9 +12,8 @@ import tf
 
 from parallel_parameter_search.abstract_ros_optimization import AbstractRosOptimization
 from parallel_parameter_search.utils import set_param_to_file, load_yaml_to_param
-from parallel_parameter_search.simulators import PybulletSim
+from parallel_parameter_search.simulators import PybulletSim, WebotsSim
 from sensor_msgs.msg import Imu
-
 
 
 class AbstractDynupOptimization(AbstractRosOptimization):
@@ -23,6 +22,7 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         self.rospack = rospkg.RosPack()
         # set robot urdf and srdf
         load_robot_param(self.namespace, self.rospack, robot)
+        self.sim_type = sim_type
         if sim_type == 'pybullet':
             urdf_path = self.rospack.get_path(robot + '_description') + '/urdf/robot.urdf'
             self.sim = PybulletSim(self.namespace, gui, urdf_path=urdf_path,
@@ -89,7 +89,7 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         self.trial_running = True
         start_time = self.sim.get_time()
         msg = DynUpActionGoal()
-        msg.goal.front = 1
+        msg.goal.direction = "front"
         self.dynup_request_pub.publish(msg)
         start_time = self.sim.get_time()
         second_time = self.sim.get_time() + self.time_limit
@@ -109,11 +109,19 @@ class AbstractDynupOptimization(AbstractRosOptimization):
 
         height = self.trunk_height + self.reset_height_offset
         pitch = self.trunk_pitch
-        (x, y, z, w) = tf.transformations.quaternion_from_euler(self.reset_rpy_offset[0],
-                                                                self.reset_rpy_offset[1] + pitch,
-                                                                self.reset_rpy_offset[2])
 
-        self.sim.reset_robot_pose((0, 0, height), (x, y, z, w))
+        if self.sim_type == "pybullet":
+            (x, y, z, w) = tf.transformations.quaternion_from_euler(self.reset_rpy_offset[0],
+                                                                    self.reset_rpy_offset[1] + pitch,
+                                                                    self.reset_rpy_offset[2])
+
+            self.sim.reset_robot_pose((0, 0, height), (x, y, z, w))
+        else:
+            angle = 2 * math.acos(math.cos(math.pi/4))
+            x = 0
+            y = 0
+            z = -math.sin(math.pi/4)
+            self.sim.reset_robot_pose((0, 0, height), (angle, x, y, z))
 
     def reset(self):
         # reset params

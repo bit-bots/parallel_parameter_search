@@ -2,6 +2,7 @@ import os
 import subprocess
 import sys
 import time
+from abc import ABC
 
 import rospkg
 import rospy
@@ -82,7 +83,7 @@ class PybulletSim(AbstractSim):
         self.sim_interface: ROSInterface = ROSInterface(self.sim, namespace="/" + self.namespace + '/', node=False)
 
     def step_sim(self):
-        self.sim_interface.step()
+        self.sim.step()
 
     def set_gravity(self, on):
         self.sim.set_gravity(on)
@@ -121,7 +122,7 @@ class PybulletSim(AbstractSim):
         return self.sim_interface.get_pressure_filtered_right()
 
 
-class WebotsSim(AbstractSim):
+class WebotsSim(AbstractSim, ABC):
 
     def __init__(self, namespace, gui, robot="wolfgang"):
         # start webots
@@ -131,7 +132,7 @@ class WebotsSim(AbstractSim):
 
         arguments = ["webots",
                      "--batch",
-                     path + "/worlds/walk_optim_" + robot + ".wbt"]
+                     path + "/worlds/flat_world" + ".wbt"]
         if not gui:
             arguments.append("--minimize")
         sim_proc = subprocess.Popen(arguments)
@@ -140,7 +141,7 @@ class WebotsSim(AbstractSim):
         fix_webots_folder(sim_proc.pid)
 
         if gui:
-            mode = 'run'
+            mode = ''
         else:
             mode = 'fast'
         self.robot_controller = WebotsController(namespace, False, mode, robot)
@@ -186,5 +187,3 @@ class WebotsSim(AbstractSim):
     def get_pressure_right(self):
         rospy.logwarn_once("pressure method not implemented")
         return FootPressure()
-
-# todo gazebo
