@@ -32,7 +32,7 @@ class AbstractDynupOptimization(AbstractRosOptimization):
             print(f'sim type {sim_type} not known')
         # load dynup params
         load_yaml_to_param(self.namespace, 'bitbots_dynup',
-                           '/config/dynup_optimization.yaml',
+                           '/config/dynup_sim.yaml',
                            self.rospack)
 
         self.dynup_node = roslaunch.core.Node('bitbots_dynup', 'DynupNode', 'dynup',
@@ -40,7 +40,7 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         self.robot_state_publisher = roslaunch.core.Node('robot_state_publisher', 'robot_state_publisher',
                                                          'robot_state_publisher',
                                                          namespace=self.namespace)
-        self.dynup_node.remap_args = [("/tf", "tf"), ("animation_motor_goals", "DynamixelController/command"),
+        self.dynup_node.remap_args = [("/tf", "tf"), ("dynup_motor_goals", "DynamixelController/command"),
                                       ("/tf_static", "tf_static"), ("/clock", "clock")]
         self.robot_state_publisher.remap_args = [("/tf", "tf"), ("/tf_static", "tf_static"), ("/clock", "clock")]
         load_yaml_to_param("/robot_description_kinematics", robot + '_moveit_config',

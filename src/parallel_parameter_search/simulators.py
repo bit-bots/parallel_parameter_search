@@ -144,7 +144,7 @@ class WebotsSim(AbstractSim, ABC):
             mode = ''
         else:
             mode = 'fast'
-        self.robot_controller = WebotsController(namespace, False, mode, robot)
+        self.robot_controller = WebotsController(namespace, True, mode, robot, node=False)
 
     def step_sim(self):
         self.robot_controller.step()
