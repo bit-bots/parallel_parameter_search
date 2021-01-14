@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-
+import dynamic_reconfigure.client
 from bitbots_msgs.msg import DynUpActionGoal, DynUpActionResult, JointCommand
 
 
@@ -67,6 +67,8 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         self.trial_duration = 0
         self.trial_running = False
 
+        self.dynup_client = dynamic_reconfigure.client.Client(self.namespace + '/' + 'dynup/', timeout=60)
+        
     def result_cb(self, msg):
         self.dynup_complete = True
         rospy.logerr("Dynup complete.")
@@ -152,6 +154,18 @@ class WolfgangOptimization(AbstractDynupOptimization):
         self.reset_height_offset = 0.005
 
     def suggest_params(self, trial):
+        node_param_dict = {}
+
+        def add(name, min_value, max_value):
+            node_param_dict[name] = trial.suggest_uniform(name, min_value, max_value)
+
+        def fix(name, value):
+            node_param_dict[name] = value
+            trial.set_user_attr(name, value)
+
+        add("max_leg_angle", 0, 90)
+
+        self.set_params(node_param_dict, self.dynup_client)
         return
 
 
