@@ -2,7 +2,6 @@
 import dynamic_reconfigure.client
 from bitbots_msgs.msg import DynUpActionGoal, DynUpActionResult, JointCommand
 
-
 import math
 
 import roslaunch
@@ -38,10 +37,12 @@ class AbstractDynupOptimization(AbstractRosOptimization):
 
         self.dynup_node = roslaunch.core.Node('bitbots_dynup', 'DynupNode', 'dynup',
                                               namespace=self.namespace)
-        self.robot_state_publisher = roslaunch.core.Node('robot_state_publisher', 'robot_state_publisher', 'robot_state_publisher',
+        self.robot_state_publisher = roslaunch.core.Node('robot_state_publisher', 'robot_state_publisher',
+                                                         'robot_state_publisher',
                                                          namespace=self.namespace)
-        self.dynup_node.remap_args = [("/tf", "tf"),("animation_motor_goals", "DynamixelController/command"),("/tf_static", "tf_static"),("/clock", "clock")]
-        self.robot_state_publisher.remap_args = [("/tf", "tf"),("/tf_static", "tf_static"),("/clock", "clock")]
+        self.dynup_node.remap_args = [("/tf", "tf"), ("animation_motor_goals", "DynamixelController/command"),
+                                      ("/tf_static", "tf_static"), ("/clock", "clock")]
+        self.robot_state_publisher.remap_args = [("/tf", "tf"), ("/tf_static", "tf_static"), ("/clock", "clock")]
         load_yaml_to_param("/robot_description_kinematics", robot + '_moveit_config',
                            '/config/kinematics.yaml', self.rospack)
         self.launch.launch(self.robot_state_publisher)
@@ -62,24 +63,21 @@ class AbstractDynupOptimization(AbstractRosOptimization):
 
         self.imu_subscriber = rospy.Subscriber(self.namespace + "/imu/data", Imu, self.imu_cb)
 
-        self.imu_offset_sum = 0
+        self.imu_offset_sum = 0  # todo rename in imu_pitch_offset_sum?
         self.trunk_height_offset_sum = 0
         self.trial_duration = 0
         self.trial_running = False
 
         self.dynup_client = dynamic_reconfigure.client.Client(self.namespace + '/' + 'dynup/', timeout=60)
-        
+
     def result_cb(self, msg):
         self.dynup_complete = True
         rospy.logerr("Dynup complete.")
 
     def imu_cb(self, msg):
-        self.imu_offset_sum += abs(abs(msg.orientation.y)-0.07)
         pos, rpy = self.sim.get_robot_pose_rpy()
+        self.imu_offset_sum += abs(abs(rpy[1]) - 0.07)  # todo comment to explain 0.07
         self.trunk_height_offset_sum += pos[2]
-
-
-
 
     def objective(self, trial):
         self.suggest_params(trial)
@@ -89,12 +87,11 @@ class AbstractDynupOptimization(AbstractRosOptimization):
 
     def run_attempt(self):
         self.trial_running = True
-        start_time = self.sim.get_time()
         msg = DynUpActionGoal()
         msg.goal.direction = "front"
         self.dynup_request_pub.publish(msg)
         start_time = self.sim.get_time()
-        second_time = self.sim.get_time() + self.time_limit
+        second_time = self.sim.get_time() + self.time_limit  # todo better name for second_time
         while not rospy.is_shutdown():
             self.sim.step_sim()
             if self.dynup_complete:
@@ -105,10 +102,9 @@ class AbstractDynupOptimization(AbstractRosOptimization):
                 self.dynup_complete = False
                 self.trial_running = False
                 return
-        #self.time_difference = self.sim.get_time() - start_time
+        # self.time_difference = self.sim.get_time() - start_time
 
     def reset_position(self):
-
         height = self.trunk_height + self.reset_height_offset
         pitch = self.trunk_pitch
 
@@ -119,10 +115,10 @@ class AbstractDynupOptimization(AbstractRosOptimization):
 
             self.sim.reset_robot_pose((0, 0, height), (x, y, z, w))
         else:
-            angle = 2 * math.acos(math.cos(math.pi/4))
+            angle = 2 * math.acos(math.cos(math.pi / 4))
             x = 0
             y = 0
-            z = -math.sin(math.pi/4)
+            z = -math.sin(math.pi / 4)
             self.sim.reset_robot_pose((0, 0, height), (angle, x, y, z))
 
     def reset(self):
@@ -133,7 +129,7 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         self.sim.set_gravity(False)
         self.sim.reset_robot_pose((0, 0, 1), (0, 0, 0, 1))
         time = self.sim.get_time()
-        while not time - self.sim.get_time() < -2:
+        while self.sim.get_time() - time < 2:
             msg = JointCommand()
             msg.joint_names = ["HeadPan", "HeadTilt", "LElbow", "LShoulderPitch", "LShoulderRoll", "RElbow",
                                "RShoulderPitch", "RShoulderRoll", "LHipYaw", "LHipRoll", "LHipPitch", "LKnee",
@@ -145,7 +141,6 @@ class AbstractDynupOptimization(AbstractRosOptimization):
             self.sim.step_sim()
         self.reset_position()
         self.sim.set_gravity(True)
-
 
 
 class WolfgangOptimization(AbstractDynupOptimization):
