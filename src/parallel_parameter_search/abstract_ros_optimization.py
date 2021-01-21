@@ -38,9 +38,6 @@ class AbstractRosOptimization:
                                               namespace=self.namespace)
         self.launch.launch(self.dummy_node)
 
-        # we can not init node for specific name space, but we can remap the clock topic
-        rospy.init_node('optimizer', anonymous=True, argv=['clock:=/' + self.namespace + '/clock'])
-
         self.dynconf_client = None
         self.sim = None
 

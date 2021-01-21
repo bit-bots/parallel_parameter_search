@@ -132,7 +132,7 @@ class WebotsSim(AbstractSim, ABC):
 
         arguments = ["webots",
                      "--batch",
-                     path + "/worlds/flat_world" + ".wbt"]
+                     path + "/worlds/no_ball_flat" + ".wbt"]
         if not gui:
             arguments.append("--minimize")
         sim_proc = subprocess.Popen(arguments)
@@ -144,7 +144,7 @@ class WebotsSim(AbstractSim, ABC):
             mode = ''
         else:
             mode = 'fast'
-        self.robot_controller = WebotsController(namespace, True, mode, robot, node=False)
+        self.robot_controller = WebotsController(namespace, True, mode, robot)
 
     def step_sim(self):
         self.robot_controller.step()

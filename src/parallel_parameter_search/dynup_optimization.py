@@ -76,7 +76,8 @@ class AbstractDynupOptimization(AbstractRosOptimization):
 
     def imu_cb(self, msg):
         pos, rpy = self.sim.get_robot_pose_rpy()
-        self.imu_offset_sum += abs(abs(rpy[1]) - 0.07)  # todo comment to explain 0.07
+        self.imu_offset_sum += abs(abs(rpy[1]) - self.trunk_pitch)
+        self.imu_offset_sum += abs(rpy[0])
         self.trunk_height_offset_sum += pos[2]
 
     def objective(self, trial):
@@ -129,18 +130,24 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         self.sim.set_gravity(False)
         self.sim.reset_robot_pose((0, 0, 1), (0, 0, 0, 1))
         time = self.sim.get_time()
+
         while self.sim.get_time() - time < 2:
             msg = JointCommand()
             msg.joint_names = ["HeadPan", "HeadTilt", "LElbow", "LShoulderPitch", "LShoulderRoll", "RElbow",
                                "RShoulderPitch", "RShoulderRoll", "LHipYaw", "LHipRoll", "LHipPitch", "LKnee",
                                "LAnklePitch", "LAnkleRoll", "RHipYaw", "RHipRoll", "RHipPitch", "RKnee", "RAnklePitch",
                                "RAnkleRoll"]
-            msg.positions = [0, 0, 0.79, 0, 0, -0.79, 0, 0, -0.01, 0.06, 0.47, 1.01, -0.45, 0.06, 0.01, -0.06, -0.47,
-                             -1.01, 0.45, -0.06]
+            #msg.positions = [0, 0, 0.79, 0, 0, -0.79, 0, 0, -0.01, 0.06, 0.47, 1.01, -0.45, 0.06, 0.01, -0.06, -0.47,
+            #                 -1.01, 0.45, -0.06] #walkready
+            msg.positions = [0, 0.78, 0.78, 1.36, 0, -0.78, -1.36, 0, 0.11, 0.07, -0.19, 0.23, -0.63, 0.07, 0.11, -0.07,
+                             0.19, -0.23, 0.63, -0.07] #falling_front
             self.dynamixel_controller_pub.publish(msg)
             self.sim.step_sim()
         self.reset_position()
         self.sim.set_gravity(True)
+        time = self.sim.get_time()
+        while not self.sim.get_time() - time > 2:
+            self.sim.step_sim()
 
 
 class WolfgangOptimization(AbstractDynupOptimization):
