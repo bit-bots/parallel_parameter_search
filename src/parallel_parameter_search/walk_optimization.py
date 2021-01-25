@@ -199,7 +199,6 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         (x, y, z, w) = tf.transformations.quaternion_from_euler(self.reset_rpy_offset[0],
                                                                 self.reset_rpy_offset[1] + pitch,
                                                                 self.reset_rpy_offset[2])
-
         self.sim.reset_robot_pose((0, 0, height), (x, y, z, w))
 
     def reset(self):

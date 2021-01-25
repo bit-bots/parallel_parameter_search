@@ -1,4 +1,5 @@
 import math
+import time
 
 import rospy
 from parallel_parameter_search.walk_optimization import AbstractWalkOptimization
@@ -30,6 +31,19 @@ class AbstractWalkEngine(AbstractWalkOptimization):
                            ]
 
     def objective(self, trial):
+        # for testing transforms
+        while False:
+            self.sim.set_robot_pose_rpy([0, 0, 1], [0.0, 0.0, 0.4])
+            self.sim.step_sim()
+            pos, rpy = self.sim.get_robot_pose_rpy()
+            print(f"x: {round(pos[0],2)}")
+            print(f"y: {round(pos[1],2)}")
+            print(f"z: {round(pos[2],2)}")
+            print(f"roll: {round(rpy[0],2)}")
+            print(f"pitch: {round(rpy[1],2)}")
+            print(f"yaw: {round(rpy[2],2)}")
+            time.sleep(1)
+
         # get parameter to evaluate from optuna
         self.suggest_walk_params(trial)
         self.reset()
