@@ -56,14 +56,14 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         self.reset_height_offset = None
         self.reset_rpy_offset = [0, math.pi / 2, 0]
         self.trunk_height = 0.38  # rosparam.get_param(self.namespace + "/dynup/trunk_height")
-        self.trunk_pitch = 0.18  # TODO
+        self.trunk_pitch = 0.0
 
         self.result_subscriber = rospy.Subscriber(self.namespace + "/dynup/result", DynUpActionResult, self.result_cb)
         self.dynup_complete = False
 
         self.imu_subscriber = rospy.Subscriber(self.namespace + "/imu/data", Imu, self.imu_cb)
 
-        self.imu_offset_sum = 0  # todo rename in imu_pitch_offset_sum?
+        self.imu_offset_sum = 0
         self.trunk_height_offset_sum = 0
         self.trial_duration = 0
         self.trial_running = False
@@ -77,7 +77,7 @@ class AbstractDynupOptimization(AbstractRosOptimization):
     def imu_cb(self, msg):
         pos, rpy = self.sim.get_robot_pose_rpy()
         self.imu_offset_sum += abs(abs(rpy[1]) - self.trunk_pitch)
-        self.imu_offset_sum += abs(rpy[0])
+        self.imu_offset_sum += abs(rpy[0] - 1.5709) #TODO: evaluate. The robot model is rotated in webots, this corrects for that error.
         self.trunk_height_offset_sum += pos[2]
 
     def objective(self, trial):
@@ -165,7 +165,11 @@ class WolfgangOptimization(AbstractDynupOptimization):
             node_param_dict[name] = value
             trial.set_user_attr(name, value)
 
-        add("max_leg_angle", 0, 90)
+        add("max_leg_angle", 20, 80)
+        add("foot_distance", 0.106, 0.3)
+        add("leg_min_length", 0.18, 0.25)
+        add("arm_side_offset", 0.05, 0.2)
+        add("trunk_x", -0.2, 0.2)
 
         self.set_params(node_param_dict, self.dynup_client)
         return
