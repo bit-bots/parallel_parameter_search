@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import time
+
 import dynamic_reconfigure.client
 from bitbots_msgs.msg import DynUpActionGoal, DynUpActionResult, JointCommand
 
@@ -77,10 +79,23 @@ class AbstractDynupOptimization(AbstractRosOptimization):
     def imu_cb(self, msg):
         pos, rpy = self.sim.get_robot_pose_rpy()
         self.imu_offset_sum += abs(abs(rpy[1]) - self.trunk_pitch)
-        self.imu_offset_sum += abs(rpy[0] - 1.5709) #TODO: evaluate. The robot model is rotated in webots, this corrects for that error.
+        self.imu_offset_sum += abs(rpy[0])
         self.trunk_height_offset_sum += pos[2]
 
     def objective(self, trial):
+        # for testing transforms
+        while False:
+            self.sim.set_robot_pose_rpy([0, 0, 1], [0.0, 0.0, 0.4])
+            self.sim.step_sim()
+            pos, rpy = self.sim.get_robot_pose_rpy()
+            print(f"x: {round(pos[0],2)}")
+            print(f"y: {round(pos[1],2)}")
+            print(f"z: {round(pos[2],2)}")
+            print(f"roll: {round(rpy[0],2)}")
+            print(f"pitch: {round(rpy[1],2)}")
+            print(f"yaw: {round(rpy[2],2)}")
+            time.sleep(1)
+
         self.suggest_params(trial)
         self.reset()
         self.run_attempt()
