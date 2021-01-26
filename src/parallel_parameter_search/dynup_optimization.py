@@ -131,10 +131,10 @@ class AbstractDynupOptimization(AbstractRosOptimization):
 
             self.sim.reset_robot_pose((0, 0, height), (x, y, z, w))
         else:
-            angle = 2 * math.acos(math.cos(math.pi / 4))
+            angle = math.pi/2
             x = 0
-            y = 0
-            z = -math.sin(math.pi / 4)
+            y = 1
+            z = 0
             self.sim.reset_robot_pose((0, 0, height), (angle, x, y, z))
 
     def reset(self):

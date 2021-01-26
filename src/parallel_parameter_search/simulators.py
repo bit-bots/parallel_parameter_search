@@ -141,7 +141,7 @@ class WebotsSim(AbstractSim, ABC):
         fix_webots_folder(sim_proc.pid)
 
         if gui:
-            mode = ''
+            mode = 'normal'
         else:
             mode = 'fast'
         self.robot_controller = WebotsController(namespace, True, mode, robot)

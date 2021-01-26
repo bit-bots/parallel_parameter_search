@@ -33,6 +33,7 @@ parser.add_argument('--sampler', help='Which sampler {TPE, CMAES}', default=1000
 
 args = parser.parse_args()
 
+
 seed = np.random.randint(2 ** 32 - 1)
 n_startup_trials = args.startup
 
@@ -46,7 +47,7 @@ else:
 study = optuna.create_study(study_name=args.name, storage=args.storage, direction='minimize',
                             sampler=sampler, load_if_exists=True)
 study.set_user_attr("sampler", args.sampler)
-
+    
 if args.robot == "wolfgang":
     objective = WolfgangOptimization('worker', gui=args.gui, sim_type=args.sim)
 else:
