@@ -80,10 +80,10 @@ class PybulletSim(AbstractSim):
         load_yaml_to_param("/" + self.namespace, 'wolfgang_pybullet_sim', '/config/config.yaml', rospack)
         self.gui = gui
         self.sim: Simulation = Simulation(gui, urdf_path=urdf_path, foot_link_names=foot_link_names, terrain=terrain)
-        self.sim_interface: ROSInterface = ROSInterface(self.sim, namespace="/" + self.namespace + '/', node=False)
+        self.sim_interface: ROSInterface = ROSInterface(self.sim, namespace="/" + self.namespace + '/', node=True)
 
     def step_sim(self):
-        self.sim.step()
+        self.sim_interface.step()
 
     def set_gravity(self, on):
         self.sim.set_gravity(on)

@@ -181,10 +181,10 @@ class WolfgangOptimization(AbstractDynupOptimization):
             trial.set_user_attr(name, value)
 
 
-#        add("max_leg_angle", 20, 80)
-#        add("foot_distance", 0.106, 0.3)
-#        add("leg_min_length", 0.18, 0.25)
-#        add("arm_side_offset", 0.05, 0.2)
+        add("max_leg_angle", 20, 80)
+        add("foot_distance", 0.106, 0.3)
+        add("leg_min_length", 0.18, 0.25)
+        add("arm_side_offset", 0.05, 0.2)
         add("trunk_x", -0.2, 0.2)
 
         self.set_params(node_param_dict, self.dynup_client)
