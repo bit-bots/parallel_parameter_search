@@ -80,7 +80,7 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         pos, rpy = self.sim.get_robot_pose_rpy()
         self.imu_offset_sum += abs(abs(rpy[1]) - self.trunk_pitch)
         self.imu_offset_sum += abs(rpy[0])
-        self.trunk_height_offset_sum += pos[2]
+        self.trunk_height_offset_sum += abs(pos[2] - self.trunk_height)
 
     def objective(self, trial):
         # for testing transforms
@@ -99,7 +99,7 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         self.suggest_params(trial)
         self.reset()
         self.run_attempt()
-        return self.imu_offset_sum + self.trunk_height_offset_sum + 10 * self.trial_duration
+        return self.imu_offset_sum + self.trunk_height_offset_sum #+ 10 * self.trial_duration
 
     def run_attempt(self):
         self.trial_running = True
@@ -180,10 +180,11 @@ class WolfgangOptimization(AbstractDynupOptimization):
             node_param_dict[name] = value
             trial.set_user_attr(name, value)
 
-        add("max_leg_angle", 20, 80)
-        add("foot_distance", 0.106, 0.3)
-        add("leg_min_length", 0.18, 0.25)
-        add("arm_side_offset", 0.05, 0.2)
+
+#        add("max_leg_angle", 20, 80)
+#        add("foot_distance", 0.106, 0.3)
+#        add("leg_min_length", 0.18, 0.25)
+#        add("arm_side_offset", 0.05, 0.2)
         add("trunk_x", -0.2, 0.2)
 
         self.set_params(node_param_dict, self.dynup_client)

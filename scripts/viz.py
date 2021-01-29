@@ -6,7 +6,7 @@ study_summaries = optuna.study.get_all_study_summaries(storage="postgresql://bes
 for study in study_summaries:
     print(f"{study.study_name}\n  {study.n_trials}\n  {study.datetime_start}")
 
-study = load_study('ol_wolfgang_4',  storage='postgresql://bestmann:deepquintic@server/deep_quintic')
+study = load_study('dynup-engine',  storage='postgresql://bestmann:deepquintic@server/deep_quintic')
 df = study.trials_dataframe()
 #print(df)
 print(df.keys())
