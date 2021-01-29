@@ -122,7 +122,6 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         second_time = self.sim.get_time() + self.time_limit  # todo better name for second_time
         while not rospy.is_shutdown():
             self.sim.step_sim()
-            print(self.sim.get_link_pose("head")[2])
             if self.sim.get_time() - start_time > self.abort_threshold and self.sim.get_link_pose("head")[2] < 0.15:  # early abort
                 self.trial_failed_loss = self.total_trial_length - (self.sim.get_time() - start_time)
                 return
