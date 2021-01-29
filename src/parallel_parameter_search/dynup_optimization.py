@@ -18,7 +18,7 @@ from sensor_msgs.msg import Imu
 
 
 class AbstractDynupOptimization(AbstractRosOptimization):
-    def __init__(self, namespace, gui, robot, sim_type, foot_link_names=()):
+    def __init__(self, namespace, gui, robot, abort_threshold, sim_type, foot_link_names=()):
         super().__init__(namespace)
         self.rospack = rospkg.RosPack()
         # set robot urdf and srdf
@@ -65,10 +65,16 @@ class AbstractDynupOptimization(AbstractRosOptimization):
 
         self.imu_subscriber = rospy.Subscriber(self.namespace + "/imu/data", Imu, self.imu_cb)
 
+        self.rise_phase_time = 0
+        self.total_trial_length = 0
+
         self.imu_offset_sum = 0
-        self.trunk_height_offset_sum = 0
+        self.trunk_y_offset_sum = 0
+        self.trial_failed_loss = 0
         self.trial_duration = 0
         self.trial_running = False
+        self.dynup_params = {}
+        self.abort_threshold = abort_threshold
 
         self.dynup_client = dynamic_reconfigure.client.Client(self.namespace + '/' + 'dynup/', timeout=60)
 
@@ -78,9 +84,13 @@ class AbstractDynupOptimization(AbstractRosOptimization):
 
     def imu_cb(self, msg):
         pos, rpy = self.sim.get_robot_pose_rpy()
-        self.imu_offset_sum += abs(abs(rpy[1]) - self.trunk_pitch)
-        self.imu_offset_sum += abs(rpy[0])
-        self.trunk_height_offset_sum += abs(pos[2] - self.trunk_height)
+
+        if self.trial_duration > self.rise_phase_time:  # only account for pitch in the last phase
+            self.imu_offset_sum += abs(rpy[1])
+        if not 1.56 < rpy[1] < 1.59:  # make sure to ignore states with gimbal lock
+            self.imu_offset_sum += abs(rpy[2])
+            self.imu_offset_sum += abs(rpy[0])
+        self.trunk_y_offset_sum += abs(pos[1])
 
     def objective(self, trial):
         # for testing transforms
@@ -88,18 +98,20 @@ class AbstractDynupOptimization(AbstractRosOptimization):
             self.sim.set_robot_pose_rpy([0, 0, 1], [0.0, 0.0, 0.4])
             self.sim.step_sim()
             pos, rpy = self.sim.get_robot_pose_rpy()
-            print(f"x: {round(pos[0],2)}")
-            print(f"y: {round(pos[1],2)}")
-            print(f"z: {round(pos[2],2)}")
-            print(f"roll: {round(rpy[0],2)}")
-            print(f"pitch: {round(rpy[1],2)}")
-            print(f"yaw: {round(rpy[2],2)}")
+            print(f"x: {round(pos[0], 2)}")
+            print(f"y: {round(pos[1], 2)}")
+            print(f"z: {round(pos[2], 2)}")
+            print(f"roll: {round(rpy[0], 2)}")
+            print(f"pitch: {round(rpy[1], 2)}")
+            print(f"yaw: {round(rpy[2], 2)}")
             time.sleep(1)
 
         self.suggest_params(trial)
+
+        self.dynup_params = rospy.get_param(self.namespace + "/dynup")
         self.reset()
         self.run_attempt()
-        return self.imu_offset_sum + self.trunk_height_offset_sum #+ 10 * self.trial_duration
+        return self.imu_offset_sum + self.trunk_y_offset_sum + 200 * self.trial_failed_loss
 
     def run_attempt(self):
         self.trial_running = True
@@ -110,6 +122,10 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         second_time = self.sim.get_time() + self.time_limit  # todo better name for second_time
         while not rospy.is_shutdown():
             self.sim.step_sim()
+            print(self.sim.get_link_pose("head")[2])
+            if self.sim.get_time() - start_time > self.abort_threshold and self.sim.get_link_pose("head")[2] < 0.15:  # early abort
+                self.trial_failed_loss = self.total_trial_length - (self.sim.get_time() - start_time)
+                return
             if self.dynup_complete:
                 second_time = self.sim.get_time()
                 self.dynup_complete = False
@@ -131,7 +147,7 @@ class AbstractDynupOptimization(AbstractRosOptimization):
 
             self.sim.reset_robot_pose((0, 0, height), (x, y, z, w))
         else:
-            angle = math.pi/2
+            angle = math.pi / 2
             x = 0
             y = 1
             z = 0
@@ -140,7 +156,24 @@ class AbstractDynupOptimization(AbstractRosOptimization):
     def reset(self):
         # reset params
         self.imu_offset_sum = 0
-        self.trunk_height_offset_sum = 0
+        self.trunk_y_offset_sum = 0
+        self.trial_failed_loss = 0
+
+        try:
+            self.rise_phase_time = self.dynup_params["time_hands_side"] + \
+                                   self.dynup_params["time_hands_rotate"] + \
+                                   self.dynup_params["time_foot_close"] + \
+                                   self.dynup_params["time_hands_front"] + \
+                                   self.dynup_params["time_foot_ground_front"] + \
+                                   self.dynup_params["time_torso_45"] + \
+                                   self.dynup_params["time_to_squat"]
+            self.total_trial_length = self.rise_phase_time + \
+                                      self.dynup_params["wait_in_squat_front"] + \
+                                      self.dynup_params["rise_time"] + 3
+            # trial continues for 3 sec after dynup completes
+        except KeyError:
+            rospy.logwarn("Parameter server not available yet, continuing anyway.")
+            self.rise_phase_time = 100  # todo: hacky high value that should never be reached. But it works
         # reset simulation
         self.sim.set_gravity(False)
         self.sim.reset_robot_pose((0, 0, 1), (0, 0, 0, 1))
@@ -152,10 +185,10 @@ class AbstractDynupOptimization(AbstractRosOptimization):
                                "RShoulderPitch", "RShoulderRoll", "LHipYaw", "LHipRoll", "LHipPitch", "LKnee",
                                "LAnklePitch", "LAnkleRoll", "RHipYaw", "RHipRoll", "RHipPitch", "RKnee", "RAnklePitch",
                                "RAnkleRoll"]
-            #msg.positions = [0, 0, 0.79, 0, 0, -0.79, 0, 0, -0.01, 0.06, 0.47, 1.01, -0.45, 0.06, 0.01, -0.06, -0.47,
+            # msg.positions = [0, 0, 0.79, 0, 0, -0.79, 0, 0, -0.01, 0.06, 0.47, 1.01, -0.45, 0.06, 0.01, -0.06, -0.47,
             #                 -1.01, 0.45, -0.06] #walkready
             msg.positions = [0, 0.78, 0.78, 1.36, 0, -0.78, -1.36, 0, 0.11, 0.07, -0.19, 0.23, -0.63, 0.07, 0.11, -0.07,
-                             0.19, -0.23, 0.63, -0.07] #falling_front
+                             0.19, -0.23, 0.63, -0.07]  # falling_front
             self.dynamixel_controller_pub.publish(msg)
             self.sim.step_sim()
         self.reset_position()
@@ -166,8 +199,8 @@ class AbstractDynupOptimization(AbstractRosOptimization):
 
 
 class WolfgangOptimization(AbstractDynupOptimization):
-    def __init__(self, namespace, gui, sim_type='pybullet'):
-        super(WolfgangOptimization, self).__init__(namespace, gui, 'wolfgang', sim_type)
+    def __init__(self, namespace, gui, abort_threshold, sim_type='pybullet'):
+        super(WolfgangOptimization, self).__init__(namespace, gui, 'wolfgang', abort_threshold, sim_type)
         self.reset_height_offset = 0.005
 
     def suggest_params(self, trial):
@@ -179,7 +212,6 @@ class WolfgangOptimization(AbstractDynupOptimization):
         def fix(name, value):
             node_param_dict[name] = value
             trial.set_user_attr(name, value)
-
 
         add("max_leg_angle", 20, 80)
         add("foot_distance", 0.106, 0.3)

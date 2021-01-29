@@ -112,6 +112,9 @@ class PybulletSim(AbstractSim):
     def get_timestep(self):
         return self.sim.timestep
 
+    def get_link_pose(self, link_name):
+        return self.sim.get_link_pose(link_name)
+
     def randomize_terrain(self, max_height):
         self.sim.terrain.randomize(max_height)
 

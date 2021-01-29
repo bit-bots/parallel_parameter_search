@@ -30,6 +30,8 @@ parser.add_argument('--trials', help='Trials to be evaluated', default=10000,
                     type=int, required=True)
 parser.add_argument('--sampler', help='Which sampler {TPE, CMAES}', default=10000,
                     type=str, required=True)
+parser.add_argument('--threshold', help='How long after the start of the trial the head is allowed to be closer than 15 cm to the ground',
+                    type=float, required=False, default=10000)
 
 args = parser.parse_args()
 
@@ -49,7 +51,7 @@ study = optuna.create_study(study_name=args.name, storage=args.storage, directio
 study.set_user_attr("sampler", args.sampler)
     
 if args.robot == "wolfgang":
-    objective = WolfgangOptimization('worker', gui=args.gui, sim_type=args.sim)
+    objective = WolfgangOptimization('worker', gui=args.gui, abort_threshold=args.threshold, sim_type=args.sim)
 else:
     print(f"robot type \"{args.robot}\" not known.")
 
