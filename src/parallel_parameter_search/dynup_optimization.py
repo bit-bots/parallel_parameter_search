@@ -83,14 +83,16 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         rospy.logerr("Dynup complete.")
 
     def imu_cb(self, msg):
-        pos, rpy = self.sim.get_robot_pose_rpy()
+        if self.trial_running: #only calculate loss during the trial,even though imu msg is sent outside
+            pos, rpy = self.sim.get_robot_pose_rpy()
 
-        if self.trial_duration > self.rise_phase_time:  # only account for pitch in the last phase
-            self.imu_offset_sum += abs(rpy[1])
-        if not 1.56 < rpy[1] < 1.59:  # make sure to ignore states with gimbal lock
-            self.imu_offset_sum += abs(rpy[2])
-            self.imu_offset_sum += abs(rpy[0])
-        self.trunk_y_offset_sum += abs(pos[1])
+            if self.trial_duration > self.rise_phase_time:  # only account for pitch in the last phase
+                self.imu_offset_sum += abs(rpy[1])
+            if not 1.22 < rpy[1] < 1.59:  # make sure to ignore states with gimbal lock
+                #todo: this removes a lot of values, check that thats okay
+                self.imu_offset_sum += abs(rpy[2])
+                self.imu_offset_sum += abs(rpy[0])
+            self.trunk_y_offset_sum += abs(pos[1])
 
     def objective(self, trial):
         # for testing transforms
