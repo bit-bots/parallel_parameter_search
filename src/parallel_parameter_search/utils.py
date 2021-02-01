@@ -20,3 +20,13 @@ def load_yaml_to_param(namespace, package, file, rospack):
                 rospy.set_param(namespace + '/' + key + '/' + key_2, value_2)
         else:
             rospy.set_param(namespace + '/' + key, value)
+
+def load_robot_param(namespace, rospack, name):
+    rospy.set_param(namespace + '/robot_type_name', name)
+    set_param_to_file(namespace + "/robot_description", name + '_description', '/urdf/robot.urdf', rospack)
+    set_param_to_file(namespace + "/robot_description_semantic", name + '_moveit_config',
+                      '/config/' + name + '.srdf', rospack)
+    load_yaml_to_param(namespace + "/robot_description_kinematics", name + '_moveit_config',
+                       '/config/kinematics.yaml', rospack)
+    load_yaml_to_param(namespace + "/robot_description_planning", name + '_moveit_config',
+                       '/config/joint_limits.yaml', rospack)
