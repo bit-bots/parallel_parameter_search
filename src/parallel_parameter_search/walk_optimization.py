@@ -18,7 +18,7 @@ from parallel_parameter_search.utils import set_param_to_file, load_yaml_to_para
 from parallel_parameter_search.simulators import PybulletSim, WebotsSim
 from sensor_msgs.msg import Imu, JointState
 
-from sparallel_parameter_search.utils import load_robot_param
+from parallel_parameter_search.utils import load_robot_param
 
 
 class AbstractWalkOptimization(AbstractRosOptimization):
