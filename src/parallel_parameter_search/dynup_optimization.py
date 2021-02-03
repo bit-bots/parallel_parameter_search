@@ -191,6 +191,7 @@ class AbstractDynupOptimization(AbstractRosOptimization):
                                         self.dynup_params["time_torso_45"]
                 self.rise_phase_time = self.dynup_params["time_to_squat"]
                 self.total_trial_length = self.rise_phase_time + \
+                                          self.head_ground_time + \
                                           self.dynup_params["wait_in_squat_front"] + \
                                           self.dynup_params["rise_time"] + 3
             elif self.direction == "back":
@@ -199,6 +200,7 @@ class AbstractDynupOptimization(AbstractRosOptimization):
                 self.rise_phase_time = self.dynup_params["time_full_squat_hands"] + \
                                        self.dynup_params["time_full_squat_legs"]
                 self.total_trial_length = self.rise_phase_time + \
+                                          self.head_ground_time + \
                                           self.dynup_params["wait_in_squat_back"] + \
                                           self.dynup_params["rise_time"] + 3
             else:
