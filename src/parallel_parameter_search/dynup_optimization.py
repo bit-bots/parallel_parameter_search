@@ -108,6 +108,7 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         self.reset()
         self.run_attempt()
         # only devide by the frames we counted
+        mean_imu_offset = 0
         if self.non_gimbal_frames > 0:
             mean_imu_offset = self.imu_offset_sum / self.non_gimbal_frames
         mean_y_offset = self.trunk_y_offset_sum / (self.sim.get_time() - self.start_time)
