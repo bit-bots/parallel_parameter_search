@@ -76,6 +76,10 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         self.dynup_params = {}
 
         self.dynup_client = dynamic_reconfigure.client.Client(self.namespace + '/' + 'dynup/', timeout=60)
+        self.trunk_pitch_client = dynamic_reconfigure.client.Client(
+            self.namespace + '/' + 'dynup/pid_trunk_pitch/', timeout=60)
+        self.trunk_roll_client = dynamic_reconfigure.client.Client(
+            self.namespace + '/' + 'dynup/pid_trunk_roll/', timeout=60)
 
     def result_cb(self, msg):
         if msg.result.successful:
@@ -104,7 +108,8 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         self.reset()
         self.run_attempt()
         # only devide by the frames we counted
-        mean_imu_offset = self.imu_offset_sum / self.non_gimbal_frames
+        if self.non_gimbal_frames > 0:
+            mean_imu_offset = self.imu_offset_sum / self.non_gimbal_frames
         mean_y_offset = self.trunk_y_offset_sum / (self.sim.get_time() - self.start_time)
         trial_failed_loss = self.total_trial_length - (self.sim.get_time() - self.start_time)
         # todo add score for being faster, if standup was sucessfull
@@ -242,6 +247,18 @@ class WolfgangOptimization(AbstractDynupOptimization):
     def suggest_params(self, trial):
         node_param_dict = {}
 
+        def pid_params(name, client, p, i, d, i_clamp):
+            pid_dict = {"p": trial.suggest_uniform(name + "_p", p[0], p[1]),
+                        "d": trial.suggest_uniform(name + "_d", i[0], i[1]),
+                        "i": trial.suggest_uniform(name + "_i", d[0], d[1]),
+                        "i_clamp_min": i_clamp[0],
+                        "i_clamp_max": i_clamp[1]}
+            if isinstance(client, list):
+                for c in client:
+                    self.set_params(pid_dict, client)
+            else:
+                self.set_params(pid_dict, client)
+
         def add(name, min_value, max_value):
             node_param_dict[name] = trial.suggest_uniform(name, min_value, max_value)
 
@@ -255,21 +272,23 @@ class WolfgangOptimization(AbstractDynupOptimization):
         add("trunk_x", -0.2, 0.2)
         add("rise_time", 0, 1)
 
+        pid_params("trunk_pitch", self.trunk_pitch_client, (-2, 2), (-4, 4), (-0.1, 0.1), (-1, 1))
+        pid_params("trunk_roll", self.trunk_roll_client, (-2, 2), (-4, 4), (-0.1, 0.1), (-1, 1))
+
         # these are basically goal position variables, that the user has to define
         fix("trunk_height", 0.4)
         fix("trunk_pitch", 0)
 
         if self.direction == "front":
-            # add("max_leg_angle", 20, 80)
-            # add("trunk_overshoot_angle_front", -90, 0)
-            # add("time_hands_side", 0, 1)
-            # add("time_hands_rotate", 0, 1)
-            # add("time_foot_close", 0, 1)
-            # add("time_hands_front", 0, 1)
-            # add("time_torso_45", 0, 1)
-            # add("time_to_squat", 0, 1)
-            # add("wait_in_squat_front", 0, 2)
-            pass
+            add("max_leg_angle", 20, 80)
+            add("trunk_overshoot_angle_front", -90, 0)
+            add("time_hands_side", 0, 1)
+            add("time_hands_rotate", 0, 1)
+            add("time_foot_close", 0, 1)
+            add("time_hands_front", 0, 1)
+            add("time_torso_45", 0, 1)
+            add("time_to_squat", 0, 1)
+            add("wait_in_squat_front", 0, 2)
         elif self.direction == "back":
             pass  # todo
         else:

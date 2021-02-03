@@ -55,10 +55,10 @@ else:
     print(f"robot type \"{args.robot}\" not known.")
 
 # sanity check
-study.enqueue_trial({"foot_distance": 0.2,
-                     "leg_min_length": 0.21,
-                     "arm_side_offset": 0.05,
-                     "trunk_x": -0.05,
-                     "max_leg_angle": 60})
+#study.enqueue_trial({"foot_distance": 0.2,
+#                     "leg_min_length": 0.21,
+#                     "arm_side_offset": 0.05,
+#                     "trunk_x": -0.05,
+#                     "max_leg_angle": 60})
 
 study.optimize(objective.objective, n_trials=args.trials, show_progress_bar=True)
