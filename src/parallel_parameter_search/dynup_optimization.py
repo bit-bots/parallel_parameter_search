@@ -2,6 +2,7 @@
 import time
 
 import dynamic_reconfigure.client
+from actionlib_msgs.msg import GoalID
 from bitbots_msgs.msg import DynUpActionGoal, DynUpActionResult, JointCommand
 
 import math
@@ -18,11 +19,12 @@ from sensor_msgs.msg import Imu
 
 
 class AbstractDynupOptimization(AbstractRosOptimization):
-    def __init__(self, namespace, gui, robot, abort_threshold, sim_type, foot_link_names=()):
+    def __init__(self, namespace, gui, robot, direction, sim_type, foot_link_names=()):
         super().__init__(namespace)
         self.rospack = rospkg.RosPack()
         # set robot urdf and srdf
         load_robot_param(self.namespace, self.rospack, robot)
+        self.direction = direction
         self.sim_type = sim_type
         if sim_type == 'pybullet':
             urdf_path = self.rospack.get_path(robot + '_description') + '/urdf/robot.urdf'
@@ -50,7 +52,8 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         self.launch.launch(self.robot_state_publisher)
         self.launch.launch(self.dynup_node)
 
-        self.dynup_request_pub = rospy.Publisher(self.namespace + '/dynup/goal', DynUpActionGoal, queue_size=10)
+        self.dynup_request_pub = rospy.Publisher(self.namespace + '/dynup/goal', DynUpActionGoal, queue_size=1)
+        self.dynup_cancel_pub = rospy.Publisher(self.namespace + '/dynup/cancel', GoalID, queue_size=1)
         self.dynamixel_controller_pub = rospy.Publisher(self.namespace + "/DynamixelController/command", JointCommand)
         self.number_of_iterations = 10
         self.time_limit = 20
@@ -63,36 +66,23 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         self.result_subscriber = rospy.Subscriber(self.namespace + "/dynup/result", DynUpActionResult, self.result_cb)
         self.dynup_complete = False
 
-        self.imu_subscriber = rospy.Subscriber(self.namespace + "/imu/data", Imu, self.imu_cb)
-
         self.rise_phase_time = 0
         self.total_trial_length = 0
 
         self.imu_offset_sum = 0
         self.trunk_y_offset_sum = 0
-        self.trial_failed_loss = 0
         self.trial_duration = 0
         self.trial_running = False
         self.dynup_params = {}
-        self.abort_threshold = abort_threshold
 
         self.dynup_client = dynamic_reconfigure.client.Client(self.namespace + '/' + 'dynup/', timeout=60)
 
     def result_cb(self, msg):
-        self.dynup_complete = True
-        rospy.logerr("Dynup complete.")
-
-    def imu_cb(self, msg):
-        if self.trial_running: #only calculate loss during the trial,even though imu msg is sent outside
-            pos, rpy = self.sim.get_robot_pose_rpy()
-
-            if self.trial_duration > self.rise_phase_time:  # only account for pitch in the last phase
-                self.imu_offset_sum += abs(rpy[1])
-            if not 1.22 < rpy[1] < 1.59:  # make sure to ignore states with gimbal lock
-                #todo: this removes a lot of values, check that thats okay
-                self.imu_offset_sum += abs(rpy[2])
-                self.imu_offset_sum += abs(rpy[0])
-            self.trunk_y_offset_sum += abs(pos[1])
+        if msg.result.successful:
+            self.dynup_complete = True
+            rospy.logerr("Dynup complete.")
+        else:
+            rospy.logerr("Dynup was cancelled.")
 
     def objective(self, trial):
         # for testing transforms
@@ -113,29 +103,62 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         self.dynup_params = rospy.get_param(self.namespace + "/dynup")
         self.reset()
         self.run_attempt()
-        return self.imu_offset_sum + self.trunk_y_offset_sum + 200 * self.trial_failed_loss
+        # only devide by the frames we counted
+        mean_imu_offset = self.imu_offset_sum / self.non_gimbal_frames
+        mean_y_offset = self.trunk_y_offset_sum / (self.sim.get_time() - self.start_time)
+        trial_failed_loss = self.total_trial_length - (self.sim.get_time() - self.start_time)
+        # todo add score for being faster, if standup was sucessfull
+        print(f"imu offset: {mean_imu_offset}")
+        print(f"trunk y: {mean_y_offset}")
+        print(f"trail fail: {200 * trial_failed_loss}")
+
+        return mean_imu_offset + mean_y_offset + 200 * trial_failed_loss
 
     def run_attempt(self):
         self.trial_running = True
         msg = DynUpActionGoal()
-        msg.goal.direction = "front"
+        msg.goal.direction = self.direction
         self.dynup_request_pub.publish(msg)
-        start_time = self.sim.get_time()
-        second_time = self.sim.get_time() + self.time_limit  # todo better name for second_time
+        self.start_time = self.sim.get_time()
+        end_time = self.sim.get_time() + self.time_limit
+        # reset params
+        self.imu_offset_sum = 0
+        self.trunk_y_offset_sum = 0
+        self.non_gimbal_frames = 0
+
         while not rospy.is_shutdown():
             self.sim.step_sim()
-            if self.sim.get_time() - start_time > self.abort_threshold and self.sim.get_link_pose("head")[2] < 0.15:  # early abort
-                self.trial_failed_loss = self.total_trial_length - (self.sim.get_time() - start_time)
+
+            # calculate loss
+            pos, rpy = self.sim.get_robot_pose_rpy()
+            if self.trial_duration > self.rise_phase_time:  # only account for pitch in the last phase
+                self.imu_offset_sum += abs(rpy[1])
+            if not 1.22 < rpy[1] < 1.59:  # make sure to ignore states with gimbal lock
+                # todo: this removes a lot of values, check that thats okay
+                self.imu_offset_sum += abs(rpy[2])
+                self.imu_offset_sum += abs(rpy[0])
+                self.non_gimbal_frames += 1
+            self.trunk_y_offset_sum += abs(pos[1])
+
+            # early abort if robot falls, but not in first phase where head is always close to ground
+            if self.sim.get_time() - self.start_time > self.head_ground_time and self.sim.get_link_pose("head")[
+                2] < 0.15:
+
                 return
             if self.dynup_complete:
-                second_time = self.sim.get_time()
+                # dont waste time waiting for the time limit to arrive
+                end_time = self.sim.get_time()
                 self.dynup_complete = False
-            if self.sim.get_time() - start_time > self.time_limit or self.sim.get_time() - second_time > 3:
-                self.trial_duration = self.sim.get_time() - start_time
+            # wait a bit after finishing to check if the robot falls during this time
+            if self.sim.get_time() - self.start_time > self.time_limit or self.sim.get_time() - end_time > 3:
+                self.trial_duration = self.sim.get_time() - self.start_time
                 self.dynup_complete = False
                 self.trial_running = False
                 return
-        # self.time_difference = self.sim.get_time() - start_time
+
+            # give time to Dynup to compute its response
+            # use wall time, as ros time is standing still
+            time.sleep(0.01)
 
     def reset_position(self):
         height = self.trunk_height + self.reset_height_offset
@@ -155,22 +178,32 @@ class AbstractDynupOptimization(AbstractRosOptimization):
             self.sim.reset_robot_pose((0, 0, height), (angle, x, y, z))
 
     def reset(self):
-        # reset params
-        self.imu_offset_sum = 0
-        self.trunk_y_offset_sum = 0
-        self.trial_failed_loss = 0
+        # reset Dynup. send emtpy message to just cancel all goals
+        self.dynup_cancel_pub.publish(GoalID())
 
         try:
-            self.rise_phase_time = self.dynup_params["time_hands_side"] + \
-                                   self.dynup_params["time_hands_rotate"] + \
-                                   self.dynup_params["time_foot_close"] + \
-                                   self.dynup_params["time_hands_front"] + \
-                                   self.dynup_params["time_foot_ground_front"] + \
-                                   self.dynup_params["time_torso_45"] + \
-                                   self.dynup_params["time_to_squat"]
-            self.total_trial_length = self.rise_phase_time + \
-                                      self.dynup_params["wait_in_squat_front"] + \
-                                      self.dynup_params["rise_time"] + 3
+            if self.direction == "front":
+                self.head_ground_time = self.dynup_params["time_hands_side"] + \
+                                        self.dynup_params["time_hands_rotate"] + \
+                                        self.dynup_params["time_foot_close"] + \
+                                        self.dynup_params["time_hands_front"] + \
+                                        self.dynup_params["time_foot_ground_front"] + \
+                                        self.dynup_params["time_torso_45"]
+                self.rise_phase_time = self.dynup_params["time_to_squat"]
+                self.total_trial_length = self.rise_phase_time + \
+                                          self.dynup_params["wait_in_squat_front"] + \
+                                          self.dynup_params["rise_time"] + 3
+            elif self.direction == "back":
+                self.head_ground_time = self.dynup_params["time_legs_close"] + \
+                                        self.dynup_params["time_foot_ground_back"]
+                self.rise_phase_time = self.dynup_params["time_full_squat_hands"] + \
+                                       self.dynup_params["time_full_squat_legs"]
+                self.total_trial_length = self.rise_phase_time + \
+                                          self.dynup_params["wait_in_squat_back"] + \
+                                          self.dynup_params["rise_time"] + 3
+            else:
+                print(f"Direction {self.direction} not known")
+
             # trial continues for 3 sec after dynup completes
         except KeyError:
             rospy.logwarn("Parameter server not available yet, continuing anyway.")
@@ -200,8 +233,8 @@ class AbstractDynupOptimization(AbstractRosOptimization):
 
 
 class WolfgangOptimization(AbstractDynupOptimization):
-    def __init__(self, namespace, gui, abort_threshold, sim_type='pybullet'):
-        super(WolfgangOptimization, self).__init__(namespace, gui, 'wolfgang', abort_threshold, sim_type)
+    def __init__(self, namespace, gui, direction, sim_type='pybullet'):
+        super(WolfgangOptimization, self).__init__(namespace, gui, 'wolfgang', direction, sim_type)
         self.reset_height_offset = 0.005
 
     def suggest_params(self, trial):
@@ -214,11 +247,31 @@ class WolfgangOptimization(AbstractDynupOptimization):
             node_param_dict[name] = value
             trial.set_user_attr(name, value)
 
-        add("max_leg_angle", 20, 80)
-        add("foot_distance", 0.106, 0.3)
-        add("leg_min_length", 0.18, 0.25)
+        add("foot_distance", 0.106, 0.25)
+        add("leg_min_length", 0.2, 0.25)
         add("arm_side_offset", 0.05, 0.2)
         add("trunk_x", -0.2, 0.2)
+        add("rise_time", 0, 1)
+
+        # these are basically goal position variables, that the user has to define
+        fix("trunk_height", 0.4)
+        fix("trunk_pitch", 0)
+
+        if self.direction == "front":
+            # add("max_leg_angle", 20, 80)
+            # add("trunk_overshoot_angle_front", -90, 0)
+            # add("time_hands_side", 0, 1)
+            # add("time_hands_rotate", 0, 1)
+            # add("time_foot_close", 0, 1)
+            # add("time_hands_front", 0, 1)
+            # add("time_torso_45", 0, 1)
+            # add("time_to_squat", 0, 1)
+            # add("wait_in_squat_front", 0, 2)
+            pass
+        elif self.direction == "back":
+            pass  # todo
+        else:
+            print(f"direction {self.direction} not specified")
 
         self.set_params(node_param_dict, self.dynup_client)
         return

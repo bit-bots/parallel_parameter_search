@@ -14,7 +14,6 @@ import rospy
 
 from parallel_parameter_search.dynup_optimization import WolfgangOptimization
 
-
 parser = argparse.ArgumentParser()
 parser.add_argument('--storage', help='Database SQLAlchemy string, e.g. postgresql://USER:PASS@SERVER/DB_NAME',
                     default=None, type=str, required=False)
@@ -30,11 +29,10 @@ parser.add_argument('--trials', help='Trials to be evaluated', default=10000,
                     type=int, required=True)
 parser.add_argument('--sampler', help='Which sampler {TPE, CMAES}', default=10000,
                     type=str, required=True)
-parser.add_argument('--threshold', help='How long after the start of the trial the head is allowed to be closer than 15 cm to the ground',
-                    type=float, required=False, default=10000)
+parser.add_argument('--direction', help='Direction of standup {front, back} ', default=None, type=str,
+                    required=True)
 
 args = parser.parse_args()
-
 
 seed = np.random.randint(2 ** 32 - 1)
 n_startup_trials = args.startup
@@ -49,17 +47,18 @@ else:
 study = optuna.create_study(study_name=args.name, storage=args.storage, direction='minimize',
                             sampler=sampler, load_if_exists=True)
 study.set_user_attr("sampler", args.sampler)
-    
+
 if args.robot == "wolfgang":
-    objective = WolfgangOptimization('worker', gui=args.gui, abort_threshold=args.threshold, sim_type=args.sim)
+    objective = WolfgangOptimization('worker', gui=args.gui, direction=args.direction,
+                                     sim_type=args.sim)
 else:
     print(f"robot type \"{args.robot}\" not known.")
 
-#sanity check
-study.enqueue_trial({  "foot_distance" : 0.2,
-                       "leg_min_length" : 0.21,
-                       "arm_side_offset" : 0.05,
-                       "trunk_x" : -0.05,
-                       "max_leg_angle" : 60})
+# sanity check
+study.enqueue_trial({"foot_distance": 0.2,
+                     "leg_min_length": 0.21,
+                     "arm_side_offset": 0.05,
+                     "trunk_x": -0.05,
+                     "max_leg_angle": 60})
 
 study.optimize(objective.objective, n_trials=args.trials, show_progress_bar=True)
