@@ -29,7 +29,7 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         if sim_type == 'pybullet':
             urdf_path = self.rospack.get_path(robot + '_description') + '/urdf/robot.urdf'
             self.sim = PybulletSim(self.namespace, gui, urdf_path=urdf_path,
-                                   foot_link_names=foot_link_names)
+                                   foot_link_names=foot_link_names, terrain=False, field=False)
         elif sim_type == 'webots':
             self.sim = WebotsSim(self.namespace, gui, robot)
         else:
@@ -120,6 +120,7 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         self.suggest_params(trial)
 
         self.dynup_params = rospy.get_param(self.namespace + "/dynup")
+        #self.sim.randomize_terrain(0.01)
         self.reset()
         success = self.run_attempt()
 
@@ -321,8 +322,9 @@ class WolfgangOptimization(AbstractDynupOptimization):
         add("trunk_x", -0.1, 0.1)
         add("rise_time", 0, 1)
 
-        pid_params("trunk_pitch", self.trunk_pitch_client, (-2, 2), (-4, 4), (-0.1, 0.1), (-1, 1))
-        pid_params("trunk_roll", self.trunk_roll_client, (-2, 2), (-4, 4), (-0.1, 0.1), (-1, 1))
+        fix("stabilizing", True)
+        pid_params("trunk_pitch", self.trunk_pitch_client, (0, 2), (0, 4), (0, 0.1), (-1, 1))
+        pid_params("trunk_roll", self.trunk_roll_client, (0, 2), (0, 4), (0, 0.1), (-1, 1))
 
         # these are basically goal position variables, that the user has to define
         fix("trunk_height", 0.4)
