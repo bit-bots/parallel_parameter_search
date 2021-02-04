@@ -59,7 +59,13 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         self.time_limit = 20
         self.time_difference = 0
         self.reset_height_offset = None
-        self.reset_rpy_offset = [0, math.pi / 2, 0]
+        if self.direction == "front":
+            self.reset_rpy_offset = [0, math.pi / 2, 0]
+        elif self.direction == "back":
+            self.reset_rpy_offset = [0, -math.pi / 2, 0]
+        else:
+            print(f"direction {self.direction}")
+            exit(0)
         self.trunk_height = 0.38  # rosparam.get_param(self.namespace + "/dynup/trunk_height")
         self.trunk_pitch = 0.0
 
@@ -127,20 +133,15 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         mean_y_offset = self.trunk_y_offset_sum / (self.sim.get_time() - self.start_time)
         trial_failed_loss = self.total_trial_length - (self.sim.get_time() - self.start_time)
         speed_loss = self.sim.get_time() - self.start_time
-        success_loss = 100 if not success else 0
+        success_loss = 100 if not success else self.total_trial_length
         print(f"Head height: {head_score}")
         print(f"imu offset: {mean_imu_offset}")
         print(f"trunk y: {mean_y_offset}")
         print(f"trail fail: {200 * trial_failed_loss}")
         print(f"speed: {speed_loss}")
         print(f"success loss: {success_loss}")
-        # todo reward für die maximale höhe die der roboter erreicht?
 
-        # maximale kopfhöhe die erreich wurde
-        # 0 - 100 cm
-        # falls aufstehen komplett -> 100cm
-
-        return head_score + success_loss # mean_imu_offset + mean_y_offset + 200 * trial_failed_loss + speed_loss
+        return head_score + success_loss + mean_imu_offset  # + mean_y_offset + 200 * trial_failed_loss + speed_loss
 
     def run_attempt(self):
         self.trial_running = True
@@ -160,13 +161,19 @@ class AbstractDynupOptimization(AbstractRosOptimization):
 
             # calculate loss
             pos, rpy = self.sim.get_robot_pose_rpy()
-            if self.sim.get_time() - self.start_time > self.rise_phase_time:  # only account for pitch in the last phase
-                self.imu_offset_sum += abs(rpy[1])
-                print("pitch")
             if not 1.22 < rpy[1] < 1.59:  # make sure to ignore states with gimbal lock
                 # todo: this removes a lot of values, check that thats okay
-                self.imu_offset_sum += abs(rpy[2])
-                self.imu_offset_sum += abs(rpy[0])
+                # todo maybe use self.head_ground_time instead
+                imu_frame_error = 0
+                imu_frame_error_parts = 0
+                # only account for pitch in the last phase
+                if self.sim.get_time() - self.start_time > self.rise_phase_time:
+                    imu_frame_error += abs(rpy[1])
+                    imu_frame_error_parts += 1
+                imu_frame_error += abs(rpy[2])
+                imu_frame_error += abs(rpy[0])
+                imu_frame_error_parts += 2
+                self.imu_offset_sum += imu_frame_error / imu_frame_error_parts
                 self.non_gimbal_frames += 1
             self.trunk_y_offset_sum += abs(pos[1])
 
@@ -176,6 +183,11 @@ class AbstractDynupOptimization(AbstractRosOptimization):
             # early abort if robot falls, but not in first phase where head is always close to ground
             if self.sim.get_time() - self.start_time > self.head_ground_time and head_position[2] < 0.15:
                 print("head")
+                return False
+
+            # avoid simulator glitches
+            if head_position[2] > 1:
+                print("too high")
                 return False
 
             # early abort if IK glitch occurs
@@ -201,7 +213,7 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         self.dynup_step_done = False
 
     def reset_position(self):
-        height = self.trunk_height + self.reset_height_offset
+        height = self.reset_height_offset
         pitch = self.trunk_pitch
 
         if self.sim_type == "pybullet":
@@ -261,10 +273,12 @@ class AbstractDynupOptimization(AbstractRosOptimization):
                                "RShoulderPitch", "RShoulderRoll", "LHipYaw", "LHipRoll", "LHipPitch", "LKnee",
                                "LAnklePitch", "LAnkleRoll", "RHipYaw", "RHipRoll", "RHipPitch", "RKnee", "RAnklePitch",
                                "RAnkleRoll"]
-            # msg.positions = [0, 0, 0.79, 0, 0, -0.79, 0, 0, -0.01, 0.06, 0.47, 1.01, -0.45, 0.06, 0.01, -0.06, -0.47,
-            #                 -1.01, 0.45, -0.06] #walkready
-            msg.positions = [0, 0.78, 0.78, 1.36, 0, -0.78, -1.36, 0, 0.11, 0.07, -0.19, 0.23, -0.63, 0.07, 0.11, -0.07,
-                             0.19, -0.23, 0.63, -0.07]  # falling_front
+            if self.direction == "back":
+                msg.positions = [0, 0, 0.79, 0, 0, -0.79, 0, 0, -0.01, 0.06, 0.47, 1.01, -0.45, 0.06, 0.01, -0.06, -0.47,
+                                 -1.01, 0.45, -0.06] #walkready
+            elif self.direction == "front":
+                msg.positions = [0, 0.78, 0.78, 1.36, 0, -0.78, -1.36, 0, 0.11, 0.07, -0.19, 0.23, -0.63, 0.07, 0.11, -0.07,
+                                 0.19, -0.23, 0.63, -0.07]  # falling_front
             self.dynamixel_controller_pub.publish(msg)
             self.sim.step_sim()
         self.reset_position()
@@ -277,7 +291,7 @@ class AbstractDynupOptimization(AbstractRosOptimization):
 class WolfgangOptimization(AbstractDynupOptimization):
     def __init__(self, namespace, gui, direction, sim_type='pybullet'):
         super(WolfgangOptimization, self).__init__(namespace, gui, 'wolfgang', direction, sim_type)
-        self.reset_height_offset = 0.005
+        self.reset_height_offset = 0.1
 
     def suggest_params(self, trial):
         node_param_dict = {}
@@ -301,7 +315,7 @@ class WolfgangOptimization(AbstractDynupOptimization):
             node_param_dict[name] = value
             trial.set_user_attr(name, value)
 
-        add("foot_distance", 0.106, 0.25)
+        add("foot_distance", 0.10, 0.25)
         add("leg_min_length", 0.2, 0.25)
         add("arm_side_offset", 0.05, 0.2)
         add("trunk_x", -0.1, 0.1)
@@ -315,7 +329,7 @@ class WolfgangOptimization(AbstractDynupOptimization):
         fix("trunk_pitch", 0)
 
         if self.direction == "front":
-            add("max_leg_angle", 20, 80)
+            add("max_leg_angle", 0, 90)
             add("trunk_overshoot_angle_front", -90, 0)
             add("time_hands_side", 0, 1)
             add("time_hands_rotate", 0, 1)
@@ -325,7 +339,17 @@ class WolfgangOptimization(AbstractDynupOptimization):
             add("time_to_squat", 0, 1)
             add("wait_in_squat_front", 0, 2)
         elif self.direction == "back":
-            pass  # todo
+            add("hands_behind_back_x", 0.0, 0.4)
+            add("hands_behind_back_z", 0.0, 0.4)
+            add("trunk_height_back", 0.0, 0.4)
+            add("trunk_forward", 0.0, 0.1)
+            add("foot_angle", 0.0, 90)
+            add("trunk_overshoot_angle_back", 0.0, 90)
+            add("time_legs_close", 0, 1)
+            add("time_foot_ground_back", 0, 1)
+            add("time_full_squat_hands", 0, 1)
+            add("time_full_squat_legs", 0, 1)
+            add("wait_in_squat_back", 0, 1)
         else:
             print(f"direction {self.direction} not specified")
 
