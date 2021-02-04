@@ -12,7 +12,7 @@ import numpy as np
 
 import rospy
 
-from parallel_parameter_search.dynup_optimization import WolfgangOptimization
+from parallel_parameter_search.dynup_optimization import WolfgangOptimization, NaoOptimization
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--storage', help='Database SQLAlchemy string, e.g. postgresql://USER:PASS@SERVER/DB_NAME',
@@ -50,6 +50,9 @@ study.set_user_attr("sampler", args.sampler)
 
 if args.robot == "wolfgang":
     objective = WolfgangOptimization('worker', gui=args.gui, direction=args.direction,
+                                     sim_type=args.sim)
+elif args.robot == "nao":
+    objective = NaoOptimization('worker', gui=args.gui, direction=args.direction,
                                      sim_type=args.sim)
 else:
     print(f"robot type \"{args.robot}\" not known.")

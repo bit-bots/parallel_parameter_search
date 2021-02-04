@@ -124,6 +124,8 @@ class PybulletSim(AbstractSim):
     def get_pressure_right(self):
         return self.sim_interface.get_pressure_filtered_right()
 
+    def get_joint_position(self, name):
+        return self.sim.get_joint_position(name)
 
 class WebotsSim(AbstractSim, ABC):
 
@@ -135,7 +137,7 @@ class WebotsSim(AbstractSim, ABC):
 
         arguments = ["webots",
                      "--batch",
-                     path + "/worlds/no_ball_flat" + ".wbt"]
+                     path + "/worlds/walk_optim_" + robot + ".wbt"]
         if not gui:
             arguments.append("--minimize")
         sim_proc = subprocess.Popen(arguments)
@@ -190,3 +192,6 @@ class WebotsSim(AbstractSim, ABC):
     def get_pressure_right(self):
         rospy.logwarn_once("pressure method not implemented")
         return FootPressure()
+
+    def get_link_pose(self, link_name):
+        return self.robot_controller.get_link_pose(link_name)

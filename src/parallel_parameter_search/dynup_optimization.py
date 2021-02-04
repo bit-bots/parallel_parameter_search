@@ -64,11 +64,15 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         self.trunk_pitch = 0.0
 
         self.result_subscriber = rospy.Subscriber(self.namespace + "/dynup/result", DynUpActionResult, self.result_cb)
+        self.command_sub = rospy.Subscriber(self.namespace + "/DynamixelController/command", JointCommand,
+                                            self.command_cb)
         self.dynup_complete = False
 
+        self.head_ground_time = 0
         self.rise_phase_time = 0
         self.total_trial_length = 0
 
+        self.max_head_height = 0
         self.imu_offset_sum = 0
         self.trunk_y_offset_sum = 0
         self.trial_duration = 0
@@ -81,12 +85,17 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         self.trunk_roll_client = dynamic_reconfigure.client.Client(
             self.namespace + '/' + 'dynup/pid_trunk_roll/', timeout=60)
 
+        self.dynup_step_done = False
+
     def result_cb(self, msg):
         if msg.result.successful:
             self.dynup_complete = True
             rospy.logerr("Dynup complete.")
         else:
             rospy.logerr("Dynup was cancelled.")
+
+    def command_cb(self, msg):
+        self.dynup_step_done = True
 
     def objective(self, trial):
         # for testing transforms
@@ -106,19 +115,32 @@ class AbstractDynupOptimization(AbstractRosOptimization):
 
         self.dynup_params = rospy.get_param(self.namespace + "/dynup")
         self.reset()
-        self.run_attempt()
-        # only devide by the frames we counted
+        success = self.run_attempt()
+
+        # scoring
+        # better score for lifting the head higher, in cm
+        head_score = 100 - self.max_head_height * 100
+        # only divide by the frames we counted
         mean_imu_offset = 0
         if self.non_gimbal_frames > 0:
             mean_imu_offset = self.imu_offset_sum / self.non_gimbal_frames
         mean_y_offset = self.trunk_y_offset_sum / (self.sim.get_time() - self.start_time)
         trial_failed_loss = self.total_trial_length - (self.sim.get_time() - self.start_time)
-        # todo add score for being faster, if standup was sucessfull
+        speed_loss = self.sim.get_time() - self.start_time
+        success_loss = 100 if not success else 0
+        print(f"Head height: {head_score}")
         print(f"imu offset: {mean_imu_offset}")
         print(f"trunk y: {mean_y_offset}")
         print(f"trail fail: {200 * trial_failed_loss}")
+        print(f"speed: {speed_loss}")
+        print(f"success loss: {success_loss}")
+        # todo reward für die maximale höhe die der roboter erreicht?
 
-        return mean_imu_offset + mean_y_offset + 200 * trial_failed_loss
+        # maximale kopfhöhe die erreich wurde
+        # 0 - 100 cm
+        # falls aufstehen komplett -> 100cm
+
+        return head_score + success_loss # mean_imu_offset + mean_y_offset + 200 * trial_failed_loss + speed_loss
 
     def run_attempt(self):
         self.trial_running = True
@@ -128,6 +150,7 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         self.start_time = self.sim.get_time()
         end_time = self.sim.get_time() + self.time_limit
         # reset params
+        self.max_head_height = 0
         self.imu_offset_sum = 0
         self.trunk_y_offset_sum = 0
         self.non_gimbal_frames = 0
@@ -137,8 +160,9 @@ class AbstractDynupOptimization(AbstractRosOptimization):
 
             # calculate loss
             pos, rpy = self.sim.get_robot_pose_rpy()
-            if self.trial_duration > self.rise_phase_time:  # only account for pitch in the last phase
+            if self.sim.get_time() - self.start_time > self.rise_phase_time:  # only account for pitch in the last phase
                 self.imu_offset_sum += abs(rpy[1])
+                print("pitch")
             if not 1.22 < rpy[1] < 1.59:  # make sure to ignore states with gimbal lock
                 # todo: this removes a lot of values, check that thats okay
                 self.imu_offset_sum += abs(rpy[2])
@@ -146,11 +170,19 @@ class AbstractDynupOptimization(AbstractRosOptimization):
                 self.non_gimbal_frames += 1
             self.trunk_y_offset_sum += abs(pos[1])
 
-            # early abort if robot falls, but not in first phase where head is always close to ground
-            if self.sim.get_time() - self.start_time > self.head_ground_time and self.sim.get_link_pose("head")[
-                2] < 0.15:
+            head_position = self.sim.get_link_pose("head")
+            self.max_head_height = max(self.max_head_height, head_position[2])
 
-                return
+            # early abort if robot falls, but not in first phase where head is always close to ground
+            if self.sim.get_time() - self.start_time > self.head_ground_time and head_position[2] < 0.15:
+                print("head")
+                return False
+
+            # early abort if IK glitch occurs
+            if self.sim.get_joint_position("RAnkleRoll") > 0.9:
+                print("Ik bug")
+                return False
+
             if self.dynup_complete:
                 # dont waste time waiting for the time limit to arrive
                 end_time = self.sim.get_time()
@@ -160,11 +192,13 @@ class AbstractDynupOptimization(AbstractRosOptimization):
                 self.trial_duration = self.sim.get_time() - self.start_time
                 self.dynup_complete = False
                 self.trial_running = False
-                return
+                return True
 
+        while not self.dynup_step_done:
             # give time to Dynup to compute its response
             # use wall time, as ros time is standing still
-            time.sleep(0.01)
+            time.sleep(0.0001)
+        self.dynup_step_done = False
 
     def reset_position(self):
         height = self.trunk_height + self.reset_height_offset
@@ -195,18 +229,18 @@ class AbstractDynupOptimization(AbstractRosOptimization):
                                         self.dynup_params["time_hands_front"] + \
                                         self.dynup_params["time_foot_ground_front"] + \
                                         self.dynup_params["time_torso_45"]
-                self.rise_phase_time = self.dynup_params["time_to_squat"]
+                self.rise_phase_time = self.head_ground_time + \
+                                       self.dynup_params["time_to_squat"]
                 self.total_trial_length = self.rise_phase_time + \
-                                          self.head_ground_time + \
                                           self.dynup_params["wait_in_squat_front"] + \
                                           self.dynup_params["rise_time"] + 3
             elif self.direction == "back":
                 self.head_ground_time = self.dynup_params["time_legs_close"] + \
                                         self.dynup_params["time_foot_ground_back"]
-                self.rise_phase_time = self.dynup_params["time_full_squat_hands"] + \
+                self.rise_phase_time = self.head_ground_time + \
+                                       self.dynup_params["time_full_squat_hands"] + \
                                        self.dynup_params["time_full_squat_legs"]
                 self.total_trial_length = self.rise_phase_time + \
-                                          self.head_ground_time + \
                                           self.dynup_params["wait_in_squat_back"] + \
                                           self.dynup_params["rise_time"] + 3
             else:
@@ -270,7 +304,7 @@ class WolfgangOptimization(AbstractDynupOptimization):
         add("foot_distance", 0.106, 0.25)
         add("leg_min_length", 0.2, 0.25)
         add("arm_side_offset", 0.05, 0.2)
-        add("trunk_x", -0.2, 0.2)
+        add("trunk_x", -0.1, 0.1)
         add("rise_time", 0, 1)
 
         pid_params("trunk_pitch", self.trunk_pitch_client, (-2, 2), (-4, 4), (-0.1, 0.1), (-1, 1))
@@ -290,6 +324,51 @@ class WolfgangOptimization(AbstractDynupOptimization):
             add("time_torso_45", 0, 1)
             add("time_to_squat", 0, 1)
             add("wait_in_squat_front", 0, 2)
+        elif self.direction == "back":
+            pass  # todo
+        else:
+            print(f"direction {self.direction} not specified")
+
+        self.set_params(node_param_dict, self.dynup_client)
+        return
+
+
+class NaoOptimization(AbstractDynupOptimization):
+    def __init__(self, namespace, gui, direction, sim_type='pybullet'):
+        super(NaoOptimization, self).__init__(namespace, gui, 'nao', direction, sim_type)
+        self.reset_height_offset = 0.005
+
+    def suggest_params(self, trial):
+        node_param_dict = {}
+
+        def add(name, min_value, max_value):
+            node_param_dict[name] = trial.suggest_uniform(name, min_value, max_value)
+
+        def fix(name, value):
+            node_param_dict[name] = value
+            trial.set_user_attr(name, value)
+
+        add("foot_distance", 0.106, 0.25)
+        add("leg_min_length", 0.1, 0.2)
+        add("arm_side_offset", 0.05, 0.2)
+        add("trunk_x", -0.2, 0.2)
+        add("rise_time", 0, 1)
+
+        # these are basically goal position variables, that the user has to define
+        fix("trunk_height", 0.4)
+        fix("trunk_pitch", 0)
+
+        if self.direction == "front":
+            # add("max_leg_angle", 20, 80)
+            # add("trunk_overshoot_angle_front", -90, 0)
+            # add("time_hands_side", 0, 1)
+            # add("time_hands_rotate", 0, 1)
+            # add("time_foot_close", 0, 1)
+            # add("time_hands_front", 0, 1)
+            # add("time_torso_45", 0, 1)
+            # add("time_to_squat", 0, 1)
+            # add("wait_in_squat_front", 0, 2)
+            pass
         elif self.direction == "back":
             pass  # todo
         else:
