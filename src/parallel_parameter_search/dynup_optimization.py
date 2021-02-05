@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import random
 import time
 
 import dynamic_reconfigure.client
@@ -19,17 +20,18 @@ from sensor_msgs.msg import Imu
 
 
 class AbstractDynupOptimization(AbstractRosOptimization):
-    def __init__(self, namespace, gui, robot, direction, sim_type, foot_link_names=()):
+    def __init__(self, namespace, gui, robot, direction, externalforce, sim_type, foot_link_names=()):
         super().__init__(namespace)
         self.rospack = rospkg.RosPack()
         # set robot urdf and srdf
         load_robot_param(self.namespace, self.rospack, robot)
         self.direction = direction
+        self.externalforce = externalforce
         self.sim_type = sim_type
         if sim_type == 'pybullet':
             urdf_path = self.rospack.get_path(robot + '_description') + '/urdf/robot.urdf'
             self.sim = PybulletSim(self.namespace, gui, urdf_path=urdf_path,
-                                   foot_link_names=foot_link_names, terrain=False, field=False)
+                                   foot_link_names=foot_link_names)
         elif sim_type == 'webots':
             self.sim = WebotsSim(self.namespace, gui, robot)
         else:
@@ -120,7 +122,6 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         self.suggest_params(trial)
 
         self.dynup_params = rospy.get_param(self.namespace + "/dynup")
-        #self.sim.randomize_terrain(0.01)
         self.reset()
         success = self.run_attempt()
 
@@ -158,6 +159,11 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         self.non_gimbal_frames = 0
 
         while not rospy.is_shutdown():
+            if not self.externalforce == 0 and self.sim_type == 'pybullet':
+                force_vector = [random.randrange(self.externalforce),
+                                random.randrange(self.externalforce),
+                                random.randrange(self.externalforce)]
+                self.sim.apply_force(-1, force_vector, [0, 0, 0])
             self.sim.step_sim()
 
             # calculate loss
@@ -290,8 +296,8 @@ class AbstractDynupOptimization(AbstractRosOptimization):
 
 
 class WolfgangOptimization(AbstractDynupOptimization):
-    def __init__(self, namespace, gui, direction, sim_type='pybullet'):
-        super(WolfgangOptimization, self).__init__(namespace, gui, 'wolfgang', direction, sim_type)
+    def __init__(self, namespace, gui, direction, externalforce, sim_type='pybullet'):
+        super(WolfgangOptimization, self).__init__(namespace, gui, 'wolfgang', direction, externalforce, sim_type)
         self.reset_height_offset = 0.1
 
     def suggest_params(self, trial):
@@ -322,9 +328,8 @@ class WolfgangOptimization(AbstractDynupOptimization):
         add("trunk_x", -0.1, 0.1)
         add("rise_time", 0, 1)
 
-        fix("stabilizing", True)
-        pid_params("trunk_pitch", self.trunk_pitch_client, (0, 2), (0, 4), (0, 0.1), (-1, 1))
-        pid_params("trunk_roll", self.trunk_roll_client, (0, 2), (0, 4), (0, 0.1), (-1, 1))
+        pid_params("trunk_pitch", self.trunk_pitch_client, (-2, 2), (-4, 4), (-0.1, 0.1), (-1, 1))
+        pid_params("trunk_roll", self.trunk_roll_client, (-2, 2), (-4, 4), (-0.1, 0.1), (-1, 1))
 
         # these are basically goal position variables, that the user has to define
         fix("trunk_height", 0.4)
@@ -360,8 +365,8 @@ class WolfgangOptimization(AbstractDynupOptimization):
 
 
 class NaoOptimization(AbstractDynupOptimization):
-    def __init__(self, namespace, gui, direction, sim_type='pybullet'):
-        super(NaoOptimization, self).__init__(namespace, gui, 'nao', direction, sim_type)
+    def __init__(self, namespace, gui, direction, externalforce, sim_type='pybullet'):
+        super(NaoOptimization, self).__init__(namespace, gui, 'nao', direction, externalforce, sim_type)
         self.reset_height_offset = 0.005
 
     def suggest_params(self, trial):
