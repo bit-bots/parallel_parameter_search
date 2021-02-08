@@ -14,7 +14,7 @@ from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 
 from parallel_parameter_search.abstract_ros_optimization import AbstractRosOptimization
-from parallel_parameter_search.utils import set_param_to_file, load_yaml_to_param
+from parallel_parameter_search.utils import load_yaml_to_param, load_robot_param
 from parallel_parameter_search.simulators import PybulletSim, WebotsSim
 from sensor_msgs.msg import Imu, JointState
 
@@ -230,14 +230,3 @@ class AbstractWalkOptimization(AbstractRosOptimization):
             self.cmd_vel_pub.publish(msg)
         else:
             self.current_speed = msg
-
-
-def load_robot_param(namespace, rospack, name):
-    rospy.set_param(namespace + '/robot_type_name', name)
-    set_param_to_file(namespace + "/robot_description", name + '_description', '/urdf/robot.urdf', rospack)
-    set_param_to_file(namespace + "/robot_description_semantic", name + '_moveit_config',
-                      '/config/' + name + '.srdf', rospack)
-    load_yaml_to_param(namespace + "/robot_description_kinematics", name + '_moveit_config',
-                       '/config/kinematics.yaml', rospack)
-    load_yaml_to_param(namespace + "/robot_description_planning", name + '_moveit_config',
-                       '/config/joint_limits.yaml', rospack)

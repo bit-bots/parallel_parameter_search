@@ -67,6 +67,9 @@ class AbstractSim:
     def get_pressure_right(self):
         raise NotImplementedError
 
+    def place_ball(self, x, y):
+        raise NotImplementedError
+
 
 class PybulletSim(AbstractSim):
 
@@ -131,7 +134,8 @@ class WebotsSim(AbstractSim):
 
         arguments = ["webots",
                      "--batch",
-                     path + "/worlds/walk_optim_" + robot + ".wbt"]
+                     # TODO argument for world
+                     path + "/worlds/kick_optimization.wbt"]
         if not gui:
             arguments.append("--minimize")
         sim_proc = subprocess.Popen(arguments)
@@ -140,7 +144,7 @@ class WebotsSim(AbstractSim):
         fix_webots_folder(sim_proc.pid)
 
         if gui:
-            mode = 'run'
+            mode = 'normal'
         else:
             mode = 'fast'
         self.robot_controller = WebotsController(namespace, False, mode, robot)
@@ -186,3 +190,10 @@ class WebotsSim(AbstractSim):
     def get_pressure_right(self):
         rospy.logwarn_once("pressure method not implemented")
         return FootPressure()
+
+    def place_ball(self, x, y):
+        self.robot_controller.set_ball_pose([x, y, 0.08])
+
+    def get_ball_position(self):
+        pos = self.robot_controller.get_ball_pose()
+        return pos[0], pos[1]
