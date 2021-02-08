@@ -40,6 +40,9 @@ class AbstractSim:
     def reset_robot_pose(self, pos, quat):
         raise NotImplementedError
 
+    def get_robot_pose(self):
+        raise NotImplementedError
+
     def get_robot_pose_rpy(self):
         raise NotImplementedError
 
@@ -90,6 +93,9 @@ class PybulletSim(AbstractSim):
 
     def reset_robot_pose(self, pos, quat):
         self.sim.reset_robot_pose(pos, quat)
+
+    def get_robot_pose(self):
+        return self.sim.get_robot_pose()
 
     def get_robot_pose_rpy(self):
         return self.sim.get_robot_pose_rpy()

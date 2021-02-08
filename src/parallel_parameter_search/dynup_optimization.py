@@ -17,6 +17,8 @@ from parallel_parameter_search.utils import set_param_to_file, load_yaml_to_para
 from parallel_parameter_search.simulators import PybulletSim, WebotsSim
 from sensor_msgs.msg import Imu
 
+from parallel_parameter_search.utils import fused_from_quat
+
 
 class AbstractDynupOptimization(AbstractRosOptimization):
     def __init__(self, namespace, gui, robot, direction, sim_type, foot_link_names=()):
@@ -66,7 +68,7 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         else:
             print(f"direction {self.direction}")
             exit(0)
-        self.trunk_height = 0.38  # rosparam.get_param(self.namespace + "/dynup/trunk_height")
+        self.trunk_height = 0.4  # rosparam.get_param(self.namespace + "/dynup/trunk_height")
         self.trunk_pitch = 0.0
 
         self.result_subscriber = rospy.Subscriber(self.namespace + "/dynup/result", DynUpActionResult, self.result_cb)
@@ -79,6 +81,8 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         self.total_trial_length = 0
 
         self.max_head_height = 0
+        self.min_pitch = 0
+        self.min_fused_pitch = 0
         self.imu_offset_sum = 0
         self.trunk_y_offset_sum = 0
         self.trial_duration = 0
@@ -120,17 +124,19 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         self.suggest_params(trial)
 
         self.dynup_params = rospy.get_param(self.namespace + "/dynup")
-        #self.sim.randomize_terrain(0.01)
+        # self.sim.randomize_terrain(0.01)
         self.reset()
         success = self.run_attempt()
 
         # scoring
         # better score for lifting the head higher, in cm
         head_score = 100 - self.max_head_height * 100
+        pitch_score = self.min_pitch
+        fused_ptich_score = self.min_fused_pitch
         # only divide by the frames we counted
         mean_imu_offset = 0
         if self.non_gimbal_frames > 0:
-            mean_imu_offset = self.imu_offset_sum / self.non_gimbal_frames
+            mean_imu_offset = math.degrees(self.imu_offset_sum / self.non_gimbal_frames)
         mean_y_offset = self.trunk_y_offset_sum / (self.sim.get_time() - self.start_time)
         trial_failed_loss = self.total_trial_length - (self.sim.get_time() - self.start_time)
         speed_loss = self.sim.get_time() - self.start_time
@@ -142,7 +148,9 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         print(f"speed: {speed_loss}")
         print(f"success loss: {success_loss}")
 
-        return head_score + success_loss + mean_imu_offset  # + mean_y_offset + 200 * trial_failed_loss + speed_loss
+        #todo vlt lieber die angular velocities nehmen statt imu offsets
+        # head_score + success_loss + mean_imu_offset  # + mean_y_offset + 200 * trial_failed_loss + speed_loss
+        return fused_ptich_score + success_loss + mean_imu_offset
 
     def run_attempt(self):
         self.trial_running = True
@@ -153,6 +161,8 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         end_time = self.sim.get_time() + self.time_limit
         # reset params
         self.max_head_height = 0
+        self.min_pitch = 90
+        self.min_fused_pitch = 90
         self.imu_offset_sum = 0
         self.trunk_y_offset_sum = 0
         self.non_gimbal_frames = 0
@@ -162,20 +172,27 @@ class AbstractDynupOptimization(AbstractRosOptimization):
 
             # calculate loss
             pos, rpy = self.sim.get_robot_pose_rpy()
-            if not 1.22 < rpy[1] < 1.59:  # make sure to ignore states with gimbal lock
-                # todo: this removes a lot of values, check that thats okay
-                # todo maybe use self.head_ground_time instead
-                imu_frame_error = 0
-                imu_frame_error_parts = 0
-                # only account for pitch in the last phase
-                if self.sim.get_time() - self.start_time > self.rise_phase_time:
-                    imu_frame_error += abs(rpy[1])
-                    imu_frame_error_parts += 1
-                imu_frame_error += abs(rpy[2])
-                imu_frame_error += abs(rpy[0])
-                imu_frame_error_parts += 2
-                self.imu_offset_sum += imu_frame_error / imu_frame_error_parts
-                self.non_gimbal_frames += 1
+            # remember the closest we got to be straight, but dont take negative values, this would be overshooting
+            self.min_pitch = max(0, min(self.min_pitch, math.degrees(rpy[1])))  # todo check gimbal issues
+            #print(math.degrees(rpy[1]))
+            pos, quat = self.sim.get_robot_pose()
+            fused_roll, fused_pitch, fused_yaw, hemi = fused_from_quat(quat)
+            #only take values which are in positive hemi. otherwise we take values where the robot is tilted more than 90°
+            if hemi == 1:
+                self.min_fused_pitch = max(0, min(self.min_fused_pitch, math.degrees(fused_pitch)))
+            #print(math.degrees(fused_roll), math.degrees(fused_pitch), math.degrees(fused_yaw), hemi)
+
+            imu_frame_error = 0
+            imu_frame_error_parts = 0
+            # only account for pitch in the last phase
+            if self.sim.get_time() - self.start_time > self.rise_phase_time:
+                imu_frame_error += abs(fused_pitch)
+                imu_frame_error_parts += 1
+            imu_frame_error += abs(fused_yaw)
+            imu_frame_error += abs(fused_roll)
+            imu_frame_error_parts += 2
+            self.imu_offset_sum += imu_frame_error / imu_frame_error_parts
+            self.non_gimbal_frames += 1
             self.trunk_y_offset_sum += abs(pos[1])
 
             head_position = self.sim.get_link_pose("head")
@@ -192,7 +209,7 @@ class AbstractDynupOptimization(AbstractRosOptimization):
                 return False
 
             # early abort if IK glitch occurs
-            if self.sim.get_joint_position("RAnkleRoll") > 0.9:
+            if self.sim.get_joint_position("RAnkleRoll") > 0.9 or self.sim.get_joint_position("RAnkleRoll") < -0.9:
                 print("Ik bug")
                 return False
 
@@ -205,7 +222,11 @@ class AbstractDynupOptimization(AbstractRosOptimization):
                 self.trial_duration = self.sim.get_time() - self.start_time
                 self.dynup_complete = False
                 self.trial_running = False
-                return True
+                # also check if robot reached correct height
+                if pos[2] > self.trunk_height * 0.8:
+                    return True
+                else:
+                    return False
 
         while not self.dynup_step_done:
             # give time to Dynup to compute its response
@@ -275,10 +296,12 @@ class AbstractDynupOptimization(AbstractRosOptimization):
                                "LAnklePitch", "LAnkleRoll", "RHipYaw", "RHipRoll", "RHipPitch", "RKnee", "RAnklePitch",
                                "RAnkleRoll"]
             if self.direction == "back":
-                msg.positions = [0, 0, 0.79, 0, 0, -0.79, 0, 0, -0.01, 0.06, 0.47, 1.01, -0.45, 0.06, 0.01, -0.06, -0.47,
-                                 -1.01, 0.45, -0.06] #walkready
+                msg.positions = [0, 0, 0.79, 0, 0, -0.79, 0, 0, -0.01, 0.06, 0.47, 1.01, -0.45, 0.06, 0.01, -0.06,
+                                 -0.47,
+                                 -1.01, 0.45, -0.06]  # walkready
             elif self.direction == "front":
-                msg.positions = [0, 0.78, 0.78, 1.36, 0, -0.78, -1.36, 0, 0.11, 0.07, -0.19, 0.23, -0.63, 0.07, 0.11, -0.07,
+                msg.positions = [0, 0.78, 0.78, 1.36, 0, -0.78, -1.36, 0, 0.11, 0.07, -0.19, 0.23, -0.63, 0.07, 0.11,
+                                 -0.07,
                                  0.19, -0.23, 0.63, -0.07]  # falling_front
             self.dynamixel_controller_pub.publish(msg)
             self.sim.step_sim()
@@ -322,12 +345,12 @@ class WolfgangOptimization(AbstractDynupOptimization):
         add("trunk_x", -0.1, 0.1)
         add("rise_time", 0, 1)
 
-        fix("stabilizing", True)
-        pid_params("trunk_pitch", self.trunk_pitch_client, (0, 2), (0, 4), (0, 0.1), (-1, 1))
-        pid_params("trunk_roll", self.trunk_roll_client, (0, 2), (0, 4), (0, 0.1), (-1, 1))
+        fix("stabilizing", False)
+        #pid_params("trunk_pitch", self.trunk_pitch_client, (0, 2), (0, 4), (0, 0.1), (-1, 1))
+        #pid_params("trunk_roll", self.trunk_roll_client, (0, 2), (0, 4), (0, 0.1), (-1, 1))
 
         # these are basically goal position variables, that the user has to define
-        fix("trunk_height", 0.4)
+        fix("trunk_height", self.trunk_height)
         fix("trunk_pitch", 0)
 
         if self.direction == "front":
