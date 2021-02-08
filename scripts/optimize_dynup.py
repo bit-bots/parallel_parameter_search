@@ -31,6 +31,9 @@ parser.add_argument('--sampler', help='Which sampler {TPE, CMAES}', default=1000
                     type=str, required=True)
 parser.add_argument('--direction', help='Direction of standup {front, back} ', default=None, type=str,
                     required=True)
+parser.add_argument('--externalforce',
+                    help='How large the max random force applied to the robot should be (only in pybullet)',
+                    default=0, type=float, required=False)
 
 args = parser.parse_args()
 
@@ -49,16 +52,16 @@ study = optuna.create_study(study_name=args.name, storage=args.storage, directio
 study.set_user_attr("sampler", args.sampler)
 
 if args.robot == "wolfgang":
-    objective = WolfgangOptimization('worker', gui=args.gui, direction=args.direction,
+    objective = WolfgangOptimization('worker', gui=args.gui, direction=args.direction, externalforce=args.externalforce,
                                      sim_type=args.sim)
 elif args.robot == "nao":
-    objective = NaoOptimization('worker', gui=args.gui, direction=args.direction,
-                                     sim_type=args.sim)
+    objective = NaoOptimization('worker', gui=args.gui, direction=args.direction, externalforce=args.externalforce,
+                                sim_type=args.sim)
 else:
     print(f"robot type \"{args.robot}\" not known.")
 
 # sanity check
-#study.enqueue_trial({"foot_distance": 0.2,
+# study.enqueue_trial({"foot_distance": 0.2,
 #                     "leg_min_length": 0.21,
 #                     "arm_side_offset": 0.05,
 #                     "trunk_x": -0.05,

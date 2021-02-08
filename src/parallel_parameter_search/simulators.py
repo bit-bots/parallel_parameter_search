@@ -124,6 +124,9 @@ class PybulletSim(AbstractSim):
     def randomize_terrain(self, max_height):
         self.sim.terrain.randomize(max_height)
 
+    def apply_force(self, link_id, force, position):
+        self.sim.apply_force(link_id, force, position)
+
     def get_pressure_left(self):
         return self.sim_interface.get_pressure_filtered_left()
 
