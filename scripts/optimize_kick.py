@@ -28,6 +28,7 @@ parser.add_argument('--trials', help='Trials to be evaluated', default=10000,
                     type=int, required=True)
 parser.add_argument('--sampler', help='Which sampler {TPE, CMAES}', default=10000,
                     type=str, required=True)
+parser.add_argument('--results-only', help="Do not optimize, just show results of an old study", action='store_true')
 
 args = parser.parse_args()
 
@@ -41,9 +42,16 @@ elif args.sampler == "CMAES":
 else:
     sys.exit("sampler not correctly specified")
 
-study = optuna.create_study(study_name=args.name, storage=args.storage, direction='minimize',
-                            sampler=sampler, load_if_exists=True)
-study.set_user_attr("sampler", args.sampler)
+if args.results_only:
+    study = optuna.load_study(study_name=args.name, storage=args.storage, sampler=sampler)
+    print(f'Best result was {study.best_value} in trial {study.best_trial.number} of {len(study.trials)}')
+    print(study.best_params)
+else:
+    study = optuna.create_study(study_name=args.name, storage=args.storage, direction='minimize',
+                                sampler=sampler, load_if_exists=True)
+    study.set_user_attr("sampler", args.sampler)
 
-objective = WolfgangKickEngineOptimization('worker', gui=args.gui, sim_type=args.sim)
-study.optimize(objective.objective, n_trials=args.trials, show_progress_bar=True)
+    objective = WolfgangKickEngineOptimization('worker', gui=args.gui, sim_type=args.sim)
+    study.optimize(objective.objective, n_trials=args.trials, show_progress_bar=True)
+    print(f'Best result was {study.best_value} in trial {study.best_trial.number} of {len(study.trials)}')
+    print(study.best_params)
