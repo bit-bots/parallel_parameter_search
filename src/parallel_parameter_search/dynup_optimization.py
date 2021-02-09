@@ -22,13 +22,14 @@ from parallel_parameter_search.utils import fused_from_quat
 
 
 class AbstractDynupOptimization(AbstractRosOptimization):
-    def __init__(self, namespace, gui, robot, direction, externalforce, sim_type, stability=False, foot_link_names=()):
+    def __init__(self, namespace, gui, robot, direction, externalforce, sim_type, stability=False, foot_link_names=(), multi_objective=False):
         super().__init__(namespace)
         self.rospack = rospkg.RosPack()
         # set robot urdf and srdf
         load_robot_param(self.namespace, self.rospack, robot)
         self.direction = direction
         self.externalforce = externalforce
+        self.multi_objective = multi_objective
         self.sim_type = sim_type
         if sim_type == 'pybullet':
             urdf_path = self.rospack.get_path(robot + '_description') + '/urdf/robot.urdf'
@@ -150,10 +151,23 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         print(f"speed: {speed_loss}")
         print(f"success loss: {success_loss}")
 
-        #todo vlt lieber die angular velocities nehmen statt imu offsets
-        #todo falls er zu sehr auf zeit optimiert und das in der echten welt nicht mehr klappt, dann den zeit wert aus der score funktion nehmen oder kleiner machen
-        #return head_score + success_loss + mean_imu_offset  # + mean_y_offset + 200 * trial_failed_loss + speed_loss
-        return fused_ptich_score + success_loss + mean_imu_offset
+        if self.multi_objective:
+            # turn into multi loss problem
+            # max head
+            # min pitch
+            # min imu offset
+            # min planned time
+            # max survive time
+            # in einem zweiten versuch dann mit stabilisierung
+            # score ob mans bis in die hocke geschafft hat
+            return [head_score, success_loss, mean_imu_offset]
+        else:
+            #todo vlt lieber die angular velocities nehmen statt imu offsets
+            #todo falls er zu sehr auf zeit optimiert und das in der echten welt nicht mehr klappt, dann den zeit wert aus der score funktion nehmen oder kleiner machen
+            return head_score + success_loss + mean_imu_offset  # + mean_y_offset + 200 * trial_failed_loss + speed_loss
+            #return fused_ptich_score + success_loss + mean_imu_offset
+
+
 
     def run_attempt(self):
         self.trial_running = True
@@ -321,8 +335,8 @@ class AbstractDynupOptimization(AbstractRosOptimization):
 
 
 class WolfgangOptimization(AbstractDynupOptimization):
-    def __init__(self, namespace, gui, direction, externalforce, sim_type='pybullet'):
-        super(WolfgangOptimization, self).__init__(namespace, gui, 'wolfgang', direction, externalforce, sim_type)
+    def __init__(self, namespace, gui, direction, externalforce, sim_type='pybullet', multi_objective=False):
+        super(WolfgangOptimization, self).__init__(namespace, gui, 'wolfgang', direction, externalforce, sim_type, multi_objective=multi_objective)
         self.reset_height_offset = 0.1
 
     def suggest_params(self, trial):
@@ -340,6 +354,7 @@ class WolfgangOptimization(AbstractDynupOptimization):
             else:
                 self.set_params(pid_dict, client)
 
+        # todo maybe use step or log? robot has limited precision in space and time anyway
         def add(name, min_value, max_value):
             node_param_dict[name] = trial.suggest_uniform(name, min_value, max_value)
 
@@ -398,8 +413,8 @@ class WolfgangOptimization(AbstractDynupOptimization):
 
 
 class NaoOptimization(AbstractDynupOptimization):
-    def __init__(self, namespace, gui, direction, externalforce, sim_type='pybullet'):
-        super(NaoOptimization, self).__init__(namespace, gui, 'nao', direction, externalforce, sim_type)
+    def __init__(self, namespace, gui, direction, externalforce, sim_type='pybullet', multi_objective=False):
+        super(NaoOptimization, self).__init__(namespace, gui, 'nao', direction, externalforce, sim_type, multi_objective=multi_objective)
         self.reset_height_offset = 0.005
 
     def suggest_params(self, trial):
