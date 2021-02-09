@@ -22,7 +22,7 @@ from parallel_parameter_search.utils import fused_from_quat
 
 
 class AbstractDynupOptimization(AbstractRosOptimization):
-    def __init__(self, namespace, gui, robot, direction, externalforce, sim_type, foot_link_names=()):
+    def __init__(self, namespace, gui, robot, direction, externalforce, sim_type, stability=False, foot_link_names=()):
         super().__init__(namespace)
         self.rospack = rospkg.RosPack()
         # set robot urdf and srdf
@@ -33,7 +33,7 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         if sim_type == 'pybullet':
             urdf_path = self.rospack.get_path(robot + '_description') + '/urdf/robot.urdf'
             self.sim = PybulletSim(self.namespace, gui, urdf_path=urdf_path,
-                                   foot_link_names=foot_link_names)
+                                   foot_link_names=foot_link_names, terrain=stability, field=False)
         elif sim_type == 'webots':
             self.sim = WebotsSim(self.namespace, gui, robot)
         else:
@@ -151,7 +151,8 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         print(f"success loss: {success_loss}")
 
         #todo vlt lieber die angular velocities nehmen statt imu offsets
-        # head_score + success_loss + mean_imu_offset  # + mean_y_offset + 200 * trial_failed_loss + speed_loss
+        #todo falls er zu sehr auf zeit optimiert und das in der echten welt nicht mehr klappt, dann den zeit wert aus der score funktion nehmen oder kleiner machen
+        #return head_score + success_loss + mean_imu_offset  # + mean_y_offset + 200 * trial_failed_loss + speed_loss
         return fused_ptich_score + success_loss + mean_imu_offset
 
     def run_attempt(self):
@@ -346,21 +347,27 @@ class WolfgangOptimization(AbstractDynupOptimization):
             node_param_dict[name] = value
             trial.set_user_attr(name, value)
 
-        add("foot_distance", 0.10, 0.25)
         add("leg_min_length", 0.2, 0.25)
         add("arm_side_offset", 0.05, 0.2)
-        add("trunk_x", -0.1, 0.1)
+        #add("trunk_x", -0.1, 0.1)
+        fix("trunk_x_final", 0)
         add("rise_time", 0, 1)
 
         fix("stabilizing", False)
+        #todo bei stabilization die zeiten von den letzten bewegungen nochmal mit optimieren?
+        #todo currently dynup only stabilizes after wait in squat time, maybe start before this
+        #todo maybe only learn pitch first and roll in a second optimization?
+        #todo maybe use fused angles
         #pid_params("trunk_pitch", self.trunk_pitch_client, (0, 2), (0, 4), (0, 0.1), (-1, 1))
         #pid_params("trunk_roll", self.trunk_roll_client, (0, 2), (0, 4), (0, 0.1), (-1, 1))
 
         # these are basically goal position variables, that the user has to define
         fix("trunk_height", self.trunk_height)
         fix("trunk_pitch", 0)
+        fix("foot_distance", 0.2)
 
         if self.direction == "front":
+            add("trunk_x_front", -0.1, 0.1)
             add("max_leg_angle", 0, 90)
             add("trunk_overshoot_angle_front", -90, 0)
             add("time_hands_side", 0, 1)
@@ -371,6 +378,7 @@ class WolfgangOptimization(AbstractDynupOptimization):
             add("time_to_squat", 0, 1)
             add("wait_in_squat_front", 0, 2)
         elif self.direction == "back":
+            add("trunk_x_back", -0.1, 0.1)
             add("hands_behind_back_x", 0.0, 0.4)
             add("hands_behind_back_z", 0.0, 0.4)
             add("trunk_height_back", 0.0, 0.4)

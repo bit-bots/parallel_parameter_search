@@ -67,4 +67,45 @@ else:
 #                     "trunk_x": -0.05,
 #                     "max_leg_angle": 60})
 
+if False:
+    study.enqueue_trial(
+        {"arm_side_offset": 0.122031744318746, "foot_distance": 0.100652260384803, "leg_min_length": 0.211574225886578,
+         "max_leg_angle": 37.5324104794652, "rise_time": 0.180817781788339, "time_foot_close": 0.703817004587412,
+         "time_hands_front": 0.043005235371369, "time_hands_rotate": 0.439040887673346,
+         "time_hands_side": 0.616897042371927, "time_to_squat": 0.224689373271914, "time_torso_45": 0.255136409563475,
+         "trunk_overshoot_angle_front": -62.1831626099654, "wait_in_squat_front": 0.25741117659272,
+         "stabilizing": False, "trunk_height": 0.4, "trunk_pitch": 0, "trunk_x": 0.0})
+
+    study.enqueue_trial(
+        {"arm_side_offset": 0.122031744318746, "foot_distance": 0.100652260384803, "leg_min_length": 0.211574225886578,
+         "max_leg_angle": 37.5324104794652, "rise_time": 0.180817781788339, "time_foot_close": 0.703817004587412,
+         "time_hands_front": 0.043005235371369, "time_hands_rotate": 0.439040887673346,
+         "time_hands_side": 0.616897042371927, "time_to_squat": 0.224689373271914, "time_torso_45": 0.255136409563475,
+         "trunk_overshoot_angle_front": -62.1831626099654, "wait_in_squat_front": 0.25741117659272,
+         "stabilizing": False, "trunk_height": 0.4, "trunk_pitch": 0, "trunk_x": 0.0})
+
+    study.enqueue_trial(
+        {"arm_side_offset": 0.122031744318746, "foot_distance": 0.100652260384803, "leg_min_length": 0.211574225886578,
+         "max_leg_angle": 37.5324104794652, "rise_time": 0.180817781788339, "time_foot_close": 0.703817004587412,
+         "time_hands_front": 0.043005235371369, "time_hands_rotate": 0.439040887673346,
+         "time_hands_side": 0.616897042371927, "time_to_squat": 0.224689373271914, "time_torso_45": 0.255136409563475,
+         "trunk_overshoot_angle_front": -62.1831626099654, "wait_in_squat_front": 0.25741117659272,
+         "stabilizing": False, "trunk_height": 0.4, "trunk_pitch": 0, "trunk_x": 0.0})
+
+    study.enqueue_trial(
+        {"arm_side_offset": 0.122031744318746, "foot_distance": 0.100652260384803, "leg_min_length": 0.211574225886578,
+         "max_leg_angle": 37.5324104794652, "rise_time": 0.180817781788339, "time_foot_close": 0.703817004587412,
+         "time_hands_front": 0.043005235371369, "time_hands_rotate": 0.439040887673346,
+         "time_hands_side": 0.616897042371927, "time_to_squat": 0.224689373271914, "time_torso_45": 0.255136409563475,
+         "trunk_overshoot_angle_front": -62.1831626099654, "wait_in_squat_front": 0.25741117659272,
+         "stabilizing": False, "trunk_height": 0.4, "trunk_pitch": 0, "trunk_x": 0.0})
+
+    study.enqueue_trial(
+        {"arm_side_offset": 0.122031744318746, "foot_distance": 0.100652260384803, "leg_min_length": 0.211574225886578,
+         "max_leg_angle": 37.5324104794652, "rise_time": 0.180817781788339, "time_foot_close": 0.703817004587412,
+         "time_hands_front": 0.043005235371369, "time_hands_rotate": 0.439040887673346,
+         "time_hands_side": 0.616897042371927, "time_to_squat": 0.224689373271914, "time_torso_45": 0.255136409563475,
+         "trunk_overshoot_angle_front": -62.1831626099654, "wait_in_squat_front": 0.25741117659272,
+         "stabilizing": False, "trunk_height": 0.4, "trunk_pitch": 0, "trunk_x": 0.0})
+
 study.optimize(objective.objective, n_trials=args.trials, show_progress_bar=True)
