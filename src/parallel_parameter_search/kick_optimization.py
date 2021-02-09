@@ -3,7 +3,7 @@ import math
 import optuna
 import rospkg
 import rospy
-from geometry_msgs.msg import Quaternion, Transform
+from geometry_msgs.msg import Quaternion
 from bitbots_msgs.msg import KickGoal, JointCommand
 from tf.transformations import quaternion_from_euler
 
@@ -59,11 +59,12 @@ class AbstractKickOptimization(AbstractRosOptimization):
         """
         # get parameter to evaluate from optuna
         self.suggest_kick_params(trial)
-        self.reset()
 
         cost = 0
         for d, direction in enumerate(self.directions):
-            self.reset_position()
+            # move ball away
+            self.sim.place_ball(3, 0)
+            self.reset()
             early_term, cost_try = self.evaluate_goal(*direction, trial)
             cost += cost_try
             # check if we failed in this direction and terminate this trial early
@@ -114,12 +115,14 @@ class AbstractKickOptimization(AbstractRosOptimization):
         Returns whether early termination occurred (bool), the cost of the try (between 0 and 1)
         """
         goal_msg = self.get_kick_goal_msg(x, y, yaw, speed)
-        trunk_to_base_footprint = Transform()  # todo
-        self.kick.set_goal(goal_msg, trunk_to_base_footprint)
+        self.kick.set_goal(goal_msg, self.sim.get_joint_state_msg())
         self.sim.place_ball(x, y)
+        self.sim.step_sim()
+        self.sim.step_sim()
         print(f'goal: {x} {y} {yaw} {speed}')
         start_time = self.sim.get_time()
         kick_finished = False
+        self.last_time = self.sim.get_time()
         # wait till kick is finished or robot fell down
         while not kick_finished:
             # test if the robot has fallen down, then return maximal cost
@@ -140,7 +143,16 @@ class AbstractKickOptimization(AbstractRosOptimization):
                 self.sim.step_sim()
 
         passed_time = self.sim.get_time() - start_time
-        passed_timesteps = passed_time / self.sim.get_timestep()
+        passed_timesteps = max(1, passed_time / self.sim.get_timestep())
+        # kick is finished, wait if robot is falling down
+        while self.sim.get_time() < start_time + passed_time + 2:
+            self.sim.step_sim()
+
+        pos, rpy = self.sim.get_robot_pose_rpy()
+        if abs(rpy[0]) > math.radians(45) or abs(rpy[1]) > math.radians(45) or pos[2] < self.reset_trunk_height / 2:
+            # robot fell
+            return False, 1
+
         cost = self.compute_cost(yaw)
         return False, cost / passed_timesteps
 
@@ -172,8 +184,8 @@ class AbstractKickOptimization(AbstractRosOptimization):
         height = self.reset_trunk_height
         pitch = self.reset_trunk_pitch
         (x, y, z, w) = quaternion_from_euler(self.reset_rpy_offset[0],
-                                             self.reset_rpy_offset[1] + pitch,
-                                             self.reset_rpy_offset[2])
+                                             self.reset_rpy_offset[1],
+                                             self.reset_rpy_offset[2] + pitch)
 
         self.sim.reset_robot_pose((0, 0, height), (x, y, z, w))
 
@@ -198,13 +210,13 @@ class AbstractKickOptimization(AbstractRosOptimization):
         # move the robot in the air
         self.sim.reset_robot_pose((0, 0, 1), (0, 0, 0, 1))
         self.set_to_walkready()
-        self.sim.step_sim()
-        self.sim.step_sim()
+        for _ in range(20):
+            self.sim.step_sim()
         self.sim.set_gravity(True)
         # set it back on the ground
         self.reset_position()
-        self.sim.step_sim()
-        self.sim.step_sim()
+        for _ in range(20):
+            self.sim.step_sim()
 
     def get_kick_goal_msg(self, x, y, yaw, speed):
         msg = KickGoal()
@@ -221,5 +233,5 @@ class WolfgangKickEngineOptimization(AbstractKickOptimization):
     def __init__(self, namespace, gui, sim_type='pybullet'):
         super().__init__(namespace, gui, 'wolfgang', sim_type)
         # These are the start values from the kick, they come from the walking
-        self.reset_trunk_height = 0.4
-        self.reset_trunk_pitch = 0.12
+        self.reset_trunk_height = 0.42
+        self.reset_trunk_pitch = 0.2
