@@ -100,6 +100,9 @@ class PybulletSim(AbstractSim):
     def get_robot_pose_rpy(self):
         return self.sim.get_robot_pose_rpy()
 
+    def get_robot_velocity(self):
+        return self.sim.get_robot_velocity()
+
     def reset(self):
         self.sim.reset()
 
