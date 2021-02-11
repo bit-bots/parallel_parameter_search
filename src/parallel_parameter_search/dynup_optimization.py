@@ -139,7 +139,6 @@ class AbstractDynupOptimization(AbstractRosOptimization):
 
     def objective(self, trial):
         self.suggest_params(trial, self.stability)
-        self.dynup_params = rospy.get_param(self.namespace + "/dynup")
 
         head_score = []
         fused_pitch_score = []
@@ -217,7 +216,9 @@ class AbstractDynupOptimization(AbstractRosOptimization):
 
         if self.multi_objective:
             # score ob mans bis in die hocke geschafft hat (ist eigentlich ungefähr fused_ptich_score)
-            return [head_score, fused_pitch_score, success_sum, speed_loss]
+            #todo do we also find solutions without the first two scores?
+            return [success_sum, speed_loss, head_score, fused_pitch_score]
+            #return [success_sum, speed_loss]
         else:
             # todo vlt lieber die angular velocities nehmen statt imu offsets
             # todo falls er zu sehr auf zeit optimiert und das in der echten welt nicht mehr klappt, dann den zeit wert aus der score funktion nehmen oder kleiner machen
@@ -281,7 +282,7 @@ class AbstractDynupOptimization(AbstractRosOptimization):
             if self.direction == "front":
                 # only after initial arm movement and not after reaching squat
                 if angular_vel[1] > 0 and self.get_time() - self.start_time > self.hand_ground_time \
-                        and fused_pitch > math.radians(30):
+                        and fused_pitch > math.radians(45):
                     print(angular_vel)
                     print("gyro")
                     return False
@@ -471,13 +472,18 @@ class WolfgangOptimization(AbstractDynupOptimization):
         self.reset_height_offset = 0.1
 
     def suggest_params(self, trial, stabilization):
-        node_param_dict = {}
+        load_yaml_to_param(self.namespace, 'bitbots_dynup',
+                           '/config/dynup_optimization.yaml',
+                           self.rospack)
+        self.dynup_params = rospy.get_param(self.namespace + "/dynup")
+        self.dynup_params.pop("pid_trunk_roll")
+        self.dynup_params.pop("pid_trunk_pitch")
 
         def add(name, min_value, max_value, step=None, log=False):
-            node_param_dict[name] = trial.suggest_float(name, min_value, max_value, step=step, log=log)
+            self.dynup_params[name] = trial.suggest_float(name, min_value, max_value, step=step, log=log)
 
         def fix(name, value):
-            node_param_dict[name] = value
+            self.dynup_params[name] = value
             trial.set_user_attr(name, value)
 
         step_cartesian = 0.001
@@ -488,8 +494,8 @@ class WolfgangOptimization(AbstractDynupOptimization):
             fix("stabilizing", True)
             # todo bei stabilization die zeiten von den letzten bewegungen nochmal mit optimieren?
             # todo currently dynup only stabilizes after wait in squat time, maybe start before this
-            self.pid_params(trial, "trunk_pitch", self.trunk_pitch_client, (0, 2), (0, 4), (0, 0.1), (-2, 2))
-            self.pid_params(trial, "trunk_roll", self.trunk_roll_client, (0, 2), (0, 4), (0, 0.1), (-2, 2))
+            self.pid_params(trial, "trunk_pitch", self.trunk_pitch_client, (-2, 2), (-4, 4), (-0.1, 0.1), (-2, 2))
+            #self.pid_params(trial, "trunk_roll", self.trunk_roll_client, (-2, 2), (-4, 4), (0, 0.1), (-2, 2))
         else:
             fix("stabilizing", False)
             # we are not more precise than 1mm or one loop cycle (simulator runs at 240Hz)
@@ -533,7 +539,7 @@ class WolfgangOptimization(AbstractDynupOptimization):
             else:
                 print(f"direction {self.direction} not specified")
 
-        self.set_params(node_param_dict, self.dynup_client)
+        self.set_params(self.dynup_params, self.dynup_client)
         return
 
 

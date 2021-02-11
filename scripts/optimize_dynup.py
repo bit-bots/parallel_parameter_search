@@ -52,6 +52,7 @@ elif args.sampler == "MOTPE":
     multi_objective = True
 elif args.sampler == "Random":
     sampler = RandomSampler(seed=seed)
+    multi_objective = True
 else:
     print("sampler not correctly specified")
     exit(1)
@@ -73,6 +74,10 @@ elif args.robot == "nao":
                                 multi_objective=multi_objective, stability=args.stability)
 else:
     print(f"robot type \"{args.robot}\" not known.")
+study.set_user_attr("robot", args.robot)
+study.set_user_attr("real_robot", args.real_robot)
+study.set_user_attr("stability", args.stability)
+study.set_user_attr("repetitions", args.repetitions)
 
 # sanity check
 # study.enqueue_trial({"foot_distance": 0.2,
@@ -93,7 +98,9 @@ if False:
          "stabilizing": False, "trunk_height": 0.4, "trunk_pitch": 0.0, "trunk_x_final": 0.0})
 
 if args.stability:
-    study.enqueue_trial({"trunk_pitch_p": 0.0, "trunk_pitch_d": 0.0, "trunk_roll_p": 0.0, "trunk_roll_d": 0.0})
+    study.enqueue_trial(
+        {"trunk_pitch_p": 0.0, "trunk_pitch_d": 0.0, "trunk_pitch_i": 0.0, "trunk_roll_p": 0.0, "trunk_roll_d": 0.0,
+         "trunk_roll_i": 0.0})
 
 # tensorboard_callback = TensorBoardCallback("/tmp/tensorboard/", metric_name="value")
 study.optimize(objective.objective, n_trials=args.trials, show_progress_bar=True)  # , callbacks=[tensorboard_callback])
