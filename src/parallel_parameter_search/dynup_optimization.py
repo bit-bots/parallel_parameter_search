@@ -280,7 +280,7 @@ class AbstractDynupOptimization(AbstractRosOptimization):
             # early termination if robot falls. detectable on gyro pitch
             if self.direction == "front":
                 # only after initial arm movement and not after reaching squat
-                if angular_vel[1] > 0 and self.get_time() - self.start_time > self.hand_ground_time \
+                if angular_vel[1] > 0 and self.get_time() - self.start_time > self.hand_ground_time +0.5\
                         and fused_pitch > math.radians(45):
                     print("gyro")
                     return False
@@ -290,7 +290,7 @@ class AbstractDynupOptimization(AbstractRosOptimization):
                     return False
             else:
                 # only after initial arm movement and not after reaching squat
-                if angular_vel[1] < 0 and self.get_time() - self.start_time > self.hand_ground_time \
+                if angular_vel[1] < 0 and self.get_time() - self.start_time > self.hand_ground_time +0.5\
                         and fused_pitch < math.radians(-45):
                     print("gyro")
                     return False
