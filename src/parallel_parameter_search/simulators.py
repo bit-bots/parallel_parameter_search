@@ -139,6 +139,9 @@ class PybulletSim(AbstractSim):
     def get_joint_position(self, name):
         return self.sim.get_joint_position(name)
 
+    def get_joint_names(self):
+        return self.sim.get_joint_names()
+
 class WebotsSim(AbstractSim, ABC):
 
     def __init__(self, namespace, gui, robot="wolfgang"):

@@ -6,7 +6,7 @@ import importlib
 import time
 
 import optuna
-#from optuna.integration.tensorboard import TensorBoardCallback
+# from optuna.integration.tensorboard import TensorBoardCallback
 from optuna.samplers import TPESampler, CmaEsSampler, MOTPESampler, RandomSampler
 import numpy as np
 
@@ -31,18 +31,15 @@ parser.add_argument('--sampler', help='Which sampler {TPE, CMAES}', default=1000
                     type=str, required=True)
 parser.add_argument('--direction', help='Direction of standup {front, back} ', default=None, type=str,
                     required=True)
-parser.add_argument('--stability',
-                    help='Optimize stability',
-                    default=False, type=bool, required=False)
-
+parser.add_argument('--stability', help='Optimize stability', action='store_true')
+parser.add_argument('--real_robot', help='run on actual robot', action='store_true')
+parser.add_argument('--repetitions', help='How often each trial is repeated while beeing evaluated', default=1,
+                    type=int, required=False)
 args = parser.parse_args()
 
 seed = np.random.randint(2 ** 32 - 1)
-num_variables = 5
-if args.startup:
-    n_startup_trials = args.startup
-else:
-    n_startup_trials = num_variables * 11 - 1
+num_variables = 4
+n_startup_trials = args.startup
 
 multi_objective = False
 if args.sampler == "TPE":
@@ -50,6 +47,7 @@ if args.sampler == "TPE":
 elif args.sampler == "CMAES":
     sampler = CmaEsSampler(n_startup_trials=n_startup_trials, seed=seed)
 elif args.sampler == "MOTPE":
+    n_startup_trials = num_variables * 11 - 1
     sampler = MOTPESampler(n_startup_trials=n_startup_trials, seed=seed)
     multi_objective = True
 elif args.sampler == "Random":
@@ -68,7 +66,8 @@ study.set_user_attr("sampler", args.sampler)
 
 if args.robot == "wolfgang":
     objective = WolfgangOptimization('worker', gui=args.gui, direction=args.direction, sim_type=args.sim,
-                                     multi_objective=multi_objective, stability=args.stability)
+                                     multi_objective=multi_objective, stability=args.stability,
+                                     real_robot=args.real_robot, repetitions=args.repetitions)
 elif args.robot == "nao":
     objective = NaoOptimization('worker', gui=args.gui, direction=args.direction, sim_type=args.sim,
                                 multi_objective=multi_objective, stability=args.stability)
@@ -84,15 +83,17 @@ else:
 
 if False:
     study.enqueue_trial(
-        {"arm_side_offset": 0.072, "leg_min_length": 0.237, "max_leg_angle": 47.11, "rise_time": 0.554166666666667,
-         "time_foot_close": 0.583333333333333, "time_hands_front": 0.770833333333333, "time_hands_rotate": 0.25,
-         "time_hands_side": 0.495833333333333, "time_to_squat": 0.470833333333333, "time_torso_45": 0.0208333333333333,
-         "trunk_overshoot_angle_front": -17.85, "trunk_pitch_d": 0.0, "trunk_pitch_p": 0.0,
-         "trunk_x_front": -0.024, "wait_in_squat_front": 0.379166666666667, "foot_distance": 0.2, "stabilizing": False,
-         "trunk_height": 0.4, "trunk_pitch": 0, "trunk_x_final": 0})
+        {"arm_side_offset": 0.0677590160887494, "leg_min_length": 0.2067670533147, "max_leg_angle": 30.4292309010807,
+         "rise_time": 0.0733678477255489, "time_foot_close": 0.146339845575924,
+         "time_foot_ground_front": 0.0693103655425997, "time_hands_front": 0.124713299857784,
+         "time_hands_rotate": 0.326563977601274, "time_hands_side": 0.0560835529050166,
+         "time_to_squat": 0.188037029076921, "time_torso_45": 0.281232209972938,
+         "trunk_overshoot_angle_front": -43.938101118461, "trunk_x_front": 0.0362803269077757,
+         "wait_in_squat_front": 0.0763752798324003, "foot_distance": 0.2, "hand_walkready_pitch": -60.0,
+         "stabilizing": False, "trunk_height": 0.4, "trunk_pitch": 0.0, "trunk_x_final": 0.0})
 
-if False:
+if args.stability:
     study.enqueue_trial({"trunk_pitch_p": 0.0, "trunk_pitch_d": 0.0, "trunk_roll_p": 0.0, "trunk_roll_d": 0.0})
 
-#tensorboard_callback = TensorBoardCallback("/tmp/tensorboard/", metric_name="value")
-study.optimize(objective.objective, n_trials=args.trials, show_progress_bar=True)#, callbacks=[tensorboard_callback])
+# tensorboard_callback = TensorBoardCallback("/tmp/tensorboard/", metric_name="value")
+study.optimize(objective.objective, n_trials=args.trials, show_progress_bar=True)  # , callbacks=[tensorboard_callback])
