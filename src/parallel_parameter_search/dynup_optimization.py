@@ -194,7 +194,7 @@ class AbstractDynupOptimization(AbstractRosOptimization):
             # can not just take total_trial_length, since this does not include standing stable after rising
             speed_loss.append(max(self.total_trial_length, self.trial_duration))
 
-            #mean_torque.append(self.torque_sum / self.torque_count)
+            # mean_torque.append(self.torque_sum / self.torque_count)
 
             # todo this speeds up a lot but is it correct to do so?
             if successes == 0:
@@ -205,7 +205,7 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         percentage_left = max(percentage_left)
         mean_imu_offset = max(mean_imu_offsets)
         speed_loss = max(speed_loss)
-        #mean_torque = max(mean_torque)
+        # mean_torque = max(mean_torque)
         success_sum = max(success_sums)
         print(f"Head height: {head_score}")
         print(f"imu offset: {mean_imu_offset}")
@@ -216,9 +216,9 @@ class AbstractDynupOptimization(AbstractRosOptimization):
 
         if self.multi_objective:
             # score ob mans bis in die hocke geschafft hat (ist eigentlich ungefähr fused_ptich_score)
-            #todo do we also find solutions without the first two scores?
+            # todo do we also find solutions without the first two scores?
             return [success_sum, speed_loss, head_score, fused_pitch_score]
-            #return [success_sum, speed_loss]
+            # return [success_sum, speed_loss]
         else:
             # todo vlt lieber die angular velocities nehmen statt imu offsets
             # todo falls er zu sehr auf zeit optimiert und das in der echten welt nicht mehr klappt, dann den zeit wert aus der score funktion nehmen oder kleiner machen
@@ -234,7 +234,6 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         end_time = self.start_time + self.total_trial_length
         # reset params
         self.max_head_height = 0
-        self.min_pitch = 90
         self.min_fused_pitch = 90
 
         while not rospy.is_shutdown():
@@ -249,7 +248,7 @@ class AbstractDynupOptimization(AbstractRosOptimization):
             fused_roll, fused_pitch, fused_yaw, hemi = fused_from_quat(quat)
             # only take values which are in positive hemi. otherwise we take values where the robot is tilted more than 90°
             if hemi == 1:
-                self.min_fused_pitch = max(0, min(self.min_fused_pitch, math.degrees(fused_pitch)))
+                self.min_fused_pitch = max(0, min(self.min_fused_pitch, math.degrees(abs(fused_pitch))))
 
             imu_frame_error = 0
             imu_frame_error_parts = 0
@@ -268,10 +267,10 @@ class AbstractDynupOptimization(AbstractRosOptimization):
                 self.max_head_height = max(self.max_head_height, head_position[2])
 
             # compute torques
-            #torques = self.get_joint_torques()
-            #self.max_torque = max(self.max_torque, max(torques))
-            #self.torque_sum += sum(torques)
-            #self.torque_count += len(torques)
+            # torques = self.get_joint_torques()
+            # self.max_torque = max(self.max_torque, max(torques))
+            # self.torque_sum += sum(torques)
+            # self.torque_count += len(torques)
 
             if self.real_robot:
                 angular_vel = self.current_imu_msg.angular_velocity
@@ -283,7 +282,6 @@ class AbstractDynupOptimization(AbstractRosOptimization):
                 # only after initial arm movement and not after reaching squat
                 if angular_vel[1] > 0 and self.get_time() - self.start_time > self.hand_ground_time \
                         and fused_pitch > math.radians(45):
-                    print(angular_vel)
                     print("gyro")
                     return False
                 # detect falling after reaching squat
@@ -291,8 +289,15 @@ class AbstractDynupOptimization(AbstractRosOptimization):
                     print("orientation")
                     return False
             else:
-                print("not implemented yet")
-                exit(1)
+                # only after initial arm movement and not after reaching squat
+                if angular_vel[1] < 0 and self.get_time() - self.start_time > self.hand_ground_time \
+                        and fused_pitch < math.radians(-45):
+                    print("gyro")
+                    return False
+                # detect falling after reaching squat
+                if self.min_fused_pitch == 0 and fused_pitch > math.radians(45):
+                    print("orientation")
+                    return False
 
             # early termination if robot falls, but not in first phase where head is always close to ground
             # (+ some time to move)
@@ -495,7 +500,7 @@ class WolfgangOptimization(AbstractDynupOptimization):
             # todo bei stabilization die zeiten von den letzten bewegungen nochmal mit optimieren?
             # todo currently dynup only stabilizes after wait in squat time, maybe start before this
             self.pid_params(trial, "trunk_pitch", self.trunk_pitch_client, (-2, 2), (-4, 4), (-0.1, 0.1), (-2, 2))
-            #self.pid_params(trial, "trunk_roll", self.trunk_roll_client, (-2, 2), (-4, 4), (0, 0.1), (-2, 2))
+            # self.pid_params(trial, "trunk_roll", self.trunk_roll_client, (-2, 2), (-4, 4), (0, 0.1), (-2, 2))
         else:
             fix("stabilizing", False)
             # we are not more precise than 1mm or one loop cycle (simulator runs at 240Hz)
