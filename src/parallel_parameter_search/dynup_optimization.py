@@ -19,7 +19,7 @@ from parallel_parameter_search.simulators import PybulletSim, WebotsSim
 from sensor_msgs.msg import Imu, JointState
 
 from parallel_parameter_search.utils import fused_from_quat
-
+from statistics import mean
 
 class AbstractDynupOptimization(AbstractRosOptimization):
     def __init__(self, namespace, gui, robot, direction, sim_type, stability=False, foot_link_names=(),
@@ -197,16 +197,16 @@ class AbstractDynupOptimization(AbstractRosOptimization):
             # mean_torque.append(self.torque_sum / self.torque_count)
 
             # todo this speeds up a lot but is it correct to do so?
-            if successes == 0:
-                break
+            #if successes == 0:
+            #    break
 
-        head_score = max(head_score)
-        fused_pitch_score = max(fused_pitch_score)
-        percentage_left = max(percentage_left)
-        mean_imu_offset = max(mean_imu_offsets)
-        speed_loss = max(speed_loss)
+        head_score = mean(head_score)
+        fused_pitch_score = mean(fused_pitch_score)
+        percentage_left = mean(percentage_left)
+        mean_imu_offset = mean(mean_imu_offsets)
+        speed_loss = mean(speed_loss)
         # mean_torque = max(mean_torque)
-        success_sum = max(success_sums)
+        success_sum = mean(success_sums)
         print(f"Head height: {head_score}")
         print(f"imu offset: {mean_imu_offset}")
         print(f"percentage left: {percentage_left}")
@@ -312,7 +312,7 @@ class AbstractDynupOptimization(AbstractRosOptimization):
                 return False
 
             # early abort if IK glitch occurs
-            if self.get_joint_position("RAnkleRoll") > 0.9 or self.get_joint_position("RAnkleRoll") < -0.9:
+            if abs(self.get_joint_position("RAnkleRoll")) > 0.9 or abs(self.get_joint_position("LHipYaw")) > 0.9:
                 print("Ik bug")
                 return False
 
