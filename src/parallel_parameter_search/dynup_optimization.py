@@ -196,10 +196,6 @@ class AbstractDynupOptimization(AbstractRosOptimization):
 
             # mean_torque.append(self.torque_sum / self.torque_count)
 
-            # todo this speeds up a lot but is it correct to do so?
-            #if successes == 0:
-            #    break
-
         head_score = mean(head_score)
         fused_pitch_score = mean(fused_pitch_score)
         percentage_left = mean(percentage_left)
@@ -213,17 +209,17 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         print(f"success loss: {success_sum}")
         print(f"speed loss {speed_loss}")
         print(f"mean torque {mean_torque}")
+        # remember the single results
+        trial.set_user_attr("head_score", head_score)
+        trial.set_user_attr("success_score", success_sum)
+        trial.set_user_attr("speed_score", speed_loss * 10)
+        trial.set_user_attr("fused_pitch_score", fused_pitch_score)
 
         if self.multi_objective:
-            # score ob mans bis in die hocke geschafft hat (ist eigentlich ungefähr fused_ptich_score)
-            # todo do we also find solutions without the first two scores?
             return [success_sum, speed_loss, head_score, fused_pitch_score]
             # return [success_sum, speed_loss]
         else:
-            # todo vlt lieber die angular velocities nehmen statt imu offsets
-            # todo falls er zu sehr auf zeit optimiert und das in der echten welt nicht mehr klappt, dann den zeit wert aus der score funktion nehmen oder kleiner machen
-            return head_score + success_sum + speed_loss * 10 + fused_pitch_score  # + mean_y_offset + 200 * trial_failed_loss + speed_loss
-            # return fused_ptich_score + success_loss + mean_imu_offset
+            return head_score + success_sum + speed_loss * 10 + fused_pitch_score
 
     def run_attempt(self, force_vector):
         self.trial_running = True
@@ -504,7 +500,7 @@ class WolfgangOptimization(AbstractDynupOptimization):
         else:
             fix("stabilizing", False)
             # we are not more precise than 1mm or one loop cycle (simulator runs at 240Hz)
-            add("leg_min_length", 0.2, 0.25, step=step_cartesian)
+            add("leg_min_length", 0.2, 0.3, step=step_cartesian)
             add("arm_side_offset", 0.05, 0.2, step=step_cartesian)
             # add("trunk_x", -0.1, 0.1)
             fix("trunk_x_final", 0)
@@ -531,10 +527,10 @@ class WolfgangOptimization(AbstractDynupOptimization):
             elif self.direction == "back":
                 add("trunk_x_back", -0.1, 0.1, step=step_cartesian)
                 add("hands_behind_back_x", 0.0, 0.4, step=step_cartesian)
-                add("hands_behind_back_z", 0.0, 0.4, step=step_cartesian)
+                add("hands_behind_back_z", -0.4, 0.4, step=step_cartesian)
                 add("trunk_height_back", 0.0, 0.4, step=step_cartesian)
                 add("trunk_forward", 0.0, 0.1, step=step_cartesian)
-                add("foot_angle", 0.0, 90, step=step_angle)
+                add("foot_angle", 0.0, 135, step=step_angle)
                 add("trunk_overshoot_angle_back", 0.0, 90, step=step_angle)
                 add("time_legs_close", 0, 1, step=step_time)
                 add("time_foot_ground_back", 0, 1, step=step_time)
