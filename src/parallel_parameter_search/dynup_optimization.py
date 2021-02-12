@@ -222,7 +222,7 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         else:
             # todo vlt lieber die angular velocities nehmen statt imu offsets
             # todo falls er zu sehr auf zeit optimiert und das in der echten welt nicht mehr klappt, dann den zeit wert aus der score funktion nehmen oder kleiner machen
-            return head_score + success_sum + speed_loss + mean_imu_offset  # + mean_y_offset + 200 * trial_failed_loss + speed_loss
+            return head_score + success_sum + speed_loss * 10 + fused_pitch_score  # + mean_y_offset + 200 * trial_failed_loss + speed_loss
             # return fused_ptich_score + success_loss + mean_imu_offset
 
     def run_attempt(self, force_vector):

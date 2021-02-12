@@ -74,6 +74,9 @@ elif args.robot == "nao":
                                 multi_objective=multi_objective, stability=args.stability)
 else:
     print(f"robot type \"{args.robot}\" not known.")
+
+# save how this study was optimized
+study.set_user_attr("direction", args.direction)
 study.set_user_attr("robot", args.robot)
 study.set_user_attr("real_robot", args.real_robot)
 study.set_user_attr("stability", args.stability)
