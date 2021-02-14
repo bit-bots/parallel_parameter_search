@@ -23,7 +23,7 @@ from statistics import mean
 
 class AbstractDynupOptimization(AbstractRosOptimization):
     def __init__(self, namespace, gui, robot, direction, sim_type, stability=False, foot_link_names=(),
-                 multi_objective=False, real_robot=False, repetitions=1):
+                 multi_objective=False, real_robot=False, repetitions=1, score="SSHP"):
         super().__init__(namespace)
         self.rospack = rospkg.RosPack()
         # set robot urdf and srdf
@@ -34,6 +34,7 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         self.stability = stability
         self.real_robot = real_robot
         self.repetitions = repetitions
+        self.score = score
         if not self.real_robot:
             if sim_type == 'pybullet':
                 urdf_path = self.rospack.get_path(robot + '_description') + '/urdf/robot.urdf'
@@ -221,10 +222,23 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         trial.set_user_attr("fused_pitch_score", fused_pitch_score)
 
         if self.multi_objective:
-            return [success_sum, speed_loss, head_score, fused_pitch_score]
-            # return [success_sum, speed_loss]
+            if self.score == "SSHP":
+                return [success_sum, speed_loss, head_score, fused_pitch_score]
+            elif self.score == "SS":
+                return [success_sum, speed_loss]
+            elif self.score == "SSP":
+                return [success_sum, speed_loss, fused_pitch_score]
+            elif self.score == "SSH":
+                return [success_sum, speed_loss, head_score]
         else:
-            return head_score + success_sum + speed_loss * 10 + fused_pitch_score
+            if self.score == "SSHP":
+                return head_score + success_sum + speed_loss * 10 + fused_pitch_score
+            elif self.score == "SS":
+                return success_sum + speed_loss * 10
+            elif self.score == "SSP":
+                return success_sum + speed_loss * 10 + fused_pitch_score
+            elif self.score == "SSH":
+                return head_score + success_sum + speed_loss * 10
 
     def run_attempt(self, force_vector):
         self.trial_running = True
@@ -476,10 +490,10 @@ class AbstractDynupOptimization(AbstractRosOptimization):
 
 class WolfgangOptimization(AbstractDynupOptimization):
     def __init__(self, namespace, gui, direction, sim_type='pybullet', multi_objective=False, stability=False,
-                 real_robot=False, repetitions=1):
+                 real_robot=False, repetitions=1, score="SSHP"):
         super(WolfgangOptimization, self).__init__(namespace, gui, 'wolfgang', direction, sim_type,
                                                    multi_objective=multi_objective, stability=stability,
-                                                   real_robot=real_robot, repetitions=repetitions)
+                                                   real_robot=real_robot, repetitions=repetitions, score=score)
         self.reset_height_offset = 0.1
 
     def suggest_params(self, trial, stabilization):

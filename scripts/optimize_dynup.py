@@ -23,22 +23,25 @@ parser.add_argument('--robot', help='Robot model that should be used {wolfgang, 
 parser.add_argument('--sim', help='Simulator type that should be used {pybullet, webots} ', default=None, type=str,
                     required=True)
 parser.add_argument('--gui', help="Activate gui", action='store_true')
-parser.add_argument('--startup', help='Startup trials', default=None,
-                    type=int, required=False)
-parser.add_argument('--trials', help='Trials to be evaluated', default=10000,
-                    type=int, required=True)
-parser.add_argument('--sampler', help='Which sampler {TPE, CMAES}', default=10000,
-                    type=str, required=True)
+parser.add_argument('--startup', help='Startup trials', default=None, type=int, required=False)
+parser.add_argument('--trials', help='Trials to be evaluated', default=10000, type=int, required=True)
+parser.add_argument('--sampler', help='Which sampler {TPE, CMAES}', default=10000, type=str, required=True)
 parser.add_argument('--direction', help='Direction of standup {front, back} ', default=None, type=str,
                     required=True)
 parser.add_argument('--stability', help='Optimize stability', action='store_true')
 parser.add_argument('--real_robot', help='run on actual robot', action='store_true')
 parser.add_argument('--repetitions', help='How often each trial is repeated while beeing evaluated', default=1,
                     type=int, required=False)
+parser.add_argument('--score', help='Which score {SSH, SS, SSHP, SSP}', default="SSHP", type=str, required=True)
 args = parser.parse_args()
 
 seed = np.random.randint(2 ** 32 - 1)
-num_variables = 4
+if args.score == "SSHP":
+    num_variables = 4
+elif args.score in ["SSH", "SSP"]:
+    num_variables = 3
+elif args.score == "SS":
+    num_variables = 2
 n_startup_trials = args.startup
 
 multi_objective = False
@@ -68,7 +71,7 @@ study.set_user_attr("sampler", args.sampler)
 if args.robot == "wolfgang":
     objective = WolfgangOptimization('worker', gui=args.gui, direction=args.direction, sim_type=args.sim,
                                      multi_objective=multi_objective, stability=args.stability,
-                                     real_robot=args.real_robot, repetitions=args.repetitions)
+                                     real_robot=args.real_robot, repetitions=args.repetitions, score=args.score)
 elif args.robot == "nao":
     objective = NaoOptimization('worker', gui=args.gui, direction=args.direction, sim_type=args.sim,
                                 multi_objective=multi_objective, stability=args.stability)
