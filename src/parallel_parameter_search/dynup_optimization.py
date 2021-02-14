@@ -38,7 +38,7 @@ class AbstractDynupOptimization(AbstractRosOptimization):
             if sim_type == 'pybullet':
                 urdf_path = self.rospack.get_path(robot + '_description') + '/urdf/robot.urdf'
                 self.sim = PybulletSim(self.namespace, gui, urdf_path=urdf_path,
-                                       foot_link_names=foot_link_names, terrain=False, field=False)
+                                       foot_link_names=foot_link_names, terrain=True, field=False)
             elif sim_type == 'webots':
                 self.sim = WebotsSim(self.namespace, gui, robot)
             else:
@@ -164,7 +164,7 @@ class AbstractDynupOptimization(AbstractRosOptimization):
 
             successes = 0
             for attempt in attempts:
-                # self.sim.randomize_terrain(0.01)
+                self.sim.randomize_terrain(0.01)
                 self.reset()
                 success = self.run_attempt(attempt)
                 # get time of trial. use last time the robot was moving as point
@@ -196,6 +196,11 @@ class AbstractDynupOptimization(AbstractRosOptimization):
 
             # mean_torque.append(self.torque_sum / self.torque_count)
 
+        print(abs(success_sums[0] - success_sums[1]))
+        print(abs(speed_loss[0]-speed_loss[1]))
+        print(abs(head_score[0]-head_score[1]))
+        print(abs(fused_pitch_score[0]-fused_pitch_score[1]))
+
         head_score = mean(head_score)
         fused_pitch_score = mean(fused_pitch_score)
         percentage_left = mean(percentage_left)
@@ -203,12 +208,12 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         speed_loss = mean(speed_loss)
         # mean_torque = max(mean_torque)
         success_sum = mean(success_sums)
-        print(f"Head height: {head_score}")
-        print(f"imu offset: {mean_imu_offset}")
-        print(f"percentage left: {percentage_left}")
-        print(f"success loss: {success_sum}")
-        print(f"speed loss {speed_loss}")
-        print(f"mean torque {mean_torque}")
+        #print(f"Head height: {head_score}")
+        #print(f"imu offset: {mean_imu_offset}")
+        #print(f"percentage left: {percentage_left}")
+        #print(f"success loss: {success_sum}")
+        #print(f"speed loss {speed_loss}")
+        #print(f"mean torque {mean_torque}")
         # remember the single results
         trial.set_user_attr("head_score", head_score)
         trial.set_user_attr("success_score", success_sum)
@@ -320,7 +325,7 @@ class AbstractDynupOptimization(AbstractRosOptimization):
             if self.get_time() - self.start_time > self.time_limit:
                 return False
 
-            if angular_vel[0] > 0.01 or angular_vel[1] > 0.01:
+            if angular_vel[0] > 0.05 or angular_vel[1] > 0.05:
                 self.last_move_time = self.get_time()
                 # print(angular_vel)
 
@@ -342,6 +347,7 @@ class AbstractDynupOptimization(AbstractRosOptimization):
             # give time to Dynup to compute its response
             # use wall time, as ros time is standing still
             time.sleep(0.0001)
+            print("hi")
         self.dynup_step_done = False
 
     def reset_position(self):
@@ -353,15 +359,19 @@ class AbstractDynupOptimization(AbstractRosOptimization):
                                                                     self.reset_rpy_offset[1] + pitch,
                                                                     self.reset_rpy_offset[2])
 
-            self.sim.reset_robot_pose((0, 0, height), (x, y, z, w))
+            self.sim.set_robot_pose((0, 0, height), (x, y, z, w))
         else:
             angle = math.pi / 2
             x = 0
             y = 1
             z = 0
-            self.sim.reset_robot_pose((0, 0, height), (angle, x, y, z))
+            self.sim.set_robot_pose((0, 0, height), (angle, x, y, z))
 
     def reset(self):
+        #completly reset pybullet, since it is strange
+        if self.sim_type == "pybullet":
+            pass # self.sim.reset_simulation()
+
         # reset Dynup. send emtpy message to just cancel all goals
         self.dynup_cancel_pub.publish(GoalID())
 

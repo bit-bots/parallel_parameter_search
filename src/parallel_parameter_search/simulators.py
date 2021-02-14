@@ -91,8 +91,14 @@ class PybulletSim(AbstractSim):
     def set_gravity(self, on):
         self.sim.set_gravity(on)
 
+    def reset_simulation(self):
+        self.sim.reset_simulation()
+
     def reset_robot_pose(self, pos, quat):
         self.sim.reset_robot_pose(pos, quat)
+
+    def set_robot_pose(self, pos, quat):
+        self.sim.set_robot_pose(pos,quat)
 
     def get_robot_pose(self):
         return self.sim.get_robot_pose()
