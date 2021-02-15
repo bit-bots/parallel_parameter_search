@@ -158,7 +158,7 @@ class AbstractDynupOptimization(AbstractRosOptimization):
 
             if self.stability:
                 # tries with different forces
-                attempts = [(0, 0, 0), (1, 0, 0), (0, 1, 0), (-2, 0, 0), (0, -2, 0), (4, 0, 0), (0, 4, 0)]
+                attempts = [(0, 0, 0), (1, 0, 0), (-1, 0, 0), (2, 0, 0), (-2, 0, 0)]
             else:
                 # only force free
                 attempts = [(0, 0, 0)]
@@ -196,11 +196,6 @@ class AbstractDynupOptimization(AbstractRosOptimization):
             speed_loss.append(max(self.total_trial_length, self.trial_duration))
 
             # mean_torque.append(self.torque_sum / self.torque_count)
-
-        print(abs(success_sums[0] - success_sums[1]))
-        print(abs(speed_loss[0]-speed_loss[1]))
-        print(abs(head_score[0]-head_score[1]))
-        print(abs(fused_pitch_score[0]-fused_pitch_score[1]))
 
         head_score = mean(head_score)
         fused_pitch_score = mean(fused_pitch_score)
