@@ -7,12 +7,12 @@ import time
 
 import optuna
 # from optuna.integration.tensorboard import TensorBoardCallback
-from optuna.samplers import TPESampler, CmaEsSampler, MOTPESampler, RandomSampler
+from optuna.samplers import TPESampler, CmaEsSampler#, MOTPESampler, RandomSampler
 import numpy as np
 
 import rospy
 
-from parallel_parameter_search.dynup_optimization import WolfgangOptimization, NaoOptimization
+from parallel_parameter_search.dynup_optimization import WolfgangOptimization, NaoOptimization, Op2Optimization
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--storage', help='Database SQLAlchemy string, e.g. postgresql://USER:PASS@SERVER/DB_NAME',
@@ -68,13 +68,21 @@ else:
                                 sampler=sampler, load_if_exists=True)
 study.set_user_attr("sampler", args.sampler)
 
+
+
+
 if args.robot == "wolfgang":
     objective = WolfgangOptimization('worker', gui=args.gui, direction=args.direction, sim_type=args.sim,
                                      multi_objective=multi_objective, stability=args.stability,
                                      real_robot=args.real_robot, repetitions=args.repetitions, score=args.score)
+elif args.robot == "op2":
+    objective = Op2Optimization('worker', gui=args.gui, direction=args.direction, sim_type=args.sim,
+                                multi_objective=multi_objective, stability=args.stability,
+                                real_robot=args.real_robot, repetitions=args.repetitions, score=args.score)
 elif args.robot == "nao":
     objective = NaoOptimization('worker', gui=args.gui, direction=args.direction, sim_type=args.sim,
-                                multi_objective=multi_objective, stability=args.stability)
+                                multi_objective=multi_objective, stability=args.stability,
+                                real_robot=args.real_robot, repetitions=args.repetitions, score=args.score)
 else:
     print(f"robot type \"{args.robot}\" not known.")
 
