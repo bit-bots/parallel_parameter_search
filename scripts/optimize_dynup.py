@@ -92,6 +92,7 @@ study.set_user_attr("robot", args.robot)
 study.set_user_attr("real_robot", args.real_robot)
 study.set_user_attr("stability", args.stability)
 study.set_user_attr("repetitions", args.repetitions)
+study.set_user_attr("score", args.score)
 
 # sanity check
 # study.enqueue_trial({"foot_distance": 0.2,
