@@ -7,7 +7,7 @@ import time
 
 import optuna
 # from optuna.integration.tensorboard import TensorBoardCallback
-from optuna.samplers import TPESampler, CmaEsSampler#, MOTPESampler, RandomSampler
+from optuna.samplers import TPESampler, CmaEsSampler, MOTPESampler, RandomSampler
 import numpy as np
 
 import rospy

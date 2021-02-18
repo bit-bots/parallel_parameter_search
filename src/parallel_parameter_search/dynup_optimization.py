@@ -40,7 +40,7 @@ class AbstractDynupOptimization(AbstractRosOptimization):
             if sim_type == 'pybullet':
                 urdf_path = self.rospack.get_path(robot + '_description') + '/urdf/robot.urdf'
                 self.sim = PybulletSim(self.namespace, gui, urdf_path=urdf_path,
-                                       foot_link_names=foot_link_names, terrain=True, field=False)
+                                       foot_link_names=foot_link_names, terrain=True, field=False, robot=robot)
             elif sim_type == 'webots':
                 self.sim = WebotsSim(self.namespace, gui, robot)
             else:
@@ -68,7 +68,7 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         self.dynamixel_controller_pub = rospy.Publisher(self.namespace + "/DynamixelController/command", JointCommand,
                                                         queue_size=1)
         self.number_of_iterations = 10
-        self.time_limit = 30
+        self.time_limit = 10
         self.time_difference = 0
         self.reset_height_offset = None
         if self.direction == "front":
@@ -166,7 +166,10 @@ class AbstractDynupOptimization(AbstractRosOptimization):
 
             successes = 0
             for attempt in attempts:
-                self.sim.randomize_terrain(0.01)
+                try:
+                    self.sim.randomize_terrain(0.01)
+                except:
+                    pass
                 self.reset()
                 success = self.run_attempt(attempt)
                 # get time of trial. use last time the robot was moving as point
@@ -465,7 +468,8 @@ class AbstractDynupOptimization(AbstractRosOptimization):
     def pid_params(self, trial, name, client, p, i, d, i_clamp):
         pid_dict = {"p": trial.suggest_uniform(name + "_p", p[0], p[1]),
                     "d": trial.suggest_uniform(name + "_d", i[0], i[1]),
-                    "i": trial.suggest_uniform(name + "_i", d[0], d[1]),
+                    #"i": trial.suggest_uniform(name + "_i", d[0], d[1]),
+                    "i": 0,
                     "i_clamp_min": i_clamp[0],
                     "i_clamp_max": i_clamp[1]}
         if isinstance(client, list):
@@ -623,10 +627,10 @@ class Op2Optimization(AbstractDynupOptimization):
             fix("foot_distance", 0.2)
             fix("hand_walkready_pitch", -60)
 
-            if self.direction == "front":
+            if self.direction == "front": #todo check if these are the correct params
                 add("trunk_x_front", -0.1, 0.1, step=step_cartesian)
                 add("max_leg_angle", 0, 90, step=step_angle)
-                add("trunk_overshoot_angle_front", -90, 0, step=step_angle)
+                add("trunk_overshoot_angle_front", -45, 45, step=step_angle)
                 add("time_hands_side", 0, 1, step=step_time)
                 add("time_hands_rotate", 0, 1, step=step_time)
                 add("time_foot_close", 0, 1, step=step_time)
@@ -642,7 +646,7 @@ class Op2Optimization(AbstractDynupOptimization):
                 add("trunk_height_back", 0.0, 0.4, step=step_cartesian)
                 add("trunk_forward", 0.0, 0.1, step=step_cartesian)
                 add("foot_angle", 0.0, 135, step=step_angle)
-                add("trunk_overshoot_angle_back", 0.0, 90, step=step_angle)
+                add("trunk_overshoot_angle_back", -45, 45, step=step_angle)
                 add("time_legs_close", 0, 1, step=step_time)
                 add("time_foot_ground_back", 0, 1, step=step_time)
                 add("time_full_squat_hands", 0, 1, step=step_time)
