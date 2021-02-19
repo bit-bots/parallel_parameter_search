@@ -27,6 +27,7 @@ parser.add_argument('--trials', help='Trials to be evaluated', default=10000,
                     type=int, required=True)
 parser.add_argument('--sampler', help='Which sampler {TPE, CMAES}', default=10000,
                     type=str, required=True)
+parser.add_argument('--tensorboard-log-dir', help='Directory for tensorboard logs', type=str)
 parser.add_argument('--results-only', help="Do not optimize, just show results of an old study", action='store_true')
 
 args = parser.parse_args()
@@ -46,11 +47,17 @@ if args.results_only:
     print(f'Best result was {study.best_value} in trial {study.best_trial.number} of {len(study.trials)}')
     print(study.best_params)
 else:
+    if args.tensorboard_log_dir:
+        from optuna.integration.tensorboard import TensorBoardCallback
+        tensorboard_callback = TensorBoardCallback(args.tensorboard_log_dir, "cost")
+        callbacks = [tensorboard_callback]
+    else:
+        callbacks = []
     study = optuna.create_study(study_name=args.name, storage=args.storage, direction='minimize',
                                 sampler=sampler, load_if_exists=True)
     study.set_user_attr("sampler", args.sampler)
 
     objective = WolfgangKickEngineOptimization('worker', gui=args.gui, sim_type=args.sim)
-    study.optimize(objective.objective, n_trials=args.trials, show_progress_bar=True)
+    study.optimize(objective.objective, n_trials=args.trials, show_progress_bar=True, callbacks=callbacks)
     print(f'Best result was {study.best_value} in trial {study.best_trial.number} of {len(study.trials)}')
     print(study.best_params)
