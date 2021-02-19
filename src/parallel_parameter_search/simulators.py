@@ -13,10 +13,7 @@ from bitbots_msgs.msg import JointCommand, FootPressure
 
 from wolfgang_webots_sim.utils import fix_webots_folder
 
-try:
-    from wolfgang_webots_sim.webots_controller import WebotsController
-except:
-    rospy.logerr("Could not load webots sim. If you want to use it, source the setenvs.sh")
+from wolfgang_webots_sim.webots_controller import WebotsController
 
 
 class AbstractSim:

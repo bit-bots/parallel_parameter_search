@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-# this has to be first import, otherwise there will be an error
 import sys
 
 import argparse
