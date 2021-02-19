@@ -185,8 +185,8 @@ class AbstractKickOptimization(AbstractRosOptimization):
         height = self.reset_trunk_height
         pitch = self.reset_trunk_pitch
         (x, y, z, w) = quaternion_from_euler(self.reset_rpy_offset[0],
-                                             self.reset_rpy_offset[1],
-                                             self.reset_rpy_offset[2] + pitch)
+                                             self.reset_rpy_offset[1] + pitch,
+                                             self.reset_rpy_offset[2])
 
         self.sim.reset_robot_pose((0, 0, height), (x, y, z, w))
 
@@ -235,4 +235,4 @@ class WolfgangKickEngineOptimization(AbstractKickOptimization):
         super().__init__(namespace, gui, 'wolfgang', sim_type)
         # These are the start values from the kick, they come from the walking
         self.reset_trunk_height = 0.42
-        self.reset_trunk_pitch = 0.2
+        self.reset_trunk_pitch = 0.26
