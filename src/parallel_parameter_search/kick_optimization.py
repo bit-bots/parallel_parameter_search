@@ -73,11 +73,11 @@ class AbstractKickOptimization(AbstractRosOptimization):
                 return cost + 1 * (len(self.directions) - d)
         return cost
 
-    def suggest_kick_params(self, trial):
+    def suggest_kick_params(self, trial: optuna.Trial):
         param_dict = {}
 
-        def add(name, min_value, max_value):
-            param_dict[name] = trial.suggest_uniform(name, min_value, max_value)
+        def add(name, min_value, max_value, step):
+            param_dict[name] = trial.suggest_float(name, min_value, max_value, step=step)
 
         def fix(name, value):
             param_dict[name] = value
@@ -85,27 +85,27 @@ class AbstractKickOptimization(AbstractRosOptimization):
 
         fix('engine_rate', 1 / self.sim.get_timestep())
 
-        add('foot_rise', 0.05, 0.15)
-        add('foot_distance', 0.15, 0.25)
-        add('kick_windup_distance', 0.1, 0.4)
-        add('trunk_height', 0.35, 0.45)
-        add('trunk_roll', math.radians(-30), math.radians(30))
-        add('trunk_pitch', math.radians(-30), math.radians(30))
-        add('trunk_yaw', math.radians(-45), math.radians(45))
+        add('foot_rise', 0.05, 0.15, 0.01)
+        add('foot_distance', 0.15, 0.25, 0.01)
+        add('kick_windup_distance', 0.1, 0.4, 0.01)
+        add('trunk_height', 0.35, 0.45, 0.01)
+        add('trunk_roll', math.radians(-30), math.radians(30), math.radians(0.1))
+        add('trunk_pitch', math.radians(-30), math.radians(30), math.radians(0.1))
+        add('trunk_yaw', math.radians(-45), math.radians(45), math.radians(0.1))
 
-        add('move_trunk_time', 0.1, 1)
-        add('raise_foot_time', 0.1, 1)
-        add('move_to_ball_time', 0.1, 0.5)
-        add('kick_time', 0.01, 0.2)
-        add('move_back_time', 0.01, 0.3)
-        add('lower_foot_time', 0.01, 0.2)
-        add('move_trunk_back_time', 0.05, 0.4)
+        add('move_trunk_time', 0.1, 1, step=0.01)
+        add('raise_foot_time', 0.1, 1, step=0.01)
+        add('move_to_ball_time', 0.1, 0.5, step=0.01)
+        add('kick_time', 0.01, 0.2, step=0.01)
+        add('move_back_time', 0.01, 0.3, step=0.01)
+        add('lower_foot_time', 0.01, 0.2, step=0.01)
+        add('move_trunk_back_time', 0.05, 0.4, step=0.01)
 
         fix('choose_foot_corridor_width', 0.4)
 
         fix('use_center_of_pressure', False)
-        add('stabilizing_point_x', -0.1, 0.1)
-        add('stabilizing_point_y', -0.1, 0.1)
+        add('stabilizing_point_x', -0.1, 0.1, 0.01)
+        add('stabilizing_point_y', -0.1, 0.1, 0.01)
 
         self.kick.set_params(param_dict)
 
