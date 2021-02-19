@@ -86,12 +86,12 @@ class AbstractKickOptimization(AbstractRosOptimization):
         fix('engine_rate', 1 / self.sim.get_timestep())
 
         add('foot_rise', 0.05, 0.15)
-        fix('foot_distance', 0.18)
+        add('foot_distance', 0.15, 0.25)
         add('kick_windup_distance', 0.1, 0.4)
-        fix('trunk_height', 0.4)
-        fix('trunk_roll', 0)
-        fix('trunk_pitch', 0)
-        fix('trunk_yaw', 0)
+        add('trunk_height', 0.35, 0.45)
+        add('trunk_roll', math.radians(-30), math.radians(30))
+        add('trunk_pitch', math.radians(-30), math.radians(30))
+        add('trunk_yaw', math.radians(-45), math.radians(45))
 
         add('move_trunk_time', 0.1, 1)
         add('raise_foot_time', 0.1, 1)
@@ -104,8 +104,8 @@ class AbstractKickOptimization(AbstractRosOptimization):
         fix('choose_foot_corridor_width', 0.4)
 
         fix('use_center_of_pressure', False)
-        add('stabilizing_point_x', -0.05, 0.05)
-        add('stabilizing_point_y', -0.05, 0.05)
+        add('stabilizing_point_x', -0.1, 0.1)
+        add('stabilizing_point_y', -0.1, 0.1)
 
         self.kick.set_params(param_dict)
 
@@ -147,6 +147,7 @@ class AbstractKickOptimization(AbstractRosOptimization):
         # kick is finished, wait if robot is falling down
         while self.sim.get_time() < start_time + passed_time + 2:
             self.sim.step_sim()
+        # get ball speed and take max
 
         pos, rpy = self.sim.get_robot_pose_rpy()
         if abs(rpy[0]) > math.radians(45) or abs(rpy[1]) > math.radians(45) or pos[2] < self.reset_trunk_height / 2:
