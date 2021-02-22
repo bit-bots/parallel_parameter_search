@@ -532,7 +532,7 @@ class WolfgangOptimization(AbstractDynupOptimization):
             fix("stabilizing", False)
             # we are not more precise than 1mm or one loop cycle (simulator runs at 240Hz)
             add("leg_min_length", 0.2, 0.3, step=step_cartesian)
-            add("arm_side_offset", 0.05, 0.2, step=step_cartesian)
+            add("arm_side_offset", 0.13, 0.2, step=step_cartesian)
             # add("trunk_x", -0.1, 0.1)
             fix("trunk_x_final", 0)
             add("rise_time", 0, 2, step=step_time)
