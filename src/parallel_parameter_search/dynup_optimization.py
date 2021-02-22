@@ -522,6 +522,7 @@ class WolfgangOptimization(AbstractDynupOptimization):
             self.dynup_params[name] = value
             trial.set_user_attr(name, value)
 
+        # we are not more precise than 1mm or one loop cycle (simulator runs at 240Hz)
         step_cartesian = 0.001
         step_time = 1 / 250
         step_angle = 0.01
@@ -534,10 +535,6 @@ class WolfgangOptimization(AbstractDynupOptimization):
             # self.pid_params(trial, "trunk_roll", self.trunk_roll_client, (-2, 2), (-4, 4), (0, 0.1), (-2, 2))
         else:
             fix("stabilizing", False)
-            # we are not more precise than 1mm or one loop cycle (simulator runs at 240Hz)
-            add("leg_min_length", 0.2, 0.3, step=step_cartesian)
-            add("arm_side_offset", 0.13, 0.2, step=step_cartesian)
-            # add("trunk_x", -0.1, 0.1)
             fix("trunk_x_final", 0)
             add("rise_time", 0, 2, step=step_time)
 
@@ -548,9 +545,12 @@ class WolfgangOptimization(AbstractDynupOptimization):
             fix("hand_walkready_pitch", -60)
 
             if self.direction == "front":
+                add("arm_side_offset", 0.13, 0.2, step=step_cartesian)
+                add("leg_min_length_front", 0.1, 0.3, step=step_cartesian)
                 add("trunk_x_front", -0.1, 0.1, step=step_cartesian)
                 add("max_leg_angle", 0, 90, step=step_angle)
                 add("trunk_overshoot_angle_front", -90, 0, step=step_angle)
+                add("hands_pitch", -90, 0, step=step_angle)
                 add("time_hands_side", 0, 1, step=step_time)
                 add("time_hands_rotate", 0, 1, step=step_time)
                 add("time_foot_close", 0, 1, step=step_time)
@@ -560,18 +560,20 @@ class WolfgangOptimization(AbstractDynupOptimization):
                 add("time_to_squat", 0, 1, step=step_time)
                 add("wait_in_squat_front", 0, 2, step=step_time)
             elif self.direction == "back":
-                add("trunk_x_back", -0.1, 0.1, step=step_cartesian)
+                add("leg_min_length_back", 0.1, 0.3, step=step_cartesian)
                 add("hands_behind_back_x", 0.0, 0.4, step=step_cartesian)
                 add("hands_behind_back_z", -0.4, 0.4, step=step_cartesian)
                 add("trunk_height_back", 0.0, 0.4, step=step_cartesian)
-                add("trunk_forward", 0.0, 0.1, step=step_cartesian)
+                add("com_shift_1", 0.0, 0.2, step=step_cartesian)
+                add("com_shift_2", 0.0, 0.2, step=step_cartesian)
                 add("foot_angle", 0.0, 135, step=step_angle)
+                add("arms_angle_back", 90, 180, step=step_angle)
                 add("trunk_overshoot_angle_back", 0.0, 90, step=step_angle)
                 add("time_legs_close", 0, 1, step=step_time)
                 add("time_foot_ground_back", 0, 1, step=step_time)
                 add("time_full_squat_hands", 0, 1, step=step_time)
                 add("time_full_squat_legs", 0, 1, step=step_time)
-                add("wait_in_squat_back", 0, 1, step=step_time)
+                add("wait_in_squat_back", 0, 2, step=step_time)
             else:
                 print(f"direction {self.direction} not specified")
 
