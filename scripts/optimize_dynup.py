@@ -50,7 +50,8 @@ if args.sampler == "TPE":
 elif args.sampler == "CMAES":
     sampler = CmaEsSampler(n_startup_trials=n_startup_trials, seed=seed)
 elif args.sampler == "MOTPE":
-    n_startup_trials = num_variables * 11 - 1
+    if n_startup_trials is None:
+        n_startup_trials = num_variables * 11 - 1
     sampler = MOTPESampler(n_startup_trials=n_startup_trials, seed=seed)
     multi_objective = True
 elif args.sampler == "Random":
