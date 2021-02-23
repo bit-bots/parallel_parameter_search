@@ -78,7 +78,13 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         else:
             print(f"direction {self.direction}")
             exit(0)
-        self.trunk_height = 0.4  # rosparam.get_param(self.namespace + "/dynup/trunk_height")
+        if self.robot == "wolfgang":
+            self.trunk_height = 0.4  # rosparam.get_param(self.namespace + "/dynup/trunk_height")
+        elif self.robot == "robotis_op2":
+            self.trunk_height = 0.2
+        else:
+            print(f"------robot {self.robot} not known-------")
+            exit()
         self.trunk_pitch = 0.0
 
         self.result_subscriber = rospy.Subscriber(self.namespace + "/dynup/result", DynUpActionResult, self.result_cb)
@@ -467,9 +473,9 @@ class AbstractDynupOptimization(AbstractRosOptimization):
 
     def pid_params(self, trial, name, client, p, i, d, i_clamp):
         pid_dict = {"p": trial.suggest_uniform(name + "_p", p[0], p[1]),
-                    "d": trial.suggest_uniform(name + "_d", i[0], i[1]),
-                    #"i": trial.suggest_uniform(name + "_i", d[0], d[1]),
+                    # "i": trial.suggest_uniform(name + "_i", d[0], d[1]),
                     "i": 0,
+                    "d": trial.suggest_uniform(name + "_d", i[0], i[1]),
                     "i_clamp_min": i_clamp[0],
                     "i_clamp_max": i_clamp[1]}
         if isinstance(client, list):
@@ -531,12 +537,13 @@ class WolfgangOptimization(AbstractDynupOptimization):
             fix("stabilizing", True)
             # todo bei stabilization die zeiten von den letzten bewegungen nochmal mit optimieren?
             # todo currently dynup only stabilizes after wait in squat time, maybe start before this
-            self.pid_params(trial, "trunk_pitch", self.trunk_pitch_client, (-2, 2), (-4, 4), (-0.1, 0.1), (-2, 2))
+            self.pid_params(trial, "trunk_pitch", self.trunk_pitch_client, (-1, 0), (-10, 0), (-0.1, 0), (-10000, 10000))
             # self.pid_params(trial, "trunk_roll", self.trunk_roll_client, (-2, 2), (-4, 4), (0, 0.1), (-2, 2))
         else:
             fix("stabilizing", False)
             fix("trunk_x_final", 0)
             add("rise_time", 0, 2, step=step_time)
+            add("arm_side_offset", 0.13, 0.2, step=step_cartesian)
 
             # these are basically goal position variables, that the user has to define
             fix("trunk_height", self.trunk_height)
@@ -545,11 +552,10 @@ class WolfgangOptimization(AbstractDynupOptimization):
             fix("hand_walkready_pitch", -60)
 
             if self.direction == "front":
-                add("arm_side_offset", 0.13, 0.2, step=step_cartesian)
                 add("leg_min_length_front", 0.1, 0.3, step=step_cartesian)
                 add("trunk_x_front", -0.1, 0.1, step=step_cartesian)
                 add("max_leg_angle", 0, 90, step=step_angle)
-                add("trunk_overshoot_angle_front", -90, 0, step=step_angle)
+                add("trunk_overshoot_angle_front", -45, 0, step=step_angle)
                 add("hands_pitch", -90, 0, step=step_angle)
                 add("time_hands_side", 0, 1, step=step_time)
                 add("time_hands_rotate", 0, 1, step=step_time)
@@ -560,15 +566,15 @@ class WolfgangOptimization(AbstractDynupOptimization):
                 add("time_to_squat", 0, 1, step=step_time)
                 add("wait_in_squat_front", 0, 2, step=step_time)
             elif self.direction == "back":
-                add("leg_min_length_back", 0.1, 0.3, step=step_cartesian)
-                add("hands_behind_back_x", 0.0, 0.4, step=step_cartesian)
-                add("hands_behind_back_z", -0.4, 0.4, step=step_cartesian)
-                add("trunk_height_back", 0.0, 0.4, step=step_cartesian)
+                add("leg_min_length_back", 0.15, 0.3, step=step_cartesian)
+                add("hands_behind_back_x", 0.0, 0.3, step=step_cartesian)
+                add("hands_behind_back_z", 0, 0.3, step=step_cartesian)
+                add("trunk_height_back", 0.0, 0.3, step=step_cartesian)
                 add("com_shift_1", 0.0, 0.2, step=step_cartesian)
                 add("com_shift_2", 0.0, 0.2, step=step_cartesian)
-                add("foot_angle", 0.0, 135, step=step_angle)
+                add("foot_angle", 0.0, 90, step=step_angle)
                 add("arms_angle_back", 90, 180, step=step_angle)
-                add("trunk_overshoot_angle_back", 0.0, 90, step=step_angle)
+                add("trunk_overshoot_angle_back", 0.0, 45, step=step_angle)
                 add("time_legs_close", 0, 1, step=step_time)
                 add("time_foot_ground_back", 0, 1, step=step_time)
                 add("time_full_squat_hands", 0, 1, step=step_time)
@@ -587,7 +593,7 @@ class Op2Optimization(AbstractDynupOptimization):
         super(Op2Optimization, self).__init__(namespace, gui, 'robotis_op2', direction, sim_type,
                                                    multi_objective=multi_objective, stability=stability,
                                                    real_robot=real_robot, repetitions=repetitions, score=score)
-        self.reset_height_offset = 0.005
+        self.reset_height_offset = 0.1
 
     def suggest_params(self, trial, stabilization):
         load_yaml_to_param(self.namespace, 'bitbots_dynup',
@@ -616,23 +622,22 @@ class Op2Optimization(AbstractDynupOptimization):
             # self.pid_params(trial, "trunk_roll", self.trunk_roll_client, (-2, 2), (-4, 4), (0, 0.1), (-2, 2))
         else:
             fix("stabilizing", False)
-            # we are not more precise than 1mm or one loop cycle (simulator runs at 240Hz)
-            add("leg_min_length", 0.2, 0.3, step=step_cartesian)
-            add("arm_side_offset", 0.05, 0.2, step=step_cartesian)
-            # add("trunk_x", -0.1, 0.1)
             fix("trunk_x_final", 0)
             add("rise_time", 0, 2, step=step_time)
+            add("arm_side_offset", 0.0, 0.1, step=step_cartesian)
 
             # these are basically goal position variables, that the user has to define
             fix("trunk_height", self.trunk_height)
             fix("trunk_pitch", 0)
-            fix("foot_distance", 0.2)
-            fix("hand_walkready_pitch", -60)
+            fix("foot_distance", 0.1)
+            fix("hand_walkready_pitch", 0)
 
-            if self.direction == "front": #todo check if these are the correct params
-                add("trunk_x_front", -0.1, 0.1, step=step_cartesian)
+            if self.direction == "front":
+                add("leg_min_length_front", 0.05, 0.2, step=step_cartesian)
+                add("trunk_x_front", -0.05, 0.05, step=step_cartesian)
                 add("max_leg_angle", 0, 90, step=step_angle)
-                add("trunk_overshoot_angle_front", -45, 45, step=step_angle)
+                add("trunk_overshoot_angle_front", -45, 0, step=step_angle)
+                add("hands_pitch", -90, 0, step=step_angle)
                 add("time_hands_side", 0, 1, step=step_time)
                 add("time_hands_rotate", 0, 1, step=step_time)
                 add("time_foot_close", 0, 1, step=step_time)
@@ -642,18 +647,20 @@ class Op2Optimization(AbstractDynupOptimization):
                 add("time_to_squat", 0, 1, step=step_time)
                 add("wait_in_squat_front", 0, 2, step=step_time)
             elif self.direction == "back":
-                add("trunk_x_back", -0.1, 0.1, step=step_cartesian)
-                add("hands_behind_back_x", 0.0, 0.4, step=step_cartesian)
-                add("hands_behind_back_z", -0.4, 0.4, step=step_cartesian)
-                add("trunk_height_back", 0.0, 0.4, step=step_cartesian)
-                add("trunk_forward", 0.0, 0.1, step=step_cartesian)
-                add("foot_angle", 0.0, 135, step=step_angle)
-                add("trunk_overshoot_angle_back", -45, 45, step=step_angle)
+                add("leg_min_length_back", 0.05, 0.15, step=step_cartesian)
+                add("hands_behind_back_x", 0.0, 0.15, step=step_cartesian)
+                add("hands_behind_back_z", 0, 0.15, step=step_cartesian)
+                add("trunk_height_back", 0.0, 0.15, step=step_cartesian)
+                add("com_shift_1", 0.0, 0.1, step=step_cartesian)
+                add("com_shift_2", 0.0, 0.1, step=step_cartesian)
+                add("foot_angle", 0.0, 90, step=step_angle)
+                add("arms_angle_back", 90, 180, step=step_angle)
+                add("trunk_overshoot_angle_back", 0.0, 45, step=step_angle)
                 add("time_legs_close", 0, 1, step=step_time)
                 add("time_foot_ground_back", 0, 1, step=step_time)
                 add("time_full_squat_hands", 0, 1, step=step_time)
                 add("time_full_squat_legs", 0, 1, step=step_time)
-                add("wait_in_squat_back", 0, 1, step=step_time)
+                add("wait_in_squat_back", 0, 2, step=step_time)
             else:
                 print(f"direction {self.direction} not specified")
 
