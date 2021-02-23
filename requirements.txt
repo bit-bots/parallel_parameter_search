@@ -1,0 +1,12 @@
+PyYAML
+catkin-pkg
+defusedxml
+empy
+numpy
+optuna
+psycogp2-binary
+pybullet
+rospkg
+tensorboard
+tensorflow
+transforms3d
