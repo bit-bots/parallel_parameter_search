@@ -194,3 +194,7 @@ class WebotsSim(AbstractSim):
     def get_ball_position(self):
         pos = self.robot_controller.get_ball_pose()
         return pos[0], pos[1]
+
+    def get_ball_velocity(self):
+        # only return linear velocity
+        return self.robot_controller.get_ball_velocity()[:3]

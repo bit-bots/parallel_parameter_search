@@ -6,7 +6,7 @@ import argparse
 
 import optuna
 from optuna.pruners import MedianPruner
-from optuna.samplers import TPESampler, CmaEsSampler
+from optuna.samplers import TPESampler, CmaEsSampler, MOTPESampler
 import numpy as np
 
 import rospy
@@ -25,7 +25,7 @@ parser.add_argument('--startup', help='Startup trials', default=1000,
                     type=int, required=True)
 parser.add_argument('--trials', help='Trials to be evaluated', default=10000,
                     type=int, required=True)
-parser.add_argument('--sampler', help='Which sampler {TPE, CMAES}', default=10000,
+parser.add_argument('--sampler', help='Which sampler {TPE, CMAES, MOTPE}', default=10000,
                     type=str, required=True)
 parser.add_argument('--tensorboard-log-dir', help='Directory for tensorboard logs', type=str)
 parser.add_argument('--results-only', help="Do not optimize, just show results of an old study", action='store_true')
@@ -39,6 +39,12 @@ if args.sampler == "TPE":
     sampler = TPESampler(n_startup_trials=n_startup_trials, seed=seed, multivariate=False)
 elif args.sampler == "CMAES":
     sampler = CmaEsSampler(n_startup_trials=n_startup_trials, seed=seed)
+elif args.sampler == "MOTPE":
+    # Fall?, Time, velocity, directional error
+    directions = ['maximize', 'minimize', 'maximize', 'minimize']
+    if n_startup_trials != 11 * len(directions) - 1:
+        sys.exit(f"With MOTPE sampler, you should use {11 * len(directions) - 1} startup trials!")
+    sampler = MOTPESampler(n_startup_trials=n_startup_trials, seed=seed)
 else:
     sys.exit("sampler not correctly specified")
 
@@ -53,11 +59,18 @@ else:
         callbacks = [tensorboard_callback]
     else:
         callbacks = []
-    study = optuna.create_study(study_name=args.name, storage=args.storage, direction='minimize',
-                                sampler=sampler, load_if_exists=True)
+
+    multi_objective = args.sampler == "MOTPE"
+
+    if multi_objective:
+        study = optuna.create_study(study_name=args.name, storage=args.storage, directions=directions,
+                                    sampler=sampler, load_if_exists=True)
+    else:
+        study = optuna.create_study(study_name=args.name, storage=args.storage, direction='minimize',
+                                    sampler=sampler, load_if_exists=True)
     study.set_user_attr("sampler", args.sampler)
 
-    objective = WolfgangKickEngineOptimization('worker', gui=args.gui, sim_type=args.sim)
+    objective = WolfgangKickEngineOptimization('worker', gui=args.gui, sim_type=args.sim, multi_objective=multi_objective)
     study.optimize(objective.objective, n_trials=args.trials, show_progress_bar=True, callbacks=callbacks)
     print(f'Best result was {study.best_value} in trial {study.best_trial.number} of {len(study.trials)}')
     print(study.best_params)

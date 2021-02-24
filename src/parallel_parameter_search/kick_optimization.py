@@ -14,8 +14,9 @@ from parallel_parameter_search.simulators import PybulletSim, WebotsSim
 
 
 class AbstractKickOptimization(AbstractRosOptimization):
-    def __init__(self, namespace, gui, robot_name, sim_type, foot_link_names=()):
+    def __init__(self, namespace, gui, robot_name, sim_type, multi_objective, foot_link_names=()):
         super().__init__(namespace)
+        self.multi_objective = multi_objective
         self.rospack = rospkg.RosPack()
         # set robot urdf and srdf
         load_robot_param(self.namespace, self.rospack, robot_name)
@@ -60,17 +61,41 @@ class AbstractKickOptimization(AbstractRosOptimization):
         # get parameter to evaluate from optuna
         self.suggest_kick_params(trial)
 
-        cost = 0
+        if self.multi_objective:
+            # fell?, time, velocity, directional error
+            cost = [0, 0, 0, 0]
+        else:
+            cost = 0
         for d, direction in enumerate(self.directions):
             # move ball away
             self.sim.place_ball(3, 0)
             self.reset()
-            early_term, cost_try = self.evaluate_goal(*direction, trial)
-            cost += cost_try
-            # check if we failed in this direction and terminate this trial early
-            if early_term:
-                # terminate early and give 1 cost for each try left
-                return cost + 1 * (len(self.directions) - d)
+            fell_before_kick, fell, steps, ball_velocity, ball_direction = self.evaluate_goal(*direction, trial)
+            direction_error = self.compute_yaw_error(direction)
+            if self.multi_objective:
+                cost_try = [0 if fell else 1, steps, ball_velocity, direction_error]
+                cost = [cost[i] + cost_try[i] for i in range(len(cost))]
+                if fell_before_kick:
+                    # Do not continue evaluating this, instead give large costs
+                    cost = [
+                        cost[0] + len(self.directions) - d,  # 1 for each of the following
+                        cost[1] + (10 / self.sim.get_timestep()) * (len(self.directions) - d),  # assume 10s for every evaluation
+                        cost[2],  # 0 for velocity
+                        cost[3] + math.pi / 2 * (len(self.directions) - d),  # pi/2 error for each remaining
+                    ]
+                    return cost
+            else:
+                if fell:
+                    # just take a rather large cost
+                    cost_try = 10 / self.sim.get_timestep()
+                else:
+                    # Minimize error and steps, maximize velocity
+                    cost_try = direction_error * steps / ball_velocity
+                cost += cost_try
+                # check if we failed in this direction and terminate this trial early
+                if fell:
+                    # terminate early and give large cost for each try left
+                    return cost + (10 / self.sim.get_timestep()) * (len(self.directions) - d)
         return cost
 
     def suggest_kick_params(self, trial: optuna.Trial):
@@ -112,8 +137,10 @@ class AbstractKickOptimization(AbstractRosOptimization):
     def evaluate_goal(self, x, y, yaw, speed, trial: optuna.Trial):
         """
         Evaluate a single kick goal, i.e. one execution of a kick
-        Returns whether early termination occurred (bool), the cost of the try (between 0 and 1)
+        Returns robot fell down before kick?, robot fell down?, number of timesteps, maximum ball velocity, ball direction
         """
+        max_ball_velocity = 0
+        max_ball_velocity_vector = (0, 0)
         goal_msg = self.get_kick_goal_msg(x, y, yaw, speed)
         self.kick.set_goal(goal_msg, self.sim.get_joint_state_msg())
         self.sim.place_ball(x, y)
@@ -125,12 +152,24 @@ class AbstractKickOptimization(AbstractRosOptimization):
         self.last_time = self.sim.get_time()
         # wait till kick is finished or robot fell down
         while not kick_finished:
+            vx, vy, vz = self.sim.get_ball_velocity()
+            abs_velocity = (vx ** 2 + vy ** 2 + vz ** 2) ** (1 / 3)
+            if abs_velocity > max_ball_velocity:
+                max_ball_velocity = abs_velocity
+                max_ball_velocity_vector = (vx, vy)
             # test if the robot has fallen down, then return maximal cost
             pos, rpy = self.sim.get_robot_pose_rpy()
-            if abs(rpy[0]) > math.radians(45) or abs(rpy[1]) > math.radians(45) or pos[2] < self.reset_trunk_height / 2:
+            passed_time = self.sim.get_time() - start_time
+            # only terminate early if we did not kick yet
+            if passed_time <= (trial.params['move_trunk_time'] + trial.params['raise_foot_time'] +
+                               trial.params['move_to_ball_time'] + trial.params['kick_time']) and \
+                    (abs(rpy[0]) > math.radians(45) or
+                     abs(rpy[1]) > math.radians(45) or
+                     pos[2] < self.reset_trunk_height / 2):
                 # add extra information to trial
+                passed_timesteps = max(1, passed_time / self.sim.get_timestep())
                 trial.set_user_attr('early_termination_at', (x, y, yaw))
-                return True, 1
+                return True, True, passed_timesteps, max_ball_velocity, max_ball_velocity_vector
 
             current_time = self.sim.get_time()
             joint_command = self.kick.step(current_time - self.last_time,
@@ -147,15 +186,13 @@ class AbstractKickOptimization(AbstractRosOptimization):
         # kick is finished, wait if robot is falling down
         while self.sim.get_time() < start_time + passed_time + 2:
             self.sim.step_sim()
-        # get ball speed and take max
 
         pos, rpy = self.sim.get_robot_pose_rpy()
         if abs(rpy[0]) > math.radians(45) or abs(rpy[1]) > math.radians(45) or pos[2] < self.reset_trunk_height / 2:
             # robot fell
-            return False, 1
+            return False, True, passed_timesteps, max_ball_velocity, max_ball_velocity_vector
 
-        cost = self.compute_cost(yaw)
-        return False, cost / passed_timesteps
+        return False, False, passed_timesteps, max_ball_velocity, max_ball_velocity_vector
 
     def run_kick(self, duration):
         """Execute the whole kick, only used for debug"""
@@ -167,18 +204,15 @@ class AbstractKickOptimization(AbstractRosOptimization):
             self.sim.set_joints(joint_command)
             self.last_time = current_time
 
-    def compute_cost(self, yaw):
+    def compute_yaw_error(self, kick_goal):
         """
-        Compute the cost after the kick. yaw is the kick goal direction
-        Problem: longer kick time is currently rewarded because the ball is rolling longer...
-        Current solution: normalize with timesteps
+        Compute the error in the yaw after the kick.
+        :param kick_goal: The kick goal ([ball_x, ball_y, goal_yaw, speed])
         """
         ball_x, ball_y = self.sim.get_ball_position()
-        distance = math.sqrt(ball_x ** 2 + ball_y ** 2)
-        direction = math.atan2(ball_y, ball_x)
-        direction_error = abs(yaw - direction)
-        # We want high distance and low direction error
-        return min(1, direction_error / distance)
+        direction = math.atan2(ball_y - kick_goal[1], ball_x - kick_goal[0])
+        direction_error = abs(kick_goal[2] - direction)
+        return direction_error
 
     def reset_position(self):
         """Set the robot on the ground"""
@@ -231,8 +265,8 @@ class AbstractKickOptimization(AbstractRosOptimization):
 
 
 class WolfgangKickEngineOptimization(AbstractKickOptimization):
-    def __init__(self, namespace, gui, sim_type='pybullet'):
-        super().__init__(namespace, gui, 'wolfgang', sim_type)
+    def __init__(self, namespace, gui, sim_type='pybullet', multi_objective=False):
+        super().__init__(namespace, gui, 'wolfgang', sim_type, multi_objective)
         # These are the start values from the kick, they come from the walking
         self.reset_trunk_height = 0.42
         self.reset_trunk_pitch = 0.26
