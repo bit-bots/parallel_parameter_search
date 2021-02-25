@@ -131,6 +131,7 @@ class WebotsSim(AbstractSim):
 
         arguments = ["webots",
                      "--batch",
+                     "--no-rendering",
                      # TODO argument for world
                      path + "/worlds/kick_optimization.wbt"]
         if not gui:
