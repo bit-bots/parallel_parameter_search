@@ -35,6 +35,7 @@ args = parser.parse_args()
 seed = np.random.randint(2 ** 32 - 1)
 n_startup_trials = args.startup
 
+multi_objective = False
 if args.sampler == "TPE":
     sampler = TPESampler(n_startup_trials=n_startup_trials, seed=seed, multivariate=False)
 elif args.sampler == "CMAES":
@@ -45,13 +46,12 @@ elif args.sampler == "MOTPE":
     if n_startup_trials != 11 * len(directions) - 1:
         sys.exit(f"With MOTPE sampler, you should use {11 * len(directions) - 1} startup trials!")
     sampler = MOTPESampler(n_startup_trials=n_startup_trials, seed=seed)
+    multi_objective = True
 else:
     sys.exit("sampler not correctly specified")
 
 if args.results_only:
     study = optuna.load_study(study_name=args.name, storage=args.storage, sampler=sampler)
-    print(f'Best result was {study.best_value} in trial {study.best_trial.number} of {len(study.trials)}')
-    print(study.best_params)
 else:
     if args.tensorboard_log_dir:
         from optuna.integration.tensorboard import TensorBoardCallback
@@ -60,7 +60,6 @@ else:
     else:
         callbacks = []
 
-    multi_objective = args.sampler == "MOTPE"
 
     if multi_objective:
         study = optuna.create_study(study_name=args.name, storage=args.storage, directions=directions,
@@ -72,5 +71,12 @@ else:
 
     objective = WolfgangKickEngineOptimization('worker', gui=args.gui, sim_type=args.sim, multi_objective=multi_objective)
     study.optimize(objective.objective, n_trials=args.trials, show_progress_bar=True, callbacks=callbacks)
+
+if multi_objective:
+    print(f'Using MOTPE, cannot determine single best trial. Printing the best trials:')
+    for trial in study.best_trials:
+        print(f'Trial {trial.number}: Values {trial.values}')
+        print(trial.params)
+else:
     print(f'Best result was {study.best_value} in trial {study.best_trial.number} of {len(study.trials)}')
     print(study.best_params)
