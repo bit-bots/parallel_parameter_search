@@ -11,9 +11,7 @@ from parallel_parameter_search.utils import set_param_to_file, load_yaml_to_para
 
 from bitbots_msgs.msg import JointCommand, FootPressure
 
-from wolfgang_webots_sim.utils import fix_webots_folder
-
-from wolfgang_webots_sim.webots_controller import WebotsController
+from wolfgang_webots_sim.webots_robot_supervisor_controller import RobotSupervisorController
 
 
 class AbstractSim:
@@ -131,21 +129,19 @@ class WebotsSim(AbstractSim):
 
         arguments = ["webots",
                      "--batch",
-                     "--no-rendering",
-                     # TODO argument for world
-                     path + "/worlds/kick_optimization.wbt"]
+                     path + "/worlds/robot_supervisor.wbt"]
         if not gui:
             arguments.append("--minimize")
-        sim_proc = subprocess.Popen(arguments)
+            arguments.append("--no-rendering")
 
+        sim_proc = subprocess.Popen(arguments)
         os.environ["WEBOTS_PID"] = str(sim_proc.pid)
-        fix_webots_folder(sim_proc.pid)
 
         if gui:
             mode = 'normal'
         else:
             mode = 'fast'
-        self.robot_controller = WebotsController(namespace, False, mode, robot)
+        self.robot_controller = RobotSupervisorController(ros_active=False, mode=mode, robot=robot)
 
     def step_sim(self):
         self.robot_controller.step()
