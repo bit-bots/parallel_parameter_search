@@ -12,13 +12,13 @@ import numpy as np
 
 import rospy
 
-from parallel_parameter_search.dynup_optimization import WolfgangOptimization, NaoOptimization, Op2Optimization
+from parallel_parameter_search.dynup_optimization import WolfgangOptimization, SigmabanOptimization, Op2Optimization
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--storage', help='Database SQLAlchemy string, e.g. postgresql://USER:PASS@SERVER/DB_NAME',
                     default=None, type=str, required=False)
 parser.add_argument('--name', help='Name of the study', default=None, type=str, required=True)
-parser.add_argument('--robot', help='Robot model that should be used {wolfgang, darwin, op3, nao, Talos, reemc} ',
+parser.add_argument('--robot', help='Robot model that should be used {wolfgang, op2, sigmaban} ',
                     default=None, type=str, required=True)
 parser.add_argument('--sim', help='Simulator type that should be used {pybullet, webots} ', default=None, type=str,
                     required=True)
@@ -80,8 +80,8 @@ elif args.robot == "op2":
     objective = Op2Optimization('worker', gui=args.gui, direction=args.direction, sim_type=args.sim,
                                 multi_objective=multi_objective, stability=args.stability,
                                 real_robot=args.real_robot, repetitions=args.repetitions, score=args.score)
-elif args.robot == "nao":
-    objective = NaoOptimization('worker', gui=args.gui, direction=args.direction, sim_type=args.sim,
+elif args.robot == "sigmaban":
+    objective = SigmabanOptimization('worker', gui=args.gui, direction=args.direction, sim_type=args.sim,
                                 multi_objective=multi_objective, stability=args.stability,
                                 real_robot=args.real_robot, repetitions=args.repetitions, score=args.score)
 else:

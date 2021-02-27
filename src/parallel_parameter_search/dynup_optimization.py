@@ -21,6 +21,7 @@ from sensor_msgs.msg import Imu, JointState
 from parallel_parameter_search.utils import fused_from_quat
 from statistics import mean
 
+
 class AbstractDynupOptimization(AbstractRosOptimization):
     def __init__(self, namespace, gui, robot, direction, sim_type, stability=False, foot_link_names=(),
                  multi_objective=False, real_robot=False, repetitions=1, score="SSHP"):
@@ -40,7 +41,7 @@ class AbstractDynupOptimization(AbstractRosOptimization):
             if sim_type == 'pybullet':
                 urdf_path = self.rospack.get_path(robot + '_description') + '/urdf/robot.urdf'
                 self.sim = PybulletSim(self.namespace, gui, urdf_path=urdf_path,
-                                       foot_link_names=foot_link_names, terrain=True, field=False, robot=robot)
+                                       foot_link_names=foot_link_names, terrain=False, field=False, robot=robot)
             elif sim_type == 'webots':
                 self.sim = WebotsSim(self.namespace, gui, robot)
             else:
@@ -82,6 +83,8 @@ class AbstractDynupOptimization(AbstractRosOptimization):
             self.trunk_height = 0.4  # rosparam.get_param(self.namespace + "/dynup/trunk_height")
         elif self.robot == "robotis_op2":
             self.trunk_height = 0.2
+        elif self.robot == "sigmaban":
+            self.trunk_height = 0.3
         else:
             print(f"------robot {self.robot} not known-------")
             exit()
@@ -214,12 +217,12 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         speed_loss = mean(speed_loss)
         # mean_torque = max(mean_torque)
         success_sum = mean(success_sums)
-        #print(f"Head height: {head_score}")
-        #print(f"imu offset: {mean_imu_offset}")
-        #print(f"percentage left: {percentage_left}")
-        #print(f"success loss: {success_sum}")
-        #print(f"speed loss {speed_loss}")
-        #print(f"mean torque {mean_torque}")
+        # print(f"Head height: {head_score}")
+        # print(f"imu offset: {mean_imu_offset}")
+        # print(f"percentage left: {percentage_left}")
+        # print(f"success loss: {success_sum}")
+        # print(f"speed loss {speed_loss}")
+        # print(f"mean torque {mean_torque}")
         # remember the single results
         trial.set_user_attr("head_score", head_score)
         trial.set_user_attr("success_score", success_sum)
@@ -283,7 +286,10 @@ class AbstractDynupOptimization(AbstractRosOptimization):
             self.frames += 1
 
             if not self.real_robot:
-                head_position = self.sim.get_link_pose("head")
+                if self.robot == "sigmaban":
+                    head_position = self.sim.get_link_pose("head_1")
+                else:
+                    head_position = self.sim.get_link_pose("head")
                 self.max_head_height = max(self.max_head_height, head_position[2])
 
             # compute torques
@@ -300,7 +306,7 @@ class AbstractDynupOptimization(AbstractRosOptimization):
             # early termination if robot falls. detectable on gyro pitch
             if self.direction == "front":
                 # only after initial arm movement and not after reaching squat
-                if angular_vel[1] > 0 and self.get_time() - self.start_time > self.hand_ground_time +0.5\
+                if angular_vel[1] > 0 and self.get_time() - self.start_time > self.hand_ground_time + 0.5 \
                         and fused_pitch > math.radians(45):
                     print("gyro")
                     return False
@@ -310,7 +316,7 @@ class AbstractDynupOptimization(AbstractRosOptimization):
                     return False
             else:
                 # only after initial arm movement and not after reaching squat
-                if angular_vel[1] < 0 and self.get_time() - self.start_time > self.hand_ground_time +0.5\
+                if angular_vel[1] < 0 and self.get_time() - self.start_time > self.hand_ground_time + 0.5 \
                         and fused_pitch < math.radians(-45):
                     print("gyro")
                     return False
@@ -332,9 +338,14 @@ class AbstractDynupOptimization(AbstractRosOptimization):
                 return False
 
             # early abort if IK glitch occurs
-            if abs(self.get_joint_position("RAnkleRoll")) > 0.9 or abs(self.get_joint_position("LHipYaw")) > 0.9:
-                print("Ik bug")
-                return False
+            if self.robot == "sigmaban":
+                if abs(self.get_joint_position("right_ankle_roll")) > 0.9 or abs(self.get_joint_position("left_hip_yaw")) > 0.9:
+                    print("Ik bug")
+                    return False
+            else:
+                if abs(self.get_joint_position("RAnkleRoll")) > 0.9 or abs(self.get_joint_position("LHipYaw")) > 0.9:
+                    print("Ik bug")
+                    return False
 
             if self.dynup_complete:
                 # dont waste time waiting for the time limit to arrive
@@ -387,9 +398,9 @@ class AbstractDynupOptimization(AbstractRosOptimization):
             self.sim.set_robot_pose((0, 0, height), (angle, x, y, z))
 
     def reset(self):
-        #completly reset pybullet, since it is strange
+        # completly reset pybullet, since it is strange
         if self.sim_type == "pybullet":
-            pass # self.sim.reset_simulation()
+            pass  # self.sim.reset_simulation()
 
         # reset Dynup. send emtpy message to just cancel all goals
         self.dynup_cancel_pub.publish(GoalID())
@@ -436,14 +447,16 @@ class AbstractDynupOptimization(AbstractRosOptimization):
             if self.robot == "wolfgang":
                 msg.joint_names = ["HeadPan", "HeadTilt", "LElbow", "LShoulderPitch", "LShoulderRoll", "RElbow",
                                    "RShoulderPitch", "RShoulderRoll", "LHipYaw", "LHipRoll", "LHipPitch", "LKnee",
-                                   "LAnklePitch", "LAnkleRoll", "RHipYaw", "RHipRoll", "RHipPitch", "RKnee", "RAnklePitch",
+                                   "LAnklePitch", "LAnkleRoll", "RHipYaw", "RHipRoll", "RHipPitch", "RKnee",
+                                   "RAnklePitch",
                                    "RAnkleRoll"]
                 if self.direction == "back":
                     msg.positions = [0, 0, 0.79, 0, 0, -0.79, 0, 0, -0.01, 0.06, 0.47, 1.01, -0.45, 0.06, 0.01, -0.06,
                                      -0.47,
                                      -1.01, 0.45, -0.06]  # walkready
                 elif self.direction == "front":
-                    msg.positions = [0, 0.78, 0.78, 1.36, 0, -0.78, -1.36, 0, 0.11, 0.07, -0.19, 0.23, -0.63, 0.07, 0.11,
+                    msg.positions = [0, 0.78, 0.78, 1.36, 0, -0.78, -1.36, 0, 0.11, 0.07, -0.19, 0.23, -0.63, 0.07,
+                                     0.11,
                                      -0.07,
                                      0.19, -0.23, 0.63, -0.07]  # falling_front
             elif self.robot == "robotis_op2":
@@ -456,9 +469,21 @@ class AbstractDynupOptimization(AbstractRosOptimization):
                                      -0.47,
                                      -1.01, 0.45, -0.06]  # walkready
                 elif self.direction == "front":
-                    msg.positions = [0, 0.78, 0.78, 1.36, 0, -0.78, -1.36, 0, 0.11, 0.07, -0.19, 0.23, -0.63, 0.07, 0.11,
+                    msg.positions = [0, 0.78, 0.78, 1.36, 0, -0.78, -1.36, 0, 0.11, 0.07, -0.19, 0.23, -0.63, 0.07,
+                                     0.11,
                                      -0.07,
                                      0.19, -0.23, 0.63, -0.07]  # falling_front
+            elif self.robot == "sigmaban":
+                msg.joint_names = ["head_yaw", "head_pitch", "LElbow", "left_shoulder_pitch", "left_shoulder_roll",
+                                   "RElbow", "right_shoulder_pitch", "right_shoulder_roll", "left_hip_yaw",
+                                   "left_hip_roll", "left_hip_pitch", "left_knee", "left_ankle_pitch",
+                                   "left_ankle_roll", "right_hip_yaw", "right_hip_roll", "right_hip_pitch",
+                                   "right_knee", "right_ankle_pitch", "right_ankle_roll"]
+                if self.direction == "back":
+                    msg.positions = [0, 0, 0.0, 0, 0, 0, 0, 0, 0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                     0.0, 0, 0.0, 0]  # walkready
+                elif self.direction == "front":
+                    msg.positions = [0, 0.0, 0.0, 0, 0, 0, 0, 0, 0.0, 0.0, 0.0, 0.0, 0, 0.0, 0.0, 0, 0, 0, 0, 0]  # falling_front
             self.dynamixel_controller_pub.publish(msg)
             if not self.real_robot:
                 self.sim.step_sim()
@@ -537,7 +562,8 @@ class WolfgangOptimization(AbstractDynupOptimization):
             fix("stabilizing", True)
             # todo bei stabilization die zeiten von den letzten bewegungen nochmal mit optimieren?
             # todo currently dynup only stabilizes after wait in squat time, maybe start before this
-            self.pid_params(trial, "trunk_pitch", self.trunk_pitch_client, (-1, 0), (-10, 0), (-0.1, 0), (-10000, 10000))
+            self.pid_params(trial, "trunk_pitch", self.trunk_pitch_client, (-1, 0), (-10, 0), (-0.1, 0),
+                            (-10000, 10000))
             # self.pid_params(trial, "trunk_roll", self.trunk_roll_client, (-2, 2), (-4, 4), (0, 0.1), (-2, 2))
         else:
             fix("stabilizing", False)
@@ -591,8 +617,8 @@ class Op2Optimization(AbstractDynupOptimization):
     def __init__(self, namespace, gui, direction, sim_type='pybullet', multi_objective=False, stability=False,
                  real_robot=False, repetitions=1, score="SSHP"):
         super(Op2Optimization, self).__init__(namespace, gui, 'robotis_op2', direction, sim_type,
-                                                   multi_objective=multi_objective, stability=stability,
-                                                   real_robot=real_robot, repetitions=repetitions, score=score)
+                                              multi_objective=multi_objective, stability=stability,
+                                              real_robot=real_robot, repetitions=repetitions, score=score)
         self.reset_height_offset = 0.1
 
     def suggest_params(self, trial, stabilization):
@@ -667,49 +693,86 @@ class Op2Optimization(AbstractDynupOptimization):
         self.set_params(self.dynup_params, self.dynup_client)
         return
 
-class NaoOptimization(AbstractDynupOptimization):
-    def __init__(self, namespace, gui, direction, sim_type='pybullet', multi_objective=False, stability=False):
-        super(NaoOptimization, self).__init__(namespace, gui, 'nao', direction, sim_type,
-                                              multi_objective=multi_objective, stability=stability)
-        self.reset_height_offset = 0.005
 
-    def suggest_params(self, trial):
-        node_param_dict = {}
+class SigmabanOptimization(AbstractDynupOptimization):
+    def __init__(self, namespace, gui, direction, sim_type='pybullet', multi_objective=False, stability=False,
+                 real_robot=False, repetitions=1, score="SSHP"):
+        super(SigmabanOptimization, self).__init__(namespace, gui, 'sigmaban',  direction, sim_type,
+                                              multi_objective=multi_objective, stability=stability,
+                                              real_robot=real_robot, repetitions=repetitions, score=score)
+        self.reset_height_offset = 0.08
 
-        def add(name, min_value, max_value):
-            node_param_dict[name] = trial.suggest_uniform(name, min_value, max_value)
+    def suggest_params(self, trial, stabilization):
+        load_yaml_to_param(self.namespace, 'bitbots_dynup',
+                           '/config/dynup_optimization.yaml',
+                           self.rospack)
+        self.dynup_params = rospy.get_param(self.namespace + "/dynup")
+        self.dynup_params.pop("pid_trunk_roll")
+        self.dynup_params.pop("pid_trunk_pitch")
+
+        def add(name, min_value, max_value, step=None, log=False):
+            self.dynup_params[name] = trial.suggest_float(name, min_value, max_value, step=step, log=log)
 
         def fix(name, value):
-            node_param_dict[name] = value
+            self.dynup_params[name] = value
             trial.set_user_attr(name, value)
 
-        add("foot_distance", 0.106, 0.25)
-        add("leg_min_length", 0.1, 0.2)
-        add("arm_side_offset", 0.05, 0.2)
-        add("trunk_x", -0.2, 0.2)
-        add("rise_time", 0, 1)
+        step_cartesian = 0.001
+        step_time = 1 / 250
+        step_angle = 0.01
 
-        # these are basically goal position variables, that the user has to define
-        fix("trunk_height", 0.4)
-        fix("trunk_pitch", 0)
+        if stabilization:
+            # activate stabilization
+            fix("stabilizing", True)
+            # todo bei stabilization die zeiten von den letzten bewegungen nochmal mit optimieren?
+            # todo currently dynup only stabilizes after wait in squat time, maybe start before this
+            self.pid_params(trial, "trunk_pitch", self.trunk_pitch_client, (-2, 2), (-4, 4), (-0.1, 0.1), (-2, 2))
+            # self.pid_params(trial, "trunk_roll", self.trunk_roll_client, (-2, 2), (-4, 4), (0, 0.1), (-2, 2))
+        else:
+            fix("stabilizing", False)
+            fix("trunk_x_final", 0)
+            add("rise_time", 0, 2, step=step_time)
+            add("arm_side_offset", 0.0, 0.1, step=step_cartesian)
+
+            # these are basically goal position variables, that the user has to define
+            fix("trunk_height", self.trunk_height)
+            fix("trunk_pitch", 0)
+            fix("foot_distance", 0.15)
+            fix("hand_walkready_pitch", 0)
 
         if self.direction == "front":
-            # add("max_leg_angle", 20, 80)
-            # add("trunk_overshoot_angle_front", -90, 0)
-            # add("time_hands_side", 0, 1)
-            # add("time_hands_rotate", 0, 1)
-            # add("time_foot_close", 0, 1)
-            # add("time_hands_front", 0, 1)
-            # add("time_torso_45", 0, 1)
-            # add("time_to_squat", 0, 1)
-            # add("wait_in_squat_front", 0, 2)
-            pass
+            add("leg_min_length_front", 0.05, 0.3, step=step_cartesian)
+            add("trunk_x_front", -0.05, 0.05, step=step_cartesian)
+            add("max_leg_angle", 0, 90, step=step_angle)
+            add("trunk_overshoot_angle_front", -45, 0, step=step_angle)
+            add("hands_pitch", -90, 0, step=step_angle)
+            add("time_hands_side", 0, 1, step=step_time)
+            add("time_hands_rotate", 0, 1, step=step_time)
+            add("time_foot_close", 0, 1, step=step_time)
+            add("time_hands_front", 0, 1, step=step_time)
+            add("time_foot_ground_front", 0, 1, step=step_time)
+            add("time_torso_45", 0, 1, step=step_time)
+            add("time_to_squat", 0, 1, step=step_time)
+            add("wait_in_squat_front", 0, 2, step=step_time)
         elif self.direction == "back":
-            pass  # todo
+            add("leg_min_length_back", 0.05, 0.25, step=step_cartesian)
+            add("hands_behind_back_x", 0.0, 0.25, step=step_cartesian)
+            add("hands_behind_back_z", 0, 0.25, step=step_cartesian)
+            add("trunk_height_back", 0.0, 0.25, step=step_cartesian)
+            add("com_shift_1", 0.0, 0.15, step=step_cartesian)
+            add("com_shift_2", 0.0, 0.15, step=step_cartesian)
+            add("foot_angle", 0.0, 90, step=step_angle)
+            add("arms_angle_back", 90, 180, step=step_angle)
+            add("trunk_overshoot_angle_back", 0.0, 45, step=step_angle)
+            add("time_legs_close", 0, 1, step=step_time)
+            add("time_foot_ground_back", 0, 1, step=step_time)
+            add("time_full_squat_hands", 0, 1, step=step_time)
+            add("time_full_squat_legs", 0, 1, step=step_time)
+            add("wait_in_squat_back", 0, 2, step=step_time)
         else:
             print(f"direction {self.direction} not specified")
 
-        self.set_params(node_param_dict, self.dynup_client)
+        self.set_params(self.dynup_params, self.dynup_client)
         return
 
 
