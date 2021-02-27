@@ -41,7 +41,7 @@ class AbstractDynupOptimization(AbstractRosOptimization):
             if sim_type == 'pybullet':
                 urdf_path = self.rospack.get_path(robot + '_description') + '/urdf/robot.urdf'
                 self.sim = PybulletSim(self.namespace, gui, urdf_path=urdf_path,
-                                       foot_link_names=foot_link_names, terrain=False, field=False, robot=robot)
+                                       foot_link_names=foot_link_names, terrain=True, field=False, robot=robot)
             elif sim_type == 'webots':
                 self.sim = WebotsSim(self.namespace, gui, robot)
             else:
@@ -700,7 +700,10 @@ class SigmabanOptimization(AbstractDynupOptimization):
         super(SigmabanOptimization, self).__init__(namespace, gui, 'sigmaban',  direction, sim_type,
                                               multi_objective=multi_objective, stability=stability,
                                               real_robot=real_robot, repetitions=repetitions, score=score)
-        self.reset_height_offset = 0.08
+        if self.direction == "front":
+            self.reset_height_offset = 0.2
+        else:
+            self.reset_height_offset = 0.08
 
     def suggest_params(self, trial, stabilization):
         load_yaml_to_param(self.namespace, 'bitbots_dynup',
