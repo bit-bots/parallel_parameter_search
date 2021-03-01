@@ -703,7 +703,7 @@ class SigmabanOptimization(AbstractDynupOptimization):
         if self.direction == "front":
             self.reset_height_offset = 0.2
         else:
-            self.reset_height_offset = 0.08
+            self.reset_height_offset = 0.1
 
     def suggest_params(self, trial, stabilization):
         load_yaml_to_param(self.namespace, 'bitbots_dynup',
@@ -758,12 +758,12 @@ class SigmabanOptimization(AbstractDynupOptimization):
             add("time_to_squat", 0, 1, step=step_time)
             add("wait_in_squat_front", 0, 2, step=step_time)
         elif self.direction == "back":
-            add("leg_min_length_back", 0.05, 0.25, step=step_cartesian)
+            add("leg_min_length_back", 0.1, 0.25, step=step_cartesian)
             add("hands_behind_back_x", 0.0, 0.25, step=step_cartesian)
             add("hands_behind_back_z", 0, 0.25, step=step_cartesian)
             add("trunk_height_back", 0.0, 0.25, step=step_cartesian)
-            add("com_shift_1", 0.0, 0.15, step=step_cartesian)
-            add("com_shift_2", 0.0, 0.15, step=step_cartesian)
+            add("com_shift_1", 0.0, 0.1, step=step_cartesian)
+            add("com_shift_2", 0.0, 0.1, step=step_cartesian)
             add("foot_angle", 0.0, 90, step=step_angle)
             add("arms_angle_back", 90, 180, step=step_angle)
             add("trunk_overshoot_angle_back", 0.0, 45, step=step_angle)
