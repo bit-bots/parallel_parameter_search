@@ -235,6 +235,8 @@ class AbstractKickOptimization(AbstractRosOptimization):
         for name, pos in walkready.items():
             msg.joint_names.append(name)
             msg.positions.append(math.radians(pos))
+            msg.velocities.append(-1)
+            msg.accelerations.append(-1)
         self.sim.set_joints(msg)
 
     def reset(self):
