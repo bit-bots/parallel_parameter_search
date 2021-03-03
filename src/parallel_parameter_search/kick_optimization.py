@@ -67,8 +67,6 @@ class AbstractKickOptimization(AbstractRosOptimization):
         else:
             cost = 0
         for d, direction in enumerate(self.directions):
-            # move ball away
-            self.sim.place_ball(3, 0)
             self.reset()
             fell_before_kick, fell, steps, ball_velocity, ball_direction = self.evaluate_goal(*direction, trial)
             direction_error = self.compute_yaw_error(direction)
@@ -243,6 +241,8 @@ class AbstractKickOptimization(AbstractRosOptimization):
         # reset simulation
         # set the robot to walkready first
 
+        # move ball away
+        self.sim.place_ball(3, 0)
         self.sim.set_gravity(False)
         # move the robot in the air
         self.sim.reset_robot_pose((0, 0, 1), (0, 0, 0, 1))

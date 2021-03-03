@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-
+import json
 import sys
 
 import argparse
@@ -29,6 +29,7 @@ parser.add_argument('--sampler', help='Which sampler {TPE, CMAES, MOTPE}', defau
                     type=str, required=True)
 parser.add_argument('--tensorboard-log-dir', help='Directory for tensorboard logs', type=str)
 parser.add_argument('--results-only', help="Do not optimize, just show results of an old study", action='store_true')
+parser.add_argument('--json', help="Print best params in json", action='store_true')
 
 args = parser.parse_args()
 
@@ -73,10 +74,14 @@ else:
     study.optimize(objective.objective, n_trials=args.trials, show_progress_bar=True, callbacks=callbacks)
 
 if multi_objective:
-    print(f'Using MOTPE, cannot determine single best trial. Printing the best trials:')
-    for trial in study.best_trials:
-        print(f'Trial {trial.number}: Values {trial.values}')
-        print(trial.params)
+    if not args.json:
+        print(f'Using MOTPE, cannot determine single best trial. Printing the best trials:')
+        for trial in study.best_trials:
+            print(f'Trial {trial.number}: Values {trial.values}')
+            print(trial.params)
+    else:
+        results = {trial.number: trial.params for trial in study.best_trials}
+        print(json.dumps(results))
 else:
     print(f'Best result was {study.best_value} in trial {study.best_trial.number} of {len(study.trials)}')
     print(study.best_params)
