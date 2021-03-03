@@ -1,9 +1,6 @@
 #!/usr/bin/env python3
 
 import math
-from itertools import cycle
-
-from PIL import Image, ImageDraw
 
 from bitbots_msgs.msg import JointCommand
 
@@ -87,11 +84,11 @@ if __name__ == '__main__':
     ]
 
     colors = ('tab:blue', 'tab:orange', 'tab:green', 'tab:red', 'tab:purple', 'tab:brown', 'tab:pink')
+    figure, axes = plt.subplots()
 
     kick_runner = KickRunner()
     for param_id, param_set in params.items():
         plt.title(f'Parameter set {param_id}')
-        figure, axes = plt.subplots()
         axes.set_aspect(1)
         axes.set_xlim((-3, 3))
         axes.set_ylim((-0.5, 3))
@@ -104,7 +101,8 @@ if __name__ == '__main__':
             ball_position = kick_runner.get_ball_position()
             ball_position_dx = -ball_position[1]
             ball_position_dy = ball_position[0]
-            ball = plt.Circle((ball_position_dx, ball_position_dy), 0.1, color=colors[i])
+            ball = plt.Circle((ball_position_dx, ball_position_dy), 0.1, color=colors[i],
+                              alpha=(0.3 if robot_fell else 1))
             axes.add_patch(ball)
             xs = (-goal[1], -goal[1] - math.sin(goal[2]) * 5)
             ys = (goal[0], goal[0] + math.cos(goal[2]) * 5)
