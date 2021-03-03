@@ -30,7 +30,6 @@ class KickRunner(WolfgangKickEngineOptimization):
             current_time = self.sim.get_time()
             joint_command = self.kick.step(current_time - self.last_time,
                                            self.sim.get_joint_state_msg())  # type: JointCommand
-            print(joint_command)
             if len(joint_command.joint_names) == 0:
                 kick_finished = True
             else:
@@ -88,10 +87,12 @@ if __name__ == '__main__':
 
     kick_runner = KickRunner()
     for param_id, param_set in params.items():
-        plt.title(f'Parameter set {param_id}')
+        param_time = sum(v for k, v in param_set.items() if k.endswith('time'))
+        plt.title(f'Parameter set {param_id} ({param_time}s)')
+        axes = plt.gca()
         axes.set_aspect(1)
         axes.set_xlim((-3, 3))
-        axes.set_ylim((-0.5, 3))
+        axes.set_ylim((-0.5, 4))
         for i, goal in enumerate(evaluate_goals):
             kick_runner.set_kick_params(param_set)
             kick_runner.reset()

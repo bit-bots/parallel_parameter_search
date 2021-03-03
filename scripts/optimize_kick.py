@@ -81,7 +81,11 @@ if multi_objective:
             print(trial.params)
     else:
         results = {trial.number: trial.params for trial in study.best_trials}
-        print(json.dumps(results))
+        print(json.dumps(results, indent=4))
 else:
-    print(f'Best result was {study.best_value} in trial {study.best_trial.number} of {len(study.trials)}')
-    print(study.best_params)
+    if not args.json:
+        print(f'Best result was {study.best_value} in trial {study.best_trial.number} of {len(study.trials)}')
+        print(study.best_params)
+    else:
+        result = {study.best_trial.number: study.best_trial.values}
+        print(json.dumps(result, indent=4))
