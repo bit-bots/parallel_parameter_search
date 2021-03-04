@@ -12,8 +12,6 @@ from parallel_parameter_search.utils import set_param_to_file, load_yaml_to_para
 
 from bitbots_msgs.msg import JointCommand, FootPressure
 
-from wolfgang_webots_sim.utils import fix_webots_folder
-
 try:
     from wolfgang_webots_sim.webots_controller import WebotsController
 except:

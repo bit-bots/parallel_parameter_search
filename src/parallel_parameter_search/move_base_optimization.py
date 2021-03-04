@@ -54,7 +54,7 @@ class AbstractMoveBaseOptimization(AbstractRosOptimization):
         self.launch.launch(self.odom)
         # start map server
         self.map_node = roslaunch.core.Node('map_server', 'map_server', 'map_server', namespace=self.namespace,
-                                            args="$(find bitbots_localization)/models/field2019.yaml")
+                                            args="$(find bitbots_localization)/config/fields/webots/map_server.yaml")
         self.map_node.remap_args = [("/clock", "clock"), ("/tf", "tf"), ("/tf_static", "tf_static")]
         self.launch.launch(self.map_node)
         # fake localization
