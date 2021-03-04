@@ -8,8 +8,8 @@ from parallel_parameter_search.kick_optimization import WolfgangKickEngineOptimi
 
 
 class KickRunner(WolfgangKickEngineOptimization):
-    def __init__(self):
-        super().__init__(namespace='evaluator', gui=False, sim_type='webots')
+    def __init__(self, gui=False):
+        super().__init__(namespace='evaluator', gui=gui, sim_type='webots')
 
     def set_goal(self, ball_x, ball_y, angle, speed):
         msg = self.get_kick_goal_msg(ball_x, ball_y, angle, speed)
@@ -66,6 +66,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('directory', default=os.getcwd(), nargs='?')
+    parser.add_argument('--gui', default=False, action='store_true')
     args = parser.parse_args()
 
     if not os.path.isfile(os.path.join(args.directory, 'params.json')):
@@ -85,7 +86,7 @@ if __name__ == '__main__':
     colors = ('tab:blue', 'tab:orange', 'tab:green', 'tab:red', 'tab:purple', 'tab:brown', 'tab:pink')
     figure, axes = plt.subplots()
 
-    kick_runner = KickRunner()
+    kick_runner = KickRunner(gui=args.gui)
     for param_id, param_set in params.items():
         param_time = sum(v for k, v in param_set.items() if k.endswith('time'))
         plt.title(f'Parameter set {param_id} ({param_time}s)')
