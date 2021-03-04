@@ -7,6 +7,7 @@ import roslaunch
 import rospkg
 import rospy
 import tf
+import transforms3d
 from actionlib_msgs.msg import GoalID
 from geometry_msgs.msg import PoseStamped, Twist
 from move_base_msgs.msg import MoveBaseActionGoal, MoveBaseActionResult
@@ -182,9 +183,11 @@ class AbstractMoveBaseOptimization(AbstractRosOptimization):
             # test timeout
             if passed_time > self.time_limit:
                 self.reset()
+                goal_quat = goal.goal.target_pose.pose.orientation
+                goal_rpy = transforms3d.euler.quat2euler((goal_quat.w, goal_quat.x, goal_quat.y, goal_quat.z))
                 trial.set_user_attr('time_limit_reached',
                                     (goal.goal.target_pose.pose.position.x, goal.goal.target_pose.pose.position.y,
-                                     goal.goal.target_pose.pose.orientation))
+                                     goal_rpy[2]))
                 return True, self.time_limit
 
             # test if the robot has fallen down
@@ -192,11 +195,12 @@ class AbstractMoveBaseOptimization(AbstractRosOptimization):
             if abs(rpy[0]) > math.radians(45) or abs(rpy[1]) > math.radians(45) or pos[2] < self.trunk_height / 2:
                 self.reset()
                 # add extra information to trial
-                # todo add only yaw instead of quaternion
                 # todo include max vel parameter or something similar
+                goal_quat = goal.goal.target_pose.pose.orientation
+                goal_rpy = transforms3d.euler.quat2euler((goal_quat.w, goal_quat.x, goal_quat.y, goal_quat.z))
                 trial.set_user_attr('fallen',
                                     (goal.goal.target_pose.pose.position.x, goal.goal.target_pose.pose.position.y,
-                                     goal.goal.target_pose.pose.orientation))
+                                     goal_rpy[2]))
                 return True, self.time_limit
 
             # todo add test if the robot did not move for more than x seconds, to find oszillations more easily
