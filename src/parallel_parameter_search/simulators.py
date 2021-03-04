@@ -6,6 +6,8 @@ from abc import ABC
 
 import rospkg
 import rospy
+from geometry_msgs.msg import Point, Quaternion
+from nav_msgs.msg import Odometry
 from wolfgang_pybullet_sim.simulation import Simulation
 from wolfgang_pybullet_sim.ros_interface import ROSInterface
 from parallel_parameter_search.utils import set_param_to_file, load_yaml_to_param
@@ -158,6 +160,9 @@ class WebotsSim(AbstractSim, ABC):
         # start webots
         super().__init__()
         rospack = rospkg.RosPack()
+        self.ros_active = ros_active
+        if ros_active:
+            self.true_odom_publisher = rospy.Publisher(namespace + "/true_odom", Odometry, queue_size=1)
         path = rospack.get_path("wolfgang_webots_sim")
 
         arguments = ["webots",
@@ -178,6 +183,17 @@ class WebotsSim(AbstractSim, ABC):
 
     def step_sim(self):
         self.robot_controller.step()
+        if self.ros_active:
+            self.publish_true_odom()
+
+    def publish_true_odom(self):
+        position, orientation = self.robot_controller.get_robot_pose_quat()
+        odom_msg = Odometry()
+        odom_msg.header.frame_id = "odom"
+        odom_msg.child_frame_id = "base_link"
+        odom_msg.pose.pose.position = Point(*position)
+        odom_msg.pose.pose.orientation = Quaternion(*orientation)
+        self.true_odom_publisher.publish(odom_msg)
 
     def set_gravity(self, on):
         self.robot_controller.set_gravity(on)
