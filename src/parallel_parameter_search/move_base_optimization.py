@@ -62,15 +62,6 @@ class AbstractMoveBaseOptimization(AbstractRosOptimization):
                                                namespace=self.namespace)
         self.tf_map_node.remap_args = [("/clock", "clock"), ("/tf", "tf"), ("/tf_static", "tf_static")]
         self.launch.launch(self.tf_map_node)
-        # imu filter
-        self.imu_node = roslaunch.core.Node('imu_complementary_filter', 'complementary_filter_node', 'complementary_filter_gain_node',
-                                            namespace=self.namespace)
-        rospy.set_param(self.imu_node.name + "/do_bias_estimation", True)
-        rospy.set_param(self.imu_node.name + "/bias_alpha", 0.05)
-        rospy.set_param(self.imu_node.name + "/da_adaptive_gain", False)
-        rospy.set_param(self.imu_node.name + "/gain_acc", 0.04)
-        self.imu_node.remap_args = [("/clock", "clock"), ("/tf", "tf"), ("/tf_static", "tf_static")]
-        self.launch.launch(self.imu_node)
         # start move base node
         load_yaml_to_param(self.namespace + '/move_base/global_costmap', 'bitbots_move_base',
                            '/config/costmap_common_config.yaml', self.rospack)
