@@ -69,6 +69,9 @@ class AbstractSim:
     def get_pressure_right(self):
         raise NotImplementedError
 
+    def set_ball_position(self, x, y):
+        raise NotImplementedError
+
 
 class PybulletSim(AbstractSim):
 
@@ -143,6 +146,9 @@ class PybulletSim(AbstractSim):
     def get_joint_position(self, name):
         return self.sim.get_joint_position(name)
 
+    def set_ball_position(self, x, y):
+        pass
+
     def get_joint_names(self):
         return self.sim.get_joint_names()
 
@@ -214,3 +220,6 @@ class WebotsSim(AbstractSim, ABC):
 
     def get_link_pose(self, link_name):
         return self.robot_controller.get_link_pose(link_name)
+
+    def set_ball_position(self, x, y):
+        self.robot_controller.set_ball_pose([x, y, 0])

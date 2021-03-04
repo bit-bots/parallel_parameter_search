@@ -235,6 +235,7 @@ class AbstractMoveBaseOptimization(AbstractRosOptimization):
         return False
 
     def reset_position(self):
+        self.sim.set_ball_position(5, 0)
         self.sim.run_simulation(1, 0.001)
         height = self.trunk_height + self.reset_height_offset
         pitch = self.trunk_pitch
