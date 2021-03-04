@@ -1,0 +1,20 @@
+{
+    "29370": {
+        "foot_distance": 0.16,
+        "foot_rise": 0.14,
+        "kick_time": 0.11,
+        "kick_windup_distance": 0.25,
+        "lower_foot_time": 0.06,
+        "move_back_time": 0.29,
+        "move_to_ball_time": 0.39,
+        "move_trunk_back_time": 0.36,
+        "move_trunk_time": 0.58,
+        "raise_foot_time": 0.45,
+        "stabilizing_point_x": -0.04,
+        "stabilizing_point_y": -0.01,
+        "trunk_height": 0.39999999999999997,
+        "trunk_pitch": -0.5061454830783555,
+        "trunk_roll": -0.05235987755982985,
+        "trunk_yaw": 0.62482787221397
+    }
+}
