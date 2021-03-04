@@ -13,7 +13,7 @@ from parallel_parameter_search.utils import set_param_to_file, load_yaml_to_para
 from bitbots_msgs.msg import JointCommand, FootPressure
 
 try:
-    from wolfgang_webots_sim.webots_controller import WebotsController
+    from wolfgang_webots_sim.webots_robot_supervisor_controller import RobotSupervisorController
 except:
     rospy.logerr("Could not load webots sim. If you want to use it, source the setenvs.sh")
 
@@ -148,7 +148,7 @@ class PybulletSim(AbstractSim):
 
 class WebotsSim(AbstractSim, ABC):
 
-    def __init__(self, namespace, gui, robot="wolfgang"):
+    def __init__(self, namespace, gui, robot="wolfgang", ros_active=False):
         # start webots
         super().__init__()
         rospack = rospkg.RosPack()
@@ -156,19 +156,19 @@ class WebotsSim(AbstractSim, ABC):
 
         arguments = ["webots",
                      "--batch",
-                     path + "/worlds/walk_optim_" + robot + ".wbt"]
+                     path + "/worlds/robot_supervisor.wbt"]
         if not gui:
             arguments.append("--minimize")
         sim_proc = subprocess.Popen(arguments)
 
         os.environ["WEBOTS_PID"] = str(sim_proc.pid)
-        fix_webots_folder(sim_proc.pid)
 
         if gui:
             mode = 'normal'
         else:
             mode = 'fast'
-        self.robot_controller = WebotsController(namespace, True, mode, robot)
+
+        self.robot_controller = RobotSupervisorController(ros_active, mode, robot)
 
     def step_sim(self):
         self.robot_controller.step()

@@ -32,7 +32,7 @@ class AbstractMoveBaseOptimization(AbstractRosOptimization):
             self.sim = PybulletSim(self.namespace, gui, urdf_path=urdf_path,
                                    foot_link_names=foot_link_names, ros_active=True)
         elif sim_type == 'webots':
-            self.sim = WebotsSim(self.namespace, gui, robot_name)
+            self.sim = WebotsSim(self.namespace, gui, robot_name, ros_active=True)
         else:
             print(f'sim type {sim_type} not known')
 
