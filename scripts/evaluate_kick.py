@@ -88,11 +88,11 @@ if __name__ == '__main__':
 
     kick_runner = KickRunner(gui=args.gui)
     for param_id, param_set in params.items():
-        param_time = sum(v for k, v in param_set.items() if k.endswith('time'))
+        param_time = round(sum(v for k, v in param_set.items() if k.endswith('time')), 2)
         plt.title(f'Parameter set {param_id} ({param_time}s)')
         axes = plt.gca()
         axes.set_aspect(1)
-        axes.set_xlim((-3, 3))
+        axes.set_xlim((-4, 4))
         axes.set_ylim((-0.5, 4))
         for i, goal in enumerate(evaluate_goals):
             kick_runner.set_kick_params(param_set)
@@ -106,8 +106,8 @@ if __name__ == '__main__':
             ball = plt.Circle((ball_position_dx, ball_position_dy), 0.1, color=colors[i],
                               alpha=(0.3 if robot_fell else 1))
             axes.add_patch(ball)
-            xs = (-goal[1], -goal[1] - math.sin(goal[2]) * 5)
-            ys = (goal[0], goal[0] + math.cos(goal[2]) * 5)
+            xs = (-goal[1], -goal[1] - math.sin(goal[2]) * 10)
+            ys = (goal[0], goal[0] + math.cos(goal[2]) * 10)
             plt.plot(xs, ys, color=colors[i])
         figure.savefig(os.path.join(args.directory, f'evaluation_{param_id}.png'), dpi=150)
         plt.clf()
