@@ -2,6 +2,7 @@
 
 import argparse
 import importlib
+import json
 import time
 
 import optuna
@@ -29,6 +30,8 @@ parser.add_argument('--trials', help='Trials to be evaluated', default=10000,
                     type=int, required=True)
 parser.add_argument('--sampler', help='Which sampler {TPE, CMAES}', default=10000,
                     type=str, required=True)
+parser.add_argument('--results-only', help="Do not optimize, just show results of an old study", action='store_true')
+parser.add_argument('--json', help="Print best params in json", action='store_true')
 
 args = parser.parse_args()
 
@@ -42,25 +45,35 @@ elif args.sampler == "CMAES":
 else:
     print("sampler not correctly specified")
 
-study = optuna.create_study(study_name=args.name, storage=args.storage, direction='minimize',
-                            sampler=sampler, load_if_exists=True)
-study.set_user_attr("sampler", args.sampler)
-if args.robot == "wolfgang":
-    objective = WolfgangMoveBaseOptimization('worker', gui=args.gui, sim_type=args.sim)
+if args.results_only:
+    study = optuna.load_study(study_name=args.name, storage=args.storage, sampler=sampler)
 else:
-    print(f"robot type \"{args.robot}\" not known.")
+    study = optuna.create_study(study_name=args.name, storage=args.storage, direction='minimize',
+                                sampler=sampler, load_if_exists=True)
+    study.set_user_attr("sampler", args.sampler)
+    if args.robot == "wolfgang":
+        objective = WolfgangMoveBaseOptimization('worker', gui=args.gui, sim_type=args.sim)
+    else:
+        print(f"robot type \"{args.robot}\" not known.")
 
-# give known set of parameters as initial knowledge
-study.enqueue_trial({"max_vel_x": 0.1,
-                     "min_vel_x": -0.05,
-                     "max_vel_y": 0.08,
-                     "max_vel_theta": 0.7,
-                     "acc_lim_x": 1.0,
-                     "acc_lim_y": 1.0,
-                     "acc_lim_theta": 4.0,
-                     "acc_trans_limit": 1.0,
-                     "path_distance_bias": 5,
-                     "goal_distance_bias": 10.0,
-                     "occdist_scale": 0.1,
-                     "twirling_scale": 5.0})
-study.optimize(objective.objective, n_trials=args.trials, show_progress_bar=True)
+    # give known set of parameters as initial knowledge
+    study.enqueue_trial({"max_vel_x": 0.1,
+                         "min_vel_x": -0.05,
+                         "max_vel_y": 0.08,
+                         "max_vel_theta": 0.7,
+                         "acc_lim_x": 1.0,
+                         "acc_lim_y": 1.0,
+                         "acc_lim_theta": 4.0,
+                         "acc_trans_limit": 1.0,
+                         "path_distance_bias": 5,
+                         "goal_distance_bias": 10.0,
+                         "occdist_scale": 0.1,
+                         "twirling_scale": 5.0})
+    study.optimize(objective.objective, n_trials=args.trials, show_progress_bar=True)
+
+if not args.json:
+    print(f'Best result was {study.best_value} in trial {study.best_trial.number} of {len(study.trials)}')
+    print(study.best_params)
+else:
+    result = {study.best_trial.number: study.best_trial.values}
+    print(json.dumps(result, indent=4))
