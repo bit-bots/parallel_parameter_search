@@ -99,6 +99,7 @@ class AbstractMoveBaseOptimization(AbstractRosOptimization):
         self.transformer_node = roslaunch.core.Node('humanoid_league_transform', 'transformer.py',
                                                     'humanoid_league_transform', namespace=self.namespace)
         self.transformer_node.remap_args = [("/clock", "clock"), ("/tf", "tf"), ("/tf_static", "tf_static")]
+        self.transformer_node.launch_prefix = f"taskset -c {self.namespace.split('_')[-1]}"
         self.launch.launch(self.transformer_node)
         # start head behavior
         load_yaml_to_param(self.namespace, 'bitbots_head_behavior', '/config/head_config.yaml', self.rospack)
