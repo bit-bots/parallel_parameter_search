@@ -9,6 +9,7 @@ import rospy
 import tf
 import transforms3d
 from actionlib_msgs.msg import GoalID
+from bitbots_msgs.msg import JointCommand
 from geometry_msgs.msg import PoseStamped, Twist
 from move_base_msgs.msg import MoveBaseActionGoal, MoveBaseActionResult
 from bitbots_localization.srv import ResetFilter
@@ -191,12 +192,12 @@ class AbstractMoveBaseOptimization(AbstractRosOptimization):
     def objective(self, trial: optuna.Trial):
         # get parameter to evaluate from optuna
         self.suggest_params(trial)
-        self.reset()
 
         cost = 0
         for iteration in range(1, self.number_of_iterations + 1):
             d = 0
             for goal in self.goals:
+                self.reset()
                 d += 1
                 early_term, time_try = self.evaluate_nav_goal(goal, trial)
                 pos, rot = self.sim.get_robot_pose_rpy()
@@ -217,8 +218,6 @@ class AbstractMoveBaseOptimization(AbstractRosOptimization):
                 print('pos', x, y, yaw)
                 cost += cost_try
 
-                # Set the robot to its start position
-                self.reset()
                 # check if we failed in this direction and terminate this trial early
                 if early_term:
                     # terminate early and give 1 cost for each try left
@@ -307,7 +306,6 @@ class AbstractMoveBaseOptimization(AbstractRosOptimization):
 
             # test if we are successful
             if self.is_goal_reached():
-                # only need to reset the position of the robot, since we stopped correctly
                 return False, passed_time
 
             # give time to other algorithms to compute their responses
@@ -328,6 +326,21 @@ class AbstractMoveBaseOptimization(AbstractRosOptimization):
             return True
         return False
 
+    def set_to_walkready(self):
+        """Set the robot to walkready position"""
+        walkready = {"LAnklePitch": -30, "LAnkleRoll": 0, "LHipPitch": 30, "LHipRoll": 0,
+                     "LHipYaw": 0, "LKnee": 60, "RAnklePitch": 30, "RAnkleRoll": 0,
+                     "RHipPitch": -30, "RHipRoll": 0, "RHipYaw": 0, "RKnee": -60,
+                     "LShoulderPitch": 0, "LShoulderRoll": 0, "LElbow": 45, "RShoulderPitch": 0,
+                     "RShoulderRoll": 0, "RElbow": -45, "HeadPan": 0, "HeadTilt": 0}
+        msg = JointCommand()
+        for name, pos in walkready.items():
+            msg.joint_names.append(name)
+            msg.positions.append(math.radians(pos))
+            msg.velocities.append(-1)
+            msg.accelerations.append(-1)
+        self.sim.set_joints(msg)
+
     def reset_position(self):
         self.sim.set_ball_position(5, 0)
         self.sim.run_simulation(1, 0.001)
@@ -338,9 +351,9 @@ class AbstractMoveBaseOptimization(AbstractRosOptimization):
                                                                 self.reset_rpy_offset[2] - math.radians(90))
 
         self.sim.reset_robot_pose((-2, 3, height), (x, y, z, w))
+        self.set_to_walkready()
         self.localization_reset_service(0, None, None)
         self.sim.run_simulation(1, 0.001)
-
 
     def reset(self):
         # cancel goals and wait till robot stopped in walkready
