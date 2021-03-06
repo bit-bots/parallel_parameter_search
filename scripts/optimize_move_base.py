@@ -60,17 +60,19 @@ else:
     study.enqueue_trial({"max_vel_x": 0.1,
                          "min_vel_x": -0.05,
                          "max_vel_y": 0.08,
+                         "max_vel_trans": 0.18,
                          "max_vel_theta": 0.7,
                          "acc_lim_x": 1.0,
                          "acc_lim_y": 1.0,
+                         "acc_lim_trans": 1.0,
                          "acc_lim_theta": 4.0,
-                         "acc_trans_limit": 1.0,
                          #"path_distance_bias": 5,
                          #"goal_distance_bias": 10.0,
                          #"occdist_scale": 0.1,
                          #"twirling_scale": 5.0}
                          'xy_goal_tolerance': 0.1,
                          'yaw_goal_tolerance': 0.05,
+
 
                          'drift_distance_to_direction': 3.0,
                          'drift_distance_to_distance': 0.2,
