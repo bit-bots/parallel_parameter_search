@@ -65,10 +65,21 @@ else:
                          "acc_lim_y": 1.0,
                          "acc_lim_theta": 4.0,
                          "acc_trans_limit": 1.0,
-                         "path_distance_bias": 5,
-                         "goal_distance_bias": 10.0,
-                         "occdist_scale": 0.1,
-                         "twirling_scale": 5.0})
+                         #"path_distance_bias": 5,
+                         #"goal_distance_bias": 10.0,
+                         #"occdist_scale": 0.1,
+                         #"twirling_scale": 5.0}
+                         'xy_goal_tolerance': 0.1,
+                         'yaw_goal_tolerance': 0.05,
+
+                         'drift_distance_to_direction': 3.0,
+                         'drift_distance_to_distance': 0.2,
+                         'drift_roation_to_distance': 0.2,
+                         'drift_rotation_to_rotation': 3.0,
+                         'line_element_confidence': 0.01,
+                         'diffusion_multiplicator': 0.001,
+                         'diffusion_t_std_dev': 0.9,
+                         })
     study.optimize(objective.objective, n_trials=args.trials, show_progress_bar=True)
 
 if not args.json:
