@@ -205,8 +205,8 @@ class AbstractMoveBaseOptimization(AbstractRosOptimization):
                 x = pos[0]
                 y = pos[1]
                 yaw = rot[2]
-                # scale cost to time_limit
-                cost_try = time_try / self.time_limit
+                # velocity^(-1) (seconds per meter), normalized with 0.25 for robot speed
+                cost_try = 0.25 * (time_try / self.time_limit) / math.sqrt((x - self.start_point[0])**2 + (y - self.start_point[1])**2)
                 # weighted mean squared error, yaw is split in continuous sin and cos components
                 goal_pose = goal.goal.target_pose.pose
                 goal_rpy = transforms3d.euler.quat2euler([goal_pose.orientation.w, goal_pose.orientation.x,
@@ -214,7 +214,8 @@ class AbstractMoveBaseOptimization(AbstractRosOptimization):
                 yaw_error = (math.sin(goal_rpy[2]) - math.sin(yaw))**2 + (math.cos(goal_rpy[2]) - math.cos(yaw))**2
                 print('time cost', cost_try)
                 print('yaw', yaw_error)
-                cost_try += (goal_pose.position.x - x)**2 + (goal_pose.position.y - y)**2 + yaw_error
+                # normalize pose error
+                cost_try += 50 * ((goal_pose.position.x - x)**2 + (goal_pose.position.y - y)**2 + yaw_error)
                 print('xy', cost_try-yaw_error-time_try/self.time_limit)
                 print('pos', x, y, yaw)
                 cost += cost_try
