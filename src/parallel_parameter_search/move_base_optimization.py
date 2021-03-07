@@ -205,9 +205,12 @@ class AbstractMoveBaseOptimization(AbstractRosOptimization):
                 x = pos[0]
                 y = pos[1]
                 yaw = rot[2]
-                # velocity^(-1) (seconds per meter), normalized with 0.25 for robot speed
+                # velocity^(-1) (seconds per meter)
                 distance = math.sqrt((x - self.start_point[0])**2 + (y - self.start_point[1])**2)
-                time_cost = (time_try / distance)**2
+                if distance > 0.5:
+                    time_cost = (time_try / distance)**2
+                else:
+                    time_cost = 0
                 print('time cost', time_cost)
                 # weighted mean squared error, yaw is split in continuous sin and cos components
                 goal_pose = goal.goal.target_pose.pose
@@ -217,7 +220,7 @@ class AbstractMoveBaseOptimization(AbstractRosOptimization):
                 # normalize pose error
                 pose_cost = ((goal_pose.position.x - x)**2 + (goal_pose.position.y - y)**2 + yaw_error)
                 print('pose cost', pose_cost)
-                cost += 0.1 * time_cost + 50 * pose_cost
+                cost += 0.01 * time_cost + 50 * pose_cost
 
                 # check if we failed in this direction and terminate this trial early
                 if early_term:
