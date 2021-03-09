@@ -43,7 +43,7 @@ class AbstractDynupOptimization(AbstractRosOptimization):
                 self.sim = PybulletSim(self.namespace, gui, urdf_path=urdf_path,
                                        foot_link_names=foot_link_names, terrain=True, field=False, robot=robot)
             elif sim_type == 'webots':
-                self.sim = WebotsSim(self.namespace, gui, robot)
+                self.sim = WebotsSim(self.namespace, gui, robot, world="flat_world", ros_active=True)
             else:
                 print(f'sim type {sim_type} not known')
         # load dynup params
@@ -263,7 +263,8 @@ class AbstractDynupOptimization(AbstractRosOptimization):
             if not self.real_robot:
                 # apply force only while dynup is running and not in waiting time after end
                 if self.get_time() - self.start_time < end_time:
-                    self.sim.apply_force(-1, force_vector, [0, 0, 0])
+                    if not force_vector == (0, 0, 0):
+                        self.sim.apply_force(-1, force_vector, [0, 0, 0])
                 self.sim.step_sim()
                 pos, quat = self.sim.get_robot_pose()
             else:
@@ -287,9 +288,9 @@ class AbstractDynupOptimization(AbstractRosOptimization):
 
             if not self.real_robot:
                 if self.robot == "sigmaban":
-                    head_position = self.sim.get_link_pose("head_1")
+                    head_position = self.sim.get_link_pose("head_1")[0]
                 else:
-                    head_position = self.sim.get_link_pose("head")
+                    head_position = self.sim.get_link_pose("head")[0]
                 self.max_head_height = max(self.max_head_height, head_position[2])
 
             # compute torques
@@ -339,7 +340,8 @@ class AbstractDynupOptimization(AbstractRosOptimization):
 
             # early abort if IK glitch occurs
             if self.robot == "sigmaban":
-                if abs(self.get_joint_position("right_ankle_roll")) > 0.9 or abs(self.get_joint_position("left_hip_yaw")) > 0.9:
+                if abs(self.get_joint_position("right_ankle_roll")) > 0.9 or abs(
+                        self.get_joint_position("left_hip_yaw")) > 0.9:
                     print("Ik bug")
                     return False
             else:
@@ -384,18 +386,11 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         height = self.reset_height_offset
         pitch = self.trunk_pitch
 
-        if self.sim_type == "pybullet":
-            (x, y, z, w) = tf.transformations.quaternion_from_euler(self.reset_rpy_offset[0],
-                                                                    self.reset_rpy_offset[1] + pitch,
-                                                                    self.reset_rpy_offset[2])
+        (x, y, z, w) = tf.transformations.quaternion_from_euler(self.reset_rpy_offset[0],
+                                                                self.reset_rpy_offset[1] + pitch,
+                                                                self.reset_rpy_offset[2])
 
-            self.sim.set_robot_pose((0, 0, height), (x, y, z, w))
-        else:
-            angle = math.pi / 2
-            x = 0
-            y = 1
-            z = 0
-            self.sim.set_robot_pose((0, 0, height), (angle, x, y, z))
+        self.sim.set_robot_pose((0, 0, height), (x, y, z, w))
 
     def reset(self):
         # completly reset pybullet, since it is strange
@@ -483,7 +478,8 @@ class AbstractDynupOptimization(AbstractRosOptimization):
                     msg.positions = [0, 0, 0.0, 0, 0, 0, 0, 0, 0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
                                      0.0, 0, 0.0, 0]  # walkready
                 elif self.direction == "front":
-                    msg.positions = [0, 0.0, 0.0, 0, 0, 0, 0, 0, 0.0, 0.0, 0.0, 0.0, 0, 0.0, 0.0, 0, 0, 0, 0, 0]  # falling_front
+                    msg.positions = [0, 0.0, 0.0, 0, 0, 0, 0, 0, 0.0, 0.0, 0.0, 0.0, 0, 0.0, 0.0, 0, 0, 0, 0,
+                                     0]  # falling_front
             self.dynamixel_controller_pub.publish(msg)
             if not self.real_robot:
                 self.sim.step_sim()
@@ -555,7 +551,10 @@ class WolfgangOptimization(AbstractDynupOptimization):
 
         # we are not more precise than 1mm or one loop cycle (simulator runs at 240Hz)
         step_cartesian = 0.001
-        step_time = 1 / 250
+        if self.sim_type == "pybullet":
+            step_time = 1 / 250
+        elif self.sim_type == "webots":
+            step_time = 0.033
         step_angle = 0.01
         if stabilization:
             # activate stabilization
@@ -697,9 +696,9 @@ class Op2Optimization(AbstractDynupOptimization):
 class SigmabanOptimization(AbstractDynupOptimization):
     def __init__(self, namespace, gui, direction, sim_type='pybullet', multi_objective=False, stability=False,
                  real_robot=False, repetitions=1, score="SSHP"):
-        super(SigmabanOptimization, self).__init__(namespace, gui, 'sigmaban',  direction, sim_type,
-                                              multi_objective=multi_objective, stability=stability,
-                                              real_robot=real_robot, repetitions=repetitions, score=score)
+        super(SigmabanOptimization, self).__init__(namespace, gui, 'sigmaban', direction, sim_type,
+                                                   multi_objective=multi_objective, stability=stability,
+                                                   real_robot=real_robot, repetitions=repetitions, score=score)
         if self.direction == "front":
             self.reset_height_offset = 0.2
         else:
