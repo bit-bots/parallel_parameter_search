@@ -6,16 +6,16 @@ from abc import ABC
 
 import rospkg
 import rospy
+from geometry_msgs.msg import Point, Quaternion
+from nav_msgs.msg import Odometry
 from wolfgang_pybullet_sim.simulation import Simulation
 from wolfgang_pybullet_sim.ros_interface import ROSInterface
 from parallel_parameter_search.utils import set_param_to_file, load_yaml_to_param
 
 from bitbots_msgs.msg import JointCommand, FootPressure
 
-from wolfgang_webots_sim.utils import fix_webots_folder
-
 try:
-    from wolfgang_webots_sim.webots_controller import WebotsController
+    from wolfgang_webots_sim.webots_robot_supervisor_controller import RobotSupervisorController
 except:
     rospy.logerr("Could not load webots sim. If you want to use it, source the setenvs.sh")
 
@@ -69,6 +69,9 @@ class AbstractSim:
         raise NotImplementedError
 
     def get_pressure_right(self):
+        raise NotImplementedError
+
+    def set_ball_position(self, x, y):
         raise NotImplementedError
 
 
@@ -145,35 +148,52 @@ class PybulletSim(AbstractSim):
     def get_joint_position(self, name):
         return self.sim.get_joint_position(name)
 
+    def set_ball_position(self, x, y):
+        pass
+
     def get_joint_names(self):
         return self.sim.get_joint_names()
 
 class WebotsSim(AbstractSim, ABC):
 
-    def __init__(self, namespace, gui, robot="wolfgang"):
+    def __init__(self, namespace, gui, robot="wolfgang", ros_active=False):
         # start webots
         super().__init__()
         rospack = rospkg.RosPack()
+        self.ros_active = ros_active
+        if ros_active:
+            self.true_odom_publisher = rospy.Publisher(namespace + "/true_odom", Odometry, queue_size=1)
         path = rospack.get_path("wolfgang_webots_sim")
 
         arguments = ["webots",
                      "--batch",
-                     path + "/worlds/walk_optim_" + robot + ".wbt"]
+                     path + "/worlds/robot_supervisor.wbt"]
         if not gui:
             arguments.append("--minimize")
         sim_proc = subprocess.Popen(arguments)
 
         os.environ["WEBOTS_PID"] = str(sim_proc.pid)
-        fix_webots_folder(sim_proc.pid)
 
         if gui:
             mode = 'normal'
         else:
             mode = 'fast'
-        self.robot_controller = WebotsController(namespace, True, mode, robot)
+
+        self.robot_controller = RobotSupervisorController(ros_active, mode, robot, base_ns=namespace + '/')
 
     def step_sim(self):
         self.robot_controller.step()
+        if self.ros_active:
+            self.publish_true_odom()
+
+    def publish_true_odom(self):
+        position, orientation = self.robot_controller.get_robot_pose_quat()
+        odom_msg = Odometry()
+        odom_msg.header.frame_id = "odom"
+        odom_msg.child_frame_id = "base_link"
+        odom_msg.pose.pose.position = Point(*position)
+        odom_msg.pose.pose.orientation = Quaternion(*orientation)
+        self.true_odom_publisher.publish(odom_msg)
 
     def set_gravity(self, on):
         self.robot_controller.set_gravity(on)
@@ -216,3 +236,6 @@ class WebotsSim(AbstractSim, ABC):
 
     def get_link_pose(self, link_name):
         return self.robot_controller.get_link_pose(link_name)
+
+    def set_ball_position(self, x, y):
+        self.robot_controller.set_ball_pose([x, y, 0])

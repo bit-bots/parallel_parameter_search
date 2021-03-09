@@ -35,7 +35,6 @@ class AbstractRosOptimization:
 
         self.dynconf_client = None
         self.sim = None
-
         rospy.init_node('optimizer', anonymous=True, argv=['clock:=/' + self.namespace + '/clock'])
 
     def set_params(self, param_dict, client, node_to_spin=None):
