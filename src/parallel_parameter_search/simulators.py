@@ -85,7 +85,8 @@ class PybulletSim(AbstractSim):
         # print(self.namespace)
         load_yaml_to_param("/" + self.namespace, 'wolfgang_pybullet_sim', '/config/config.yaml', rospack)
         self.gui = gui
-        self.sim: Simulation = Simulation(gui, urdf_path=urdf_path, foot_link_names=foot_link_names, terrain=terrain, field=field, robot=robot)
+        self.sim: Simulation = Simulation(gui, urdf_path=urdf_path, foot_link_names=foot_link_names, terrain=terrain,
+                                          field=field, robot=robot)
         self.sim_interface: ROSInterface = ROSInterface(self.sim, namespace="/" + self.namespace + '/', node=False)
 
     def step_sim(self):
@@ -101,7 +102,7 @@ class PybulletSim(AbstractSim):
         self.sim.reset_robot_pose(pos, quat)
 
     def set_robot_pose(self, pos, quat):
-        self.sim.set_robot_pose(pos,quat)
+        self.sim.set_robot_pose(pos, quat)
 
     def get_robot_pose(self):
         return self.sim.get_robot_pose()
@@ -154,9 +155,10 @@ class PybulletSim(AbstractSim):
     def get_joint_names(self):
         return self.sim.get_joint_names()
 
+
 class WebotsSim(AbstractSim, ABC):
 
-    def __init__(self, namespace, gui, robot="wolfgang", ros_active=False):
+    def __init__(self, namespace, gui, robot="wolfgang", ros_active=False, world="robot_supervisor"):
         # start webots
         super().__init__()
         rospack = rospkg.RosPack()
@@ -167,7 +169,7 @@ class WebotsSim(AbstractSim, ABC):
 
         arguments = ["webots",
                      "--batch",
-                     path + "/worlds/robot_supervisor.wbt"]
+                     path + "/worlds/" + world + ".wbt"]
         if not gui:
             arguments.append("--minimize")
         sim_proc = subprocess.Popen(arguments)
@@ -179,7 +181,8 @@ class WebotsSim(AbstractSim, ABC):
         else:
             mode = 'fast'
 
-        self.robot_controller = RobotSupervisorController(ros_active, mode, robot, base_ns=namespace + '/')
+        self.robot_controller = RobotSupervisorController(ros_active, mode, robot, base_ns=namespace + '/',
+                                                          model_states_active=False)
 
     def step_sim(self):
         self.robot_controller.step()
@@ -201,8 +204,14 @@ class WebotsSim(AbstractSim, ABC):
     def reset_robot_pose(self, pos, quat):
         self.robot_controller.reset_robot_pose(pos, quat)
 
+    def set_robot_pose(self, pos, quat):
+        self.robot_controller.set_robot_pose_quat(pos, quat)
+
     def set_robot_pose_rpy(self, pos, rpy):
         self.robot_controller.set_robot_pose_rpy(pos, rpy)
+
+    def get_robot_pose(self):
+        return self.robot_controller.get_robot_pose_quat()
 
     def get_robot_pose_rpy(self):
         return self.robot_controller.get_robot_pose_rpy()
@@ -239,3 +248,17 @@ class WebotsSim(AbstractSim, ABC):
 
     def set_ball_position(self, x, y):
         self.robot_controller.set_ball_pose([x, y, 0])
+
+    def get_joint_names(self):
+        return self.robot_controller.get_joint_state_msg().name
+
+    def get_robot_velocity(self):
+        msg = self.robot_controller.get_imu_msg().angular_velocity
+        return None, (msg.x, msg.y, msg.z)
+
+    def get_joint_position(self, name):
+        msg = self.robot_controller.get_joint_state_msg()
+        for i in range(0, len(msg.name)):
+            if name == msg.name[i]:
+                return msg.position[i]
+        sys.exit(f"joint {name} not found")
