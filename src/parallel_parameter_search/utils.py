@@ -15,13 +15,13 @@ def load_yaml_to_param(namespace, package, file, rospack):
     path = rospack.get_path(package)
     with open(path + file, 'r') as file:
         data = yaml.load(file, Loader=yaml.FullLoader)
-    for key in data.keys():
+    for key, value in data.items():
         # sometimes first level contains another yaml dict of values
-        if isinstance(data[key], dict):
-            for key_2 in data[key]:
-                rospy.set_param(namespace + '/' + key + '/' + key_2, data[key][key_2])
+        if isinstance(value, dict):
+            for key_2, value_2 in value.items():
+                rospy.set_param(namespace + '/' + key + '/' + key_2, value_2)
         else:
-            rospy.set_param(namespace + '/' + key, data[key])
+            rospy.set_param(namespace + '/' + key, value)
 
 
 def fused_from_quat(q):

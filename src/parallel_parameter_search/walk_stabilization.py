@@ -67,14 +67,6 @@ class AbstractWalkStabilization(AbstractWalkOptimization):
         self.walk.reset()
 
         cost = 0
-        if False:
-            # standing as first test, is not in loop as it will only be done once
-            early_term, cost_try = self.evaluate_direction(0, 0, 0, trial, 1, 0)
-            cost += cost_try
-            if early_term:
-                # terminate early and give 100 cost for each try left
-                return 1 * (self.number_of_iterations - 1) * len(self.directions) + 1 * len(self.directions) + cost
-
         for iteration in range(1, self.number_of_iterations + 1):
             d = 0
             for direction in self.directions:

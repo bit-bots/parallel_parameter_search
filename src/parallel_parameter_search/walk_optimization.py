@@ -106,31 +106,24 @@ class AbstractWalkOptimization(AbstractRosOptimization):
             # test if the robot has fallen down
             pos, rpy = self.sim.get_robot_pose_rpy()
             orientation_diff += abs(rpy[0]) + abs(rpy[1] - self.correct_pitch(x, y, yaw))
-            if abs(rpy[0]) > math.radians(45) or abs(rpy[1]) > math.radians(45) or pos[2] < self.trunk_height/2:
+            if abs(rpy[0]) > math.radians(45) or abs(rpy[1]) > math.radians(45) or pos[2] < self.trunk_height / 2:
                 # add extra information to trial
-                trial.set_user_attr('early_termination_at', (
-                    x * iteration, y * iteration, yaw * iteration))
-                if cost_time:
-                    return True, 1 - min(1, (passed_time / (time_limit + 2)))
-                else:
-                    # return True, cost
-                    return True, 1 - min(1, (passed_time / (time_limit + 2)))
-            try:
-                if self.walk_as_node:
-                    # give time to other algorithms to compute their responses
-                    # use wall time, as ros time is standing still
-                    time.sleep(0.01)
-                else:
-                    current_time = self.sim.get_time()
-                    joint_command = self.walk.step(current_time - self.last_time, self.current_speed,
-                                                   self.sim.get_imu_msg(),
-                                                   self.sim.get_joint_state_msg(),
-                                                   self.sim.get_pressure_left(), self.sim.get_pressure_right())
-                    self.sim.set_joints(joint_command)
-                    self.last_time = current_time
-                self.sim.step_sim()
-            except:
-                pass
+                trial.set_user_attr('early_termination_at', (x * iteration, y * iteration, yaw * iteration))
+                return True, 1 - min(1, (passed_time / (time_limit + 2)))
+
+            if self.walk_as_node:
+                # give time to other algorithms to compute their responses
+                # use wall time, as ros time is standing still
+                time.sleep(0.01)
+            else:
+                current_time = self.sim.get_time()
+                joint_command = self.walk.step(current_time - self.last_time, self.current_speed,
+                                               self.sim.get_imu_msg(),
+                                               self.sim.get_joint_state_msg(),
+                                               self.sim.get_pressure_left(), self.sim.get_pressure_right())
+                self.sim.set_joints(joint_command)
+                self.last_time = current_time
+            self.sim.step_sim()
 
         # was stopped before finishing
         raise optuna.exceptions.OptunaError()
@@ -143,7 +136,6 @@ class AbstractWalkOptimization(AbstractRosOptimization):
             joint_command = self.walk.step(current_time - self.last_time, self.current_speed, self.sim.get_imu_msg(),
                                            self.sim.get_joint_state_msg(), self.sim.get_pressure_left(),
                                            self.sim.get_pressure_right())
-            # print(joint_command)
             self.sim.set_joints(joint_command)
             self.last_time = current_time
 
@@ -165,7 +157,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
                 # phase will advance by the simulation time times walk frequency
                 next_phase = phase + self.sim.get_timestep() * self.walk.get_freq()
                 # do double step to always have torso at same position
-                if (phase >= 0.5 and next_phase >= 1.0):  # or (phase < 0.5 and next_phase >= 0.5):
+                if (phase >= 0.5 and next_phase >= 1.0):
                     # next time the walking step will change
                     break
                 if self.sim.get_time() - start_time > 5:
@@ -174,24 +166,23 @@ class AbstractWalkOptimization(AbstractRosOptimization):
 
     def compute_cost(self, x, y, yaw):
         """
-        x,y,yaw have to be either 1 for being goo, -1 for being bad or 0 for making no difference
+        x,y,yaw have to be either 1 for being good, -1 for being bad or 0 for making no difference
         """
         # factor to increase the weight of the yaw since it is a different unit then x and y
         yaw_factor = 5
-        # todo better formular
         pos, rpy = self.sim.get_robot_pose_rpy()
 
         # 2D pose
         current_pose = [pos[0], pos[1], rpy[2]]
         correct_pose = [x * self.time_limit,
                         y * self.time_limit,
-                        (yaw * self.time_limit) % (2 * math.pi)]  # todo we dont take multiple rotations into account
+                        (yaw * self.time_limit) % (2 * math.pi)]
         cost = abs(current_pose[0] - correct_pose[0]) \
                + abs(current_pose[1] - correct_pose[1]) \
                + abs(current_pose[2] - correct_pose[
-            2]) * yaw_factor  # todo take closest distance in circle through 0 into account
+            2]) * yaw_factor
         # method doesn't work for going forward and turning at the same times
-        if yaw != 0:  # and (x != 0 or y != 0):
+        if yaw != 0:
             # just give 0 cost for surviving
             cost = 0
         # test if robot moved at all for simple case
@@ -228,10 +219,6 @@ class AbstractWalkOptimization(AbstractRosOptimization):
             self.complete_walking_step()
         self.sim.set_gravity(True)
         self.reset_position()
-        # if self.walk_as_node:
-        #    self.sim.run_simulation(duration=1, sleep=0.01)
-        # else:
-        #    self.run_walking(duration=1)
 
     def set_cmd_vel(self, x, y, yaw):
         msg = Twist()

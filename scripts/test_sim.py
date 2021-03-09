@@ -31,7 +31,6 @@ urdf_path = rospack.get_path(f'{args.robot}_description') + '/urdf/robot.urdf'
 
 if args.sim == 'pybullet':
     if args.robot == "talos":
-        print("talos")
         sim = PybulletSim("", args.gui, urdf_path, foot_link_names=['leg_left_6_link', 'leg_right_6_link'])
         sim.sim.start_position = [0.0, 0.0, 0.8]
         sim.set_joints_dict({"arm_left_4_joint": -1.57, "arm_right_4_joint": -1.57})
