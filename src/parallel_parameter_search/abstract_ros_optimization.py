@@ -41,6 +41,8 @@ class AbstractRosOptimization:
         self.dynconf_client = None
         self.sim = None
 
+        rospy.init_node('optimizer', anonymous=True, argv=['clock:=/' + self.namespace + '/clock'])
+
         while False:
             try:
                 self.launch.spin_once()
