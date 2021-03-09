@@ -554,7 +554,7 @@ class WolfgangOptimization(AbstractDynupOptimization):
         if self.sim_type == "pybullet":
             step_time = 1 / 250
         elif self.sim_type == "webots":
-            step_time = 0.033
+            step_time = 0.032
         step_angle = 0.01
         if stabilization:
             # activate stabilization
