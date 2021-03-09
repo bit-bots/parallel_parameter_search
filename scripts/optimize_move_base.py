@@ -4,6 +4,7 @@ import argparse
 import importlib
 import json
 import time
+import yaml
 
 import optuna
 from optuna.pruners import MedianPruner
@@ -86,7 +87,7 @@ else:
 
 if not args.json:
     print(f'Best result was {study.best_value} in trial {study.best_trial.number} of {len(study.trials)}')
-    print(study.best_params)
+    print(yaml.dump(study.best_params))
 else:
-    result = {study.best_trial.number: study.best_trial.values}
+    result = {study.best_trial.number: study.best_trial.params}
     print(json.dumps(result, indent=4))
