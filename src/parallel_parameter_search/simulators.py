@@ -261,5 +261,4 @@ class WebotsSim(AbstractSim, ABC):
         for i in range(0, len(msg.name)):
             if name == msg.name[i]:
                 return msg.position[i]
-        print(f"joint {name} not found")
-        exit()
+        sys.exit(f"joint {name} not found")
