@@ -14,7 +14,7 @@ class AbstractWalkEngine(AbstractWalkOptimization):
             self.sim = PybulletSim(self.namespace, gui, urdf_path=urdf_path,
                                    foot_link_names=foot_link_names)
         elif sim_type == 'webots':
-            self.sim = WebotsSim(self.namespace, gui, robot)
+            self.sim = WebotsSim(self.namespace, gui, robot, world="flat_world", ros_active=True)
         else:
             print(f'sim type {sim_type} not known')
 
