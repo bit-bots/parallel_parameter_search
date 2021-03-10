@@ -44,7 +44,7 @@ args = parser.parse_args()
 seed = np.random.randint(2 ** 32 - 1)
 n_startup_trials = args.startup
 
-num_variables = 4
+num_variables = 3
 
 multi_objective = False
 if args.sampler == "TPE":

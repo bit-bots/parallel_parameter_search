@@ -37,11 +37,11 @@ def load_robot_param(namespace, rospack, name):
 
 def fused_from_quat(q):
     # Fused yaw of Quaternion
-    fused_yaw = 2.0 * math.atan2(q[2], q[3])  # Output of atan2 is [-pi,pi], so this expression is in [-2*pi,2*pi]
-    if fused_yaw > math.pi:
-        fused_yaw -= 2 * math.pi  # fused_yaw is now in[-2 * pi, pi]
-    if fused_yaw <= -math.pi:
-        fused_yaw += 2 * math.pi  # fused_yaw is now in (-pi, pi]
+    fused_yaw = 2.0 * math.atan2(q[2], q[3])  # Output of atan2 is [-tau/2,tau/2], so this expression is in [-tau,tau]
+    if fused_yaw > math.tau / 2:
+        fused_yaw -= math.tau  # fused_yaw is now in[-2* pi, pi]
+    if fused_yaw <= -math.tau / 2:
+        fused_yaw += math.tau  # fused_yaw is now in (-pi, pi]
 
     # Calculate the fused pitch and roll
     stheta = 2.0 * (q[1] * q[3] - q[0] * q[2])

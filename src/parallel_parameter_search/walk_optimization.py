@@ -103,9 +103,9 @@ class AbstractWalkOptimization(AbstractRosOptimization):
             # test if the robot has fallen down
             pos, rpy = self.sim.get_robot_pose_rpy()
             # get orientation diff scaled to 0-1
-            if (abs(rpy[0]) + abs(rpy[1] - self.correct_pitch(x, y, yaw))) *0.8 > 1:  # todo remove, just test
-                print(f"orient: {(abs(rpy[0]) + abs(rpy[1] - self.correct_pitch(x, y, yaw)))*0.8}")
-            orientation_diff += min(1, (abs(rpy[0]) + abs(rpy[1] - self.correct_pitch(x, y, yaw)))*0.8)
+            if (abs(rpy[0]) + abs(rpy[1] - self.correct_pitch(x, y, yaw))) * 0.5 > 1:  # todo remove, just test
+                print(f"orient: {(abs(rpy[0]) + abs(rpy[1] - self.correct_pitch(x, y, yaw))) * 0.5}")
+            orientation_diff += min(1, (abs(rpy[0]) + abs(rpy[1] - self.correct_pitch(x, y, yaw))) * 0.5)
             if abs(rpy[0]) > math.radians(45) or abs(rpy[1]) > math.radians(45) or pos[2] < self.trunk_height / 2:
                 didnt_move, pose_cost = self.compute_cost(x * iteration, y * iteration, yaw * iteration)
                 return True, didnt_move, pose_cost, orientation_diff / passed_timesteps, 1 - min(1, (
@@ -164,30 +164,44 @@ class AbstractWalkOptimization(AbstractRosOptimization):
                     # if walking does not perform step correctly due to impossible IK problems, do a timeout
                     break
 
-    def compute_cost(self, x, y, yaw):
+    def compute_cost(self, v_x, v_y, v_yaw):
         # 2D pose
         pos, rpy = self.sim.get_robot_pose_rpy()
         current_pose = [pos[0], pos[1], rpy[2]]
-        correct_pose = [x * self.time_limit,
-                        y * self.time_limit,
-                        (yaw * self.time_limit) % math.tau]
-        # todo this does not include the acceleration phase corerctly
+        t = self.time_limit
+        if v_yaw == 0:
+            # we are not turning, we can compute the pose easily
+            correct_pose = [v_x * self.time_limit,
+                            v_y * self.time_limit,
+                            v_yaw * self.time_limit]
+        else:
+            # compute end pose. robot is basically walking on circles where radius=v_x/v_yaw and v_y/v_yaw
+            correct_pose = [(v_x * math.sin(t * v_yaw) - v_y * (1 - math.cos(t * v_yaw))) / v_yaw,
+                            (v_y * math.sin(t * v_yaw) + v_x * (1 - math.cos(t * v_yaw))) / v_yaw,
+                            v_yaw * t]
+        # todo this does not include the acceleration phase correctly
         # weighted mean squared error, yaw is split in continuous sin and cos components
         yaw_error = (math.sin(correct_pose[2]) - math.sin(current_pose[2])) ** 2 + (math.cos(correct_pose[2]) -
                                                                                     math.cos(current_pose[2])) ** 2
         # normalize pose error
         pose_cost = ((correct_pose[0] - current_pose[0]) ** 2 + (correct_pose[1] - current_pose[1]) ** 2 + yaw_error)
+
         # test if robot moved at all for simple case
         didnt_move = False
-        if yaw == 0 and ((x != 0 and abs(current_pose[0]) < 0.5 * abs(correct_pose[0])) or (
-                y != 0 and abs(current_pose[1]) < 0.5 * abs(correct_pose[1]))):
+        x_correct = abs(current_pose[0]) > 0.25 * abs(correct_pose[0])
+        y_correct = abs(current_pose[1]) > 0.25 * abs(correct_pose[1])
+        if v_yaw == 0 and ((v_x == 0 or not x_correct) and (v_y == 0 or not y_correct)) \
+                and not (v_x == 0 and v_y == 0 and v_yaw == 0):
             didnt_move = True
+            print(f"x goal {abs(correct_pose[0])} cur {abs(current_pose[0])}")
+            print(f"y goal {abs(correct_pose[1])} cur {abs(current_pose[1])}")
             print("didn't move")
 
         # scale to [0-1]
-        if pose_cost / 10 > 1:
-            print(f"pose cost {pose_cost / 1000}")  # todo remove, just a test
-        pose_cost = min(1, pose_cost / 1000)
+        if pose_cost / 20 > 1:
+            print(f"pose cost {pose_cost / 20}")  # todo remove, just a test
+        pose_cost = min(1, pose_cost / 20)
+
         return didnt_move, pose_cost
 
     def reset_position(self):
@@ -207,7 +221,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         self.set_cmd_vel(0.1, 0, 0)
         # set arms correctly
         joint_command_msg = JointCommand()
-        joint_command_msg.joint_names = ["LElbow","RElbow"]
+        joint_command_msg.joint_names = ["LElbow", "RElbow"]
         joint_command_msg.positions = [math.radians(60), math.radians(-60)]
         self.sim.set_joints(joint_command_msg)
         if self.walk_as_node:

@@ -73,9 +73,9 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         self.time_difference = 0
         self.reset_height_offset = None
         if self.direction == "front":
-            self.reset_rpy_offset = [0, math.pi / 2, 0]
+            self.reset_rpy_offset = [0, math.tau / 4, 0]
         elif self.direction == "back":
-            self.reset_rpy_offset = [0, -math.pi / 2, 0]
+            self.reset_rpy_offset = [0, -math.tau / 4, 0]
         else:
             print(f"direction {self.direction}")
             exit(0)
