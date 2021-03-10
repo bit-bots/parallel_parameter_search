@@ -172,6 +172,7 @@ class WebotsSim(AbstractSim, ABC):
                      path + "/worlds/" + world + ".wbt"]
         if not gui:
             arguments.append("--minimize")
+            arguments.append("--no-rendering")
         sim_proc = subprocess.Popen(arguments)
 
         os.environ["WEBOTS_PID"] = str(sim_proc.pid)

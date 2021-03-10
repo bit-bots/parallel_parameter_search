@@ -7,7 +7,8 @@ from parallel_parameter_search.simulators import PybulletSim, WebotsSim
 
 
 class AbstractWalkEngine(AbstractWalkOptimization):
-    def __init__(self, namespace, gui, robot, walk_as_node, sim_type='pybullet', foot_link_names=(), start_speeds=None):
+    def __init__(self, namespace, gui, robot, walk_as_node, sim_type='pybullet', foot_link_names=(), start_speeds=None,
+                 repetitions=1, multi_objective=False):
         super(AbstractWalkEngine, self).__init__(namespace, robot, walk_as_node)
         if sim_type == 'pybullet':
             urdf_path = self.rospack.get_path(robot + '_description') + '/urdf/robot.urdf'
@@ -28,33 +29,76 @@ class AbstractWalkEngine(AbstractWalkOptimization):
                            [-start_speeds[0], 0, start_speeds[2]],
                            [start_speeds[0], start_speeds[1], start_speeds[2]]
                            ]
+        self.repetitions = repetitions
+        self.multi_objective = multi_objective
 
     def objective(self, trial):
         # get parameter to evaluate from optuna
         self.suggest_walk_params(trial)
         self.reset()
 
-        cost = 0
+        d = 0
+        it = 0
         # standing as first test, is not in loop as it will only be done once
-        early_term, cost_try = self.evaluate_direction(0, 0, 0, trial, 1, 1)
-        cost += cost_try
-        if early_term:
+        fall_sum, didnt_move_sum, pose_obj, stability_obj, time_obj = self.evaluate_direction(0, 0, 0, trial, 1, 1)
+        if fall_sum:
             # terminate early and give 1 cost for each try left
-            return 1 * (self.number_of_iterations - 1) * len(self.directions) + 1 * len(self.directions) + cost
+            trial.set_user_attr('early_termination_at', (0, 0, 0))
+        else:
+            # iterate over the directions to increase the speed
+            for iteration in range(1, self.number_of_iterations + 1):
+                it += 1
+                d = 0
+                do_break = False
+                for direction in self.directions:
+                    d += 1
+                    fall_rep_sum = 0
+                    didnt_move_rep_sum = 0
+                    pose_obj_rep_sum = 0
+                    stability_obj_rep_sum = 0
+                    time_obj_rep_sum = 0
+                    # do multiple repetitions of the same values since behavior is not always exactly deterministic
+                    for i in range(self.repetitions):
+                        self.reset_position()
+                        fall, didnt_move, pose_obj, stability_obj, time_obj = self.evaluate_direction(*direction, trial,
+                                                                                                      iteration,
+                                                                                                      self.time_limit)
+                        if fall:
+                            fall_rep_sum += 1
+                        if didnt_move:
+                            didnt_move_rep_sum += 1
+                        pose_obj_rep_sum += pose_obj
+                        stability_obj_rep_sum += stability_obj
+                        time_obj_rep_sum += time_obj
 
-        for iteration in range(1, self.number_of_iterations + 1):
-            d = 0
-            for direction in self.directions:
-                d += 1
-                self.reset_position()
-                early_term, cost_try = self.evaluate_direction(*direction, trial, iteration, self.time_limit)
-                cost += cost_try
-                # check if we failed in this direction and terminate this trial early
-                if early_term:
-                    # terminate early and give 1 cost for each try left
-                    return 1 * (self.number_of_iterations - iteration) * len(self.directions) + 1 * (
-                            len(self.directions) - d) + cost
-        return cost
+                    # use the mean as costs for this try
+                    pose_obj += pose_obj_rep_sum / self.repetitions
+                    stability_obj += stability_obj_rep_sum / self.repetitions
+                    time_obj += time_obj_rep_sum / self.repetitions
+
+                    # check if we always failed in this direction and terminate this trial early
+                    if fall_rep_sum == self.repetitions or didnt_move_rep_sum == self.repetitions:
+                        # terminate early and give 1 cost for each try left
+                        # add extra information to trial
+                        trial.set_user_attr('early_termination_at',
+                                            (direction[0] * iteration, direction[1] * iteration,
+                                             direction[2] * iteration))
+                        do_break = True
+                        break
+                if do_break:
+                    break
+
+        # add costs based on the the iterations left
+        directions_left = (self.number_of_iterations - it) * len(self.directions) + (len(self.directions) - d)
+        fall_sum += directions_left
+        pose_obj += directions_left
+        stability_obj += directions_left
+        time_obj += directions_left
+
+        if self.multi_objective:
+            return [fall_sum, pose_obj, stability_obj, time_obj]
+        else:
+            return fall_sum + pose_obj + stability_obj + time_obj
 
     def _suggest_walk_params(self, trial, trunk_height, foot_distance, foot_rise, trunk_x, z_movement):
         engine_param_dict = {}
@@ -136,9 +180,10 @@ class AbstractWalkEngine(AbstractWalkOptimization):
 
 
 class WolfgangWalkEngine(AbstractWalkEngine):
-    def __init__(self, namespace, gui, walk_as_node, sim_type='pybullet'):
+    def __init__(self, namespace, gui, walk_as_node, sim_type='pybullet', repetitions=1, multi_objective=False):
         super(WolfgangWalkEngine, self).__init__(namespace, gui, 'wolfgang', walk_as_node, sim_type,
-                                                 start_speeds=[0.2, 0.1, 0.25])
+                                                 start_speeds=[0.2, 0.1, 0.25], repetitions=repetitions,
+                                                 multi_objective=multi_objective)
         self.reset_height_offset = 0.005
 
     def suggest_walk_params(self, trial):
@@ -146,10 +191,11 @@ class WolfgangWalkEngine(AbstractWalkEngine):
 
 
 class DarwinWalkEngine(AbstractWalkEngine):
-    def __init__(self, namespace, gui, walk_as_node, sim_type='webots'):
+    def __init__(self, namespace, gui, walk_as_node, sim_type='webots', repetitions=1, multi_objective=False):
         super(DarwinWalkEngine, self).__init__(namespace, gui, 'darwin', walk_as_node, sim_type,
                                                foot_link_names=['MP_ANKLE2_L', 'MP_ANKLE2_R'],
-                                               start_speeds=[0.05, 0.025, 0.25])
+                                               start_speeds=[0.05, 0.025, 0.25], repetitions=repetitions,
+                                               multi_objective=multi_objective)
         self.reset_height_offset = 0.09
 
     def suggest_walk_params(self, trial):
@@ -157,10 +203,11 @@ class DarwinWalkEngine(AbstractWalkEngine):
 
 
 class OP3WalkEngine(AbstractWalkEngine):
-    def __init__(self, namespace, gui, walk_as_node, sim_type='webots'):
+    def __init__(self, namespace, gui, walk_as_node, sim_type='webots', repetitions=1, multi_objective=False):
         super(OP3WalkEngine, self).__init__(namespace, gui, 'op3', walk_as_node, sim_type,
                                             foot_link_names=['r_ank_roll_link', 'l_ank_roll_link'],
-                                            start_speeds=[0.05, 0.025, 0.25])
+                                            start_speeds=[0.05, 0.025, 0.25], repetitions=repetitions,
+                                            multi_objective=multi_objective)
         self.reset_height_offset = 0.01
 
     def suggest_walk_params(self, trial):
@@ -168,9 +215,10 @@ class OP3WalkEngine(AbstractWalkEngine):
 
 
 class NaoWalkEngine(AbstractWalkEngine):
-    def __init__(self, namespace, gui, walk_as_node, sim_type='webots'):
+    def __init__(self, namespace, gui, walk_as_node, sim_type='webots', repetitions=1, multi_objective=False):
         super(NaoWalkEngine, self).__init__(namespace, gui, 'nao', walk_as_node, sim_type,
-                                            foot_link_names=['l_ankle', 'r_ankle'], start_speeds=[0.05, 0.025, 0.25])
+                                            foot_link_names=['l_ankle', 'r_ankle'], start_speeds=[0.05, 0.025, 0.25],
+                                            repetitions=repetitions, multi_objective=multi_objective)
         self.reset_height_offset = 0.01
 
         if sim_type == 'pybullet':
@@ -182,10 +230,11 @@ class NaoWalkEngine(AbstractWalkEngine):
 
 
 class ReemcWalkEngine(AbstractWalkEngine):
-    def __init__(self, namespace, gui, walk_as_node, sim_type='pybullet'):
+    def __init__(self, namespace, gui, walk_as_node, sim_type='pybullet', repetitions=1, multi_objective=False):
         super(ReemcWalkEngine, self).__init__(namespace, gui, 'reemc', walk_as_node, sim_type,
                                               foot_link_names=['leg_left_6_link', 'leg_right_6_link'],
-                                              start_speeds=[0.1, 0.05, 0.5])
+                                              start_speeds=[0.1, 0.05, 0.5], repetitions=repetitions,
+                                              multi_objective=multi_objective)
         self.reset_height_offset = -0.1
         self.reset_rpy_offset = (-0.1, 0.15, -0.5)
 
@@ -194,10 +243,11 @@ class ReemcWalkEngine(AbstractWalkEngine):
 
 
 class TalosWalkEngine(AbstractWalkEngine):
-    def __init__(self, namespace, gui, walk_as_node, sim_type='pybullet'):
+    def __init__(self, namespace, gui, walk_as_node, sim_type='pybullet', repetitions=1, multi_objective=False):
         super(TalosWalkEngine, self).__init__(namespace, gui, 'talos', walk_as_node, sim_type,
                                               foot_link_names=['leg_left_6_link', 'leg_right_6_link'],
-                                              start_speeds=[0.02, 0.01, 0.01])
+                                              start_speeds=[0.02, 0.01, 0.01], repetitions=repetitions,
+                                              multi_objective=multi_objective)
         self.reset_height_offset = -0.13
         self.reset_rpy_offset = (0, 0.15, 0)
 
@@ -209,10 +259,11 @@ class TalosWalkEngine(AbstractWalkEngine):
 
 
 class AtlasWalkEngine(AbstractWalkEngine):
-    def __init__(self, namespace, gui, walk_as_node, sim_type='pybullet'):
+    def __init__(self, namespace, gui, walk_as_node, sim_type='pybullet', repetitions=1, multi_objective=False):
         super(AtlasWalkEngine, self).__init__(namespace, gui, 'atlas', walk_as_node, sim_type,
                                               foot_link_names=['l_sole', 'r_sole'],
-                                              start_speeds=[0.02, 0.01, 0.01])
+                                              start_speeds=[0.02, 0.01, 0.01], repetitions=repetitions,
+                                              multi_objective=multi_objective)
         self.reset_height_offset = 0.0
         self.reset_rpy_offset = (0, 0, 0)
 
