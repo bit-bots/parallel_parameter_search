@@ -39,6 +39,8 @@ class AbstractWalkEngine(AbstractWalkOptimization):
 
         d = 0
         it = 0
+        pose_obj_rep_sum = 0
+        stability_obj_rep_sum = 0
         # standing as first test, is not in loop as it will only be done once
         fall_sum, didnt_move_sum, pose_obj, stability_obj, time_obj = self.evaluate_direction(0, 0, 0, trial, 1, 1)
         if fall_sum:
@@ -55,8 +57,6 @@ class AbstractWalkEngine(AbstractWalkOptimization):
                     d += 1
                     fall_rep_sum = 0
                     didnt_move_rep_sum = 0
-                    pose_obj_rep_sum = 0
-                    stability_obj_rep_sum = 0
                     time_obj_rep_sum = 0
                     # do multiple repetitions of the same values since behavior is not always exactly deterministic
                     for i in range(self.repetitions):
@@ -74,8 +74,6 @@ class AbstractWalkEngine(AbstractWalkOptimization):
 
                     # use the mean as costs for this try
                     fall_sum += fall_rep_sum
-                    pose_obj += pose_obj_rep_sum / self.repetitions
-                    stability_obj += stability_obj_rep_sum / self.repetitions
                     time_obj += time_obj_rep_sum / self.repetitions
 
                     # check if we always failed in this direction and terminate this trial early
@@ -89,7 +87,10 @@ class AbstractWalkEngine(AbstractWalkOptimization):
                         break
                 if do_break:
                     break
-
+        performed_evaluations = (it - 1) * len(self.directions) + d
+        print(f"performed evals {performed_evaluations}")
+        pose_obj += pose_obj_rep_sum / performed_evaluations
+        stability_obj += stability_obj_rep_sum / performed_evaluations
         print(f"fall_sum {fall_sum}")
         print(f"pose_obj {pose_obj}")
         print(f"stability_obj {stability_obj}")
@@ -97,21 +98,22 @@ class AbstractWalkEngine(AbstractWalkOptimization):
 
         # add costs based on the the iterations left
         directions_left = (self.number_of_iterations - it) * len(self.directions) + (len(self.directions) - d)
-        #todo maybe dont do this for all values, becuase it does not make sense and results in bad plots
-        fall_sum += directions_left
-        pose_obj += directions_left
-        stability_obj += directions_left
-        time_obj += directions_left
+        if it == 0:
+            # special case of falling while standing
+            directions_left = self.number_of_iterations * len(self.directions) + 1
 
+        trial.set_user_attr("directions_left", fall_sum)
         trial.set_user_attr("fall_sum", fall_sum)
         trial.set_user_attr("pose_obj", pose_obj)
         trial.set_user_attr("stability_obj", stability_obj)
         trial.set_user_attr("time_obj", time_obj)
 
+        # todo falls are currently ignored
         if self.multi_objective:
-            return [pose_obj, stability_obj, time_obj]
+            return [directions_left, pose_obj, stability_obj]
         else:
-            return pose_obj + stability_obj + time_obj
+            # multiple directions left with 10 to make sure the sum of the other objectives is never higher
+            return directions_left * 10 + pose_obj + stability_obj
 
     def _suggest_walk_params(self, trial, trunk_height, foot_distance, foot_rise, trunk_x, z_movement):
         engine_param_dict = {}
@@ -197,7 +199,7 @@ class WolfgangWalkEngine(AbstractWalkEngine):
         super(WolfgangWalkEngine, self).__init__(namespace, gui, 'wolfgang', walk_as_node, sim_type,
                                                  start_speeds=[0.2, 0.05, 0.25], repetitions=repetitions,
                                                  multi_objective=multi_objective)
-        self.reset_height_offset = 0.005
+        self.reset_height_offset = 0.012
 
     def suggest_walk_params(self, trial):
         self._suggest_walk_params(trial, (0.38, 0.42), (0.15, 0.25), 0.1, 0.03, 0.03)

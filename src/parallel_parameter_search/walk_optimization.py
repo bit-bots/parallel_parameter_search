@@ -103,8 +103,6 @@ class AbstractWalkOptimization(AbstractRosOptimization):
             # test if the robot has fallen down
             pos, rpy = self.sim.get_robot_pose_rpy()
             # get orientation diff scaled to 0-1
-            if (abs(rpy[0]) + abs(rpy[1] - self.correct_pitch(x, y, yaw))) * 0.5 > 1:  # todo remove, just test
-                print(f"orient: {(abs(rpy[0]) + abs(rpy[1] - self.correct_pitch(x, y, yaw))) * 0.5}")
             orientation_diff += min(1, (abs(rpy[0]) + abs(rpy[1] - self.correct_pitch(x, y, yaw))) * 0.5)
             if abs(rpy[0]) > math.radians(45) or abs(rpy[1]) > math.radians(45) or pos[2] < self.trunk_height / 2:
                 didnt_move, pose_cost = self.compute_cost(x * iteration, y * iteration, yaw * iteration)
@@ -198,8 +196,6 @@ class AbstractWalkOptimization(AbstractRosOptimization):
             print("didn't move")
 
         # scale to [0-1]
-        if pose_cost / 20 > 1:
-            print(f"pose cost {pose_cost / 20}")  # todo remove, just a test
         pose_cost = min(1, pose_cost / 20)
 
         return didnt_move, pose_cost

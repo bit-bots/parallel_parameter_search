@@ -30,7 +30,7 @@ parser.add_argument('--gui', help="Activate gui", action='store_true')
 parser.add_argument('--node', help="Run walking as extra node", action='store_true')
 parser.add_argument('--type', help='Optimization type that should be used {engine, stabilization} ', default=None,
                     type=str, required=True)
-parser.add_argument('--startup', help='Startup trials', default=10,
+parser.add_argument('--startup', help='Startup trials', default=None,
                     type=int, required=False)
 parser.add_argument('--trials', help='Trials to be evaluated', default=10000,
                     type=int, required=True)

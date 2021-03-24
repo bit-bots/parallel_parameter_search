@@ -183,7 +183,7 @@ class WebotsSim(AbstractSim, ABC):
             mode = 'fast'
 
         self.robot_controller = RobotSupervisorController(ros_active, mode, robot, base_ns=namespace + '/',
-                                                          model_states_active=False)
+                                                          model_states_active=False, camera_active=False)
 
     def step_sim(self):
         self.robot_controller.step()
