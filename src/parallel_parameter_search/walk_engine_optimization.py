@@ -15,7 +15,7 @@ class AbstractWalkEngine(AbstractWalkOptimization):
             self.sim = PybulletSim(self.namespace, gui, urdf_path=urdf_path,
                                    foot_link_names=foot_link_names)
         elif sim_type == 'webots':
-            self.sim = WebotsSim(self.namespace, gui, robot, world="flat_world", ros_active=True)
+            self.sim = WebotsSim(self.namespace, gui, robot, world="walk_optim_" + robot, ros_active=True)
         else:
             print(f'sim type {sim_type} not known')
 
@@ -143,7 +143,7 @@ class AbstractWalkEngine(AbstractWalkOptimization):
 
         add('trunk_pitch', -0.5, 0.5)
         # fix('trunk_pitch', 0.0)
-        add('foot_rise', 0.05, 0.15)
+        add('foot_rise', foot_rise[0], foot_rise[1])
         # fix('foot_rise', foot_rise)
 
         add('first_step_swing_factor', 0.0, 2)
@@ -202,7 +202,8 @@ class WolfgangWalkEngine(AbstractWalkEngine):
         self.reset_height_offset = 0.012
 
     def suggest_walk_params(self, trial):
-        self._suggest_walk_params(trial, (0.38, 0.42), (0.15, 0.25), 0.1, 0.03, 0.03)
+        self._suggest_walk_params(trial, trunk_height=(0.38, 0.42), foot_distance=(0.15, 0.25), foot_rise=(0.1, 0.25),
+                                  trunk_x=0.03, z_movement=0.05)
 
 
 class DarwinWalkEngine(AbstractWalkEngine):
@@ -214,7 +215,7 @@ class DarwinWalkEngine(AbstractWalkEngine):
         self.reset_height_offset = 0.09
 
     def suggest_walk_params(self, trial):
-        self._suggest_walk_params(trial, (0.20, 0.24), (0.08, 0.15), 0.02, 0.02, 0.02)
+        self._suggest_walk_params(trial, (0.20, 0.24), (0.08, 0.15), (0.02, 0.15), 0.02, 0.02)
 
 
 class OP3WalkEngine(AbstractWalkEngine):
@@ -226,7 +227,7 @@ class OP3WalkEngine(AbstractWalkEngine):
         self.reset_height_offset = 0.01
 
     def suggest_walk_params(self, trial):
-        self._suggest_walk_params(trial, (0.13, 0.24), (0.08, 0.15), 0.02, 0.02, 0.02)
+        self._suggest_walk_params(trial, (0.13, 0.24), (0.08, 0.15), (0.02, 0.15), 0.02, 0.02)
 
 
 class NaoWalkEngine(AbstractWalkEngine):
@@ -241,7 +242,7 @@ class NaoWalkEngine(AbstractWalkEngine):
                 {"LShoulderPitch": 1.57, "RShoulderPitch": 1.57, 'LShoulderRoll': 0.3, 'RShoulderRoll': -0.3})
 
     def suggest_walk_params(self, trial):
-        self._suggest_walk_params(trial, (0.27, 0.32), (0.1, 0.17), 0.03, 0.02, 0.02)
+        self._suggest_walk_params(trial, (0.27, 0.32), (0.1, 0.17), (0.03, 0.15), 0.02, 0.02)
 
 
 class ReemcWalkEngine(AbstractWalkEngine):

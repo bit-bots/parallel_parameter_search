@@ -186,13 +186,20 @@ class AbstractWalkOptimization(AbstractRosOptimization):
 
         # test if robot moved at all for simple case
         didnt_move = False
-        x_correct = abs(current_pose[0]) > 0.25 * abs(correct_pose[0])
-        y_correct = abs(current_pose[1]) > 0.25 * abs(correct_pose[1])
-        if v_yaw == 0 and ((v_x == 0 or not x_correct) and (v_y == 0 or not y_correct)) \
-                and not (v_x == 0 and v_y == 0 and v_yaw == 0):
+        didnt_move_factor = 0.25
+        if v_x >= 0:
+            x_correct = current_pose[0] > didnt_move_factor * correct_pose[0]
+        else:
+            x_correct = current_pose[0] < didnt_move_factor * correct_pose[0]
+        if v_y >= 0:
+            y_correct = current_pose[1] > didnt_move_factor * correct_pose[1]
+        else:
+            y_correct = current_pose[1] < didnt_move_factor * correct_pose[1]
+
+        if (v_x != 0 and not x_correct) or (v_y != 0 and not y_correct):
             didnt_move = True
-            print(f"x goal {abs(correct_pose[0])} cur {abs(current_pose[0])}")
-            print(f"y goal {abs(correct_pose[1])} cur {abs(current_pose[1])}")
+            print(f"x goal {correct_pose[0]} cur {current_pose[0]}")
+            print(f"y goal {correct_pose[1]} cur {current_pose[1]}")
             print("didn't move")
 
         # scale to [0-1]
