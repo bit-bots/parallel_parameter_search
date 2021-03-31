@@ -109,4 +109,21 @@ elif args.type == "stabilization":
         print(f"robot type \"{args.robot}\" not known.")
 else:
     print(f"Optimization type {args.type} not known.")
+
+if False:
+    for i in range(10):
+        study.enqueue_trial({"double_support_ratio": 0.369694443662441, "first_step_swing_factor": 1.04028436026275,
+                             "foot_distance": 0.186644036694725, "foot_rise": 0.108502704375464,
+                             "freq": 3.19944576861961, "trunk_height": 0.381180602932207,
+                             "trunk_phase": -0.244950770548031, "trunk_pitch": -0.124632420856334,
+                             "trunk_pitch_p_coef_forward": -1.57554945435966,
+                             "trunk_pitch_p_coef_turn": -2.36469993812327, "trunk_swing": 0.636554760401973,
+                             "trunk_x_offset": 0.00881017251760879, "trunk_y_offset": 0.00294130337982147,
+                             "trunk_z_movement": 0.0118517315556505, "directions_left": 1.0,
+                             "early_termination_at": [-0.6000000000000001, 0, 0.75], "fall_sum": 1.0,
+                             "first_step_trunk_phase": -0.5, "foot_apex_phase": 0.5, "foot_overshoot_phase": 1,
+                             "foot_overshoot_ratio": 0.0, "foot_put_down_phase": 1, "foot_z_pause": 0,
+                             "pose_obj": 0.22548865711055652, "stability_obj": 0.2840129391949184,
+                             "time_obj": 1.4760000000012212, "trunk_pause": 0})
+
 study.optimize(objective.objective, n_trials=args.trials, show_progress_bar=True)

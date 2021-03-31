@@ -15,7 +15,7 @@ class AbstractWalkEngine(AbstractWalkOptimization):
             self.sim = PybulletSim(self.namespace, gui, urdf_path=urdf_path,
                                    foot_link_names=foot_link_names)
         elif sim_type == 'webots':
-            self.sim = WebotsSim(self.namespace, gui, robot, world="walk_optim_" + robot, ros_active=True)
+            self.sim = WebotsSim(self.namespace, gui, robot, world="walk_optim_" + robot, ros_active=False)
         else:
             print(f'sim type {sim_type} not known')
 
@@ -40,9 +40,11 @@ class AbstractWalkEngine(AbstractWalkOptimization):
         d = 0
         it = 0
         pose_obj_rep_sum = 0
-        stability_obj_rep_sum = 0
+        orientation_obj_rep_sum = 0
+        gyro_obj_rep_sum = 0
         # standing as first test, is not in loop as it will only be done once
-        fall_sum, didnt_move_sum, pose_obj, stability_obj, time_obj = self.evaluate_direction(0, 0, 0, trial, 1, 1)
+        fall_sum, didnt_move_sum, pose_obj, orientation_obj, gyro_obj, time_obj = self.evaluate_direction(0, 0, 0,
+                                                                                                          trial, 1, 1)
         if fall_sum:
             # terminate early and give 1 cost for each try left
             trial.set_user_attr('early_termination_at', (0, 0, 0))
@@ -61,16 +63,22 @@ class AbstractWalkEngine(AbstractWalkOptimization):
                     # do multiple repetitions of the same values since behavior is not always exactly deterministic
                     for i in range(self.repetitions):
                         self.reset_position()
-                        fall, didnt_move, pose_obj, stability_obj, time_obj = self.evaluate_direction(*direction, trial,
-                                                                                                      iteration,
-                                                                                                      self.time_limit)
+                        fall, didnt_move, pose_obj, orientation_obj, gyro_obj, time_obj = \
+                            self.evaluate_direction(*direction, trial,
+                                                    iteration,
+                                                    self.time_limit)
                         if fall:
                             fall_rep_sum += 1
                         if didnt_move:
                             didnt_move_rep_sum += 1
                         pose_obj_rep_sum += pose_obj
-                        stability_obj_rep_sum += stability_obj
+                        orientation_obj_rep_sum += orientation_obj
+                        gyro_obj_rep_sum += gyro_obj
                         time_obj_rep_sum += time_obj
+                        print(f"pose_obj {pose_obj}")
+                        print(f"stability_obj {orientation_obj}")
+                        print(f"gyro obj {gyro_obj}")
+                        print(f"time_obj {time_obj}")
 
                     # use the mean as costs for this try
                     fall_sum += fall_rep_sum
@@ -87,13 +95,18 @@ class AbstractWalkEngine(AbstractWalkOptimization):
                         break
                 if do_break:
                     break
-        performed_evaluations = (it - 1) * len(self.directions) + d
+        performed_evaluations = (it - 1) * len(self.directions) + d + 1
         print(f"performed evals {performed_evaluations}")
         pose_obj += pose_obj_rep_sum / performed_evaluations
-        stability_obj += stability_obj_rep_sum / performed_evaluations
+        orientation_obj += orientation_obj_rep_sum / performed_evaluations
+        gyro_obj += gyro_obj_rep_sum / performed_evaluations
+
+        stability_obj = (orientation_obj + gyro_obj) / 2
         print(f"fall_sum {fall_sum}")
         print(f"pose_obj {pose_obj}")
+        print(f"orientation_obj {orientation_obj}")
         print(f"stability_obj {stability_obj}")
+        print(f"gyro obj {gyro_obj}")
         print(f"time_obj {time_obj}")
 
         # add costs based on the the iterations left
@@ -105,7 +118,9 @@ class AbstractWalkEngine(AbstractWalkOptimization):
         trial.set_user_attr("directions_left", fall_sum)
         trial.set_user_attr("fall_sum", fall_sum)
         trial.set_user_attr("pose_obj", pose_obj)
+        trial.set_user_attr("orientation_obj", orientation_obj)
         trial.set_user_attr("stability_obj", stability_obj)
+        trial.set_user_attr("gyro_obj", gyro_obj)
         trial.set_user_attr("time_obj", time_obj)
 
         # todo falls are currently ignored

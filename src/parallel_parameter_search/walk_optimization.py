@@ -4,7 +4,7 @@ from bitbots_quintic_walk import PyWalk
 
 import math
 import time
-
+import numpy as np
 import dynamic_reconfigure.client
 import optuna
 import roslaunch
@@ -77,6 +77,8 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         print(F'cmd: {round(x * iteration, 2)} {round(y * iteration, 2)} {round(yaw * iteration, 2)}')
         start_time = self.sim.get_time()
         orientation_diff = 0.0
+        angular_vel_diff = 0.0
+
         # wait till time for test is up or stopping condition has been reached
         while not rospy.is_shutdown():
             passed_time = self.sim.get_time() - start_time
@@ -90,6 +92,10 @@ class AbstractWalkOptimization(AbstractRosOptimization):
                     self.set_cmd_vel(x * iteration, y * iteration, yaw * iteration)
                 elif passed_time > 1:
                     self.set_cmd_vel(x * iteration / 2, y * iteration / 2, yaw * iteration / 2)
+            if passed_time > time_limit - 1:
+                # decelerate
+                self.set_cmd_vel(x * iteration / 2, y * iteration / 2, yaw * iteration / 2)
+
             if passed_time > time_limit:
                 # reached time limit, stop robot
                 self.set_cmd_vel(0, 0, 0)
@@ -97,17 +103,20 @@ class AbstractWalkOptimization(AbstractRosOptimization):
             if passed_time > time_limit + 2:
                 # robot should have stopped now, evaluate the fitness
                 didnt_move, pose_cost = self.compute_cost(x * iteration, y * iteration, yaw * iteration)
-                return False, didnt_move, pose_cost, orientation_diff / passed_timesteps, 1 - min(1, (
-                        passed_time / (time_limit + 2)))
+                return False, didnt_move, pose_cost, orientation_diff / passed_timesteps, \
+                       angular_vel_diff / passed_timesteps, 1 - min(1, (passed_time / (time_limit + 2)))
 
             # test if the robot has fallen down
             pos, rpy = self.sim.get_robot_pose_rpy()
             # get orientation diff scaled to 0-1
             orientation_diff += min(1, (abs(rpy[0]) + abs(rpy[1] - self.correct_pitch(x, y, yaw))) * 0.5)
+            imu_msg = self.sim.get_imu_msg()
+            # get angular_vel diff scaled to 0-1. dont take yaw, since we might actually turn around it
+            angular_vel_diff += min(1, (abs(imu_msg.angular_velocity.x) + abs(imu_msg.angular_velocity.y)) / 60)
             if abs(rpy[0]) > math.radians(45) or abs(rpy[1]) > math.radians(45) or pos[2] < self.trunk_height / 2:
                 didnt_move, pose_cost = self.compute_cost(x * iteration, y * iteration, yaw * iteration)
-                return True, didnt_move, pose_cost, orientation_diff / passed_timesteps, 1 - min(1, (
-                        passed_time / (time_limit + 2)))
+                return True, didnt_move, pose_cost, orientation_diff / passed_timesteps, \
+                       angular_vel_diff / passed_timesteps, 1 - min(1, (passed_time / (time_limit + 2)))
 
             if self.walk_as_node:
                 # give time to other algorithms to compute their responses
@@ -116,7 +125,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
             else:
                 current_time = self.sim.get_time()
                 joint_command = self.walk.step(current_time - self.last_time, self.current_speed,
-                                               self.sim.get_imu_msg(),
+                                               imu_msg,
                                                self.sim.get_joint_state_msg(),
                                                self.sim.get_pressure_left(), self.sim.get_pressure_right())
                 self.sim.set_joints(joint_command)
@@ -163,20 +172,40 @@ class AbstractWalkOptimization(AbstractRosOptimization):
                     break
 
     def compute_cost(self, v_x, v_y, v_yaw):
+        def get_matrix(v_x, v_y, v_yaw, t):
+            if v_yaw == 0:
+                # prevent division by zero
+                return (np.array([v_x * t, v_y * t]), 0)
+            else:
+                return (np.array([(v_x * math.sin(t * v_yaw) - v_y * (1 - math.cos(t * v_yaw))) / v_yaw,
+                                  (v_y * math.sin(t * v_yaw) + v_x * (1 - math.cos(t * v_yaw))) / v_yaw]), v_yaw * t)
+
+        def rotation(yaw):
+            return np.array([[math.cos(yaw), -math.sin(yaw)], [math.sin(yaw), math.cos(yaw)]])
+
         # 2D pose
         pos, rpy = self.sim.get_robot_pose_rpy()
         current_pose = [pos[0], pos[1], rpy[2]]
         t = self.time_limit
-        if v_yaw == 0:
-            # we are not turning, we can compute the pose easily
-            correct_pose = [v_x * self.time_limit,
-                            v_y * self.time_limit,
-                            v_yaw * self.time_limit]
-        else:
-            # compute end pose. robot is basically walking on circles where radius=v_x/v_yaw and v_y/v_yaw
-            correct_pose = [(v_x * math.sin(t * v_yaw) - v_y * (1 - math.cos(t * v_yaw))) / v_yaw,
-                            (v_y * math.sin(t * v_yaw) + v_x * (1 - math.cos(t * v_yaw))) / v_yaw,
-                            v_yaw * t]
+
+        # compute end pose. robot is basically walking on circles where radius=v_x/v_yaw and v_y/v_yaw
+        # we need to include the acceleration and deceleration phases
+        # 1s first accel, 1s second accel, time_limit -3 full speed, 1s deceleration
+        # always need to rotate around current yaw
+        after_first_accel = get_matrix(v_x / 4, v_y / 4, v_yaw / 4, 1)
+        after_second_accel = get_matrix(v_x / 2, v_y / 2, v_yaw / 2, 1)
+        after_second_accel = (after_first_accel[0] + np.dot(rotation(after_first_accel[1]), after_second_accel[0]),
+                              after_first_accel[1] + after_second_accel[1])
+        after_full_speed = get_matrix(v_x, v_y, v_yaw, self.time_limit - 3)
+        after_full_speed = (after_second_accel[0] + np.dot(rotation(after_second_accel[1]), after_full_speed[0]),
+                            after_second_accel[1] + after_full_speed[1])
+        after_deceleration = get_matrix(v_x / 2, v_y / 2, v_yaw / 2, 1)
+        after_deceleration = (after_full_speed[0] + np.dot(rotation(after_full_speed[1]), after_deceleration[0]),
+                              after_full_speed[1] + after_deceleration[1])
+
+        # back to x,y,yaw format
+        correct_pose = (after_deceleration[0][0], after_deceleration[0][1], after_deceleration[1])
+
         # todo this does not include the acceleration phase correctly
         # weighted mean squared error, yaw is split in continuous sin and cos components
         yaw_error = (math.sin(correct_pose[2]) - math.sin(current_pose[2])) ** 2 + (math.cos(correct_pose[2]) -
@@ -198,9 +227,10 @@ class AbstractWalkOptimization(AbstractRosOptimization):
 
         if (v_x != 0 and not x_correct) or (v_y != 0 and not y_correct):
             didnt_move = True
-            print(f"x goal {correct_pose[0]} cur {current_pose[0]}")
-            print(f"y goal {correct_pose[1]} cur {current_pose[1]}")
             print("didn't move")
+        print(f"x goal {correct_pose[0]} cur {current_pose[0]}")
+        print(f"y goal {correct_pose[1]} cur {current_pose[1]}")
+        print(f"yaw goal {correct_pose[2]} cur {current_pose[2]}")
 
         # scale to [0-1]
         pose_cost = min(1, pose_cost / 20)
