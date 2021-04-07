@@ -43,8 +43,12 @@ class AbstractWalkEngine(AbstractWalkOptimization):
         orientation_obj_rep_sum = 0
         gyro_obj_rep_sum = 0
         # standing as first test, is not in loop as it will only be done once
-        fall_sum, didnt_move_sum, pose_obj, orientation_obj, gyro_obj, time_obj = self.evaluate_direction(0, 0, 0,
+        fall_sum, didnt_move_sum, pose_obj, orientation_obj, gyro_obj = self.evaluate_direction(0, 0, 0,
                                                                                                           trial, 1, 1)
+        pose_obj_rep_sum += pose_obj
+        orientation_obj_rep_sum += orientation_obj
+        gyro_obj_rep_sum += gyro_obj
+
         if fall_sum:
             # terminate early and give 1 cost for each try left
             trial.set_user_attr('early_termination_at', (0, 0, 0))
@@ -59,11 +63,10 @@ class AbstractWalkEngine(AbstractWalkOptimization):
                     d += 1
                     fall_rep_sum = 0
                     didnt_move_rep_sum = 0
-                    time_obj_rep_sum = 0
                     # do multiple repetitions of the same values since behavior is not always exactly deterministic
                     for i in range(self.repetitions):
                         self.reset_position()
-                        fall, didnt_move, pose_obj, orientation_obj, gyro_obj, time_obj = \
+                        fall, didnt_move, pose_obj, orientation_obj, gyro_obj = \
                             self.evaluate_direction(*direction, trial,
                                                     iteration,
                                                     self.time_limit)
@@ -74,15 +77,12 @@ class AbstractWalkEngine(AbstractWalkOptimization):
                         pose_obj_rep_sum += pose_obj
                         orientation_obj_rep_sum += orientation_obj
                         gyro_obj_rep_sum += gyro_obj
-                        time_obj_rep_sum += time_obj
                         print(f"pose_obj {pose_obj}")
                         print(f"stability_obj {orientation_obj}")
                         print(f"gyro obj {gyro_obj}")
-                        print(f"time_obj {time_obj}")
 
                     # use the mean as costs for this try
                     fall_sum += fall_rep_sum
-                    time_obj += time_obj_rep_sum / self.repetitions
 
                     # check if we always failed in this direction and terminate this trial early
                     if fall_rep_sum == self.repetitions or didnt_move_rep_sum == self.repetitions:
@@ -97,9 +97,9 @@ class AbstractWalkEngine(AbstractWalkOptimization):
                     break
         performed_evaluations = (it - 1) * len(self.directions) + d + 1
         print(f"performed evals {performed_evaluations}")
-        pose_obj += pose_obj_rep_sum / performed_evaluations
-        orientation_obj += orientation_obj_rep_sum / performed_evaluations
-        gyro_obj += gyro_obj_rep_sum / performed_evaluations
+        pose_obj = pose_obj_rep_sum / performed_evaluations
+        orientation_obj = orientation_obj_rep_sum / performed_evaluations
+        gyro_obj = gyro_obj_rep_sum / performed_evaluations
 
         stability_obj = (orientation_obj + gyro_obj) / 2
         print(f"fall_sum {fall_sum}")
@@ -107,7 +107,6 @@ class AbstractWalkEngine(AbstractWalkOptimization):
         print(f"orientation_obj {orientation_obj}")
         print(f"stability_obj {stability_obj}")
         print(f"gyro obj {gyro_obj}")
-        print(f"time_obj {time_obj}")
 
         # add costs based on the the iterations left
         directions_left = (self.number_of_iterations - it) * len(self.directions) + (len(self.directions) - d)
@@ -121,14 +120,13 @@ class AbstractWalkEngine(AbstractWalkOptimization):
         trial.set_user_attr("orientation_obj", orientation_obj)
         trial.set_user_attr("stability_obj", stability_obj)
         trial.set_user_attr("gyro_obj", gyro_obj)
-        trial.set_user_attr("time_obj", time_obj)
 
         # todo falls are currently ignored
         if self.multi_objective:
             return [directions_left, pose_obj, stability_obj]
         else:
             # multiple directions left with 10 to make sure the sum of the other objectives is never higher
-            return directions_left * 10 + pose_obj + stability_obj
+            return directions_left + 0.5 * pose_obj + 0.5 * stability_obj
 
     def _suggest_walk_params(self, trial, trunk_height, foot_distance, foot_rise, trunk_x, z_movement):
         engine_param_dict = {}

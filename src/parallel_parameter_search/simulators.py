@@ -74,6 +74,8 @@ class AbstractSim:
     def set_ball_position(self, x, y):
         raise NotImplementedError
 
+    def close(self):
+        raise NotImplementedError
 
 class PybulletSim(AbstractSim):
 
@@ -173,9 +175,9 @@ class WebotsSim(AbstractSim, ABC):
         if not gui:
             arguments.append("--minimize")
             arguments.append("--no-rendering")
-        sim_proc = subprocess.Popen(arguments)
+        self.sim_proc = subprocess.Popen(arguments, stdout=subprocess.PIPE)
 
-        os.environ["WEBOTS_PID"] = str(sim_proc.pid)
+        os.environ["WEBOTS_PID"] = str(self.sim_proc.pid)
 
         if gui:
             mode = 'normal'
@@ -263,3 +265,9 @@ class WebotsSim(AbstractSim, ABC):
             if name == msg.name[i]:
                 return msg.position[i]
         sys.exit(f"joint {name} not found")
+
+    def close(self):
+        print("hi")
+        self.sim_proc.terminate()
+        self.sim_proc.wait()
+        self.sim_proc.kill()

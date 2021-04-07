@@ -8,7 +8,7 @@ import time
 
 import optuna
 from optuna.pruners import MedianPruner
-from optuna.samplers import TPESampler, CmaEsSampler, MOTPESampler, RandomSampler
+from optuna.samplers import TPESampler, CmaEsSampler, MOTPESampler, RandomSampler, NSGAIISampler
 import numpy as np
 
 import rospy
@@ -34,7 +34,7 @@ parser.add_argument('--startup', help='Startup trials', default=None,
                     type=int, required=False)
 parser.add_argument('--trials', help='Trials to be evaluated', default=10000,
                     type=int, required=True)
-parser.add_argument('--sampler', help='Which sampler {TPE, CMAES}', default=10000,
+parser.add_argument('--sampler', help='Which sampler {MOTPE, TPE, CMAES, NSGA2, Random}', default=10000,
                     type=str, required=True)
 parser.add_argument('--repetitions', help='How often each trial is repeated while beeing evaluated', default=1,
                     type=int, required=False)
@@ -56,6 +56,8 @@ elif args.sampler == "MOTPE":
         n_startup_trials = num_variables * 11 - 1
     sampler = MOTPESampler(n_startup_trials=n_startup_trials, seed=seed)
     multi_objective = True
+elif args.sampler == "NSGA2":
+    sampler = NSGAIISampler(seed=seed)
 elif args.sampler == "Random":
     sampler = RandomSampler(seed=seed)
     multi_objective = True
@@ -127,3 +129,5 @@ if False:
                              "time_obj": 1.4760000000012212, "trunk_pause": 0})
 
 study.optimize(objective.objective, n_trials=args.trials, show_progress_bar=True)
+
+objective.sim.close()

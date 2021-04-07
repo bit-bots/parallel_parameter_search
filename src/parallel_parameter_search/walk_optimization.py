@@ -104,7 +104,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
                 # robot should have stopped now, evaluate the fitness
                 didnt_move, pose_cost = self.compute_cost(x * iteration, y * iteration, yaw * iteration)
                 return False, didnt_move, pose_cost, orientation_diff / passed_timesteps, \
-                       angular_vel_diff / passed_timesteps, 1 - min(1, (passed_time / (time_limit + 2)))
+                       angular_vel_diff / passed_timesteps
 
             # test if the robot has fallen down
             pos, rpy = self.sim.get_robot_pose_rpy()
@@ -116,7 +116,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
             if abs(rpy[0]) > math.radians(45) or abs(rpy[1]) > math.radians(45) or pos[2] < self.trunk_height / 2:
                 didnt_move, pose_cost = self.compute_cost(x * iteration, y * iteration, yaw * iteration)
                 return True, didnt_move, pose_cost, orientation_diff / passed_timesteps, \
-                       angular_vel_diff / passed_timesteps, 1 - min(1, (passed_time / (time_limit + 2)))
+                       angular_vel_diff / passed_timesteps
 
             if self.walk_as_node:
                 # give time to other algorithms to compute their responses
@@ -206,11 +206,13 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         # back to x,y,yaw format
         correct_pose = (after_deceleration[0][0], after_deceleration[0][1], after_deceleration[1])
 
-        # weighted mean squared error, yaw is split in continuous sin and cos components
-        yaw_error = (math.sin(correct_pose[2]) - math.sin(current_pose[2])) ** 2 + (math.cos(correct_pose[2]) -
-                                                                                    math.cos(current_pose[2])) ** 2
-        # normalize pose error
-        pose_cost = ((correct_pose[0] - current_pose[0]) ** 2 + (correct_pose[1] - current_pose[1]) ** 2 + yaw_error)
+        # Root mean squared error (RMSE)
+        x_error = (correct_pose[0] - current_pose[0]) ** 2
+        y_error = (correct_pose[1] - current_pose[1]) ** 2
+        # yaw is split in continuous sin and cos components
+        yaw_error = ((math.sin(correct_pose[2]) - math.sin(current_pose[2])) ** 2 +
+                     (math.cos(correct_pose[2]) - math.cos(current_pose[2])) ** 2)
+        pose_cost = math.sqrt((x_error + y_error + yaw_error) / 3)
 
         # test if robot moved at all for simple case
         didnt_move = False
@@ -232,7 +234,9 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         print(f"yaw goal {correct_pose[2]} cur {current_pose[2]}")
 
         # scale to [0-1]
-        pose_cost = min(1, pose_cost / 20)
+        if pose_cost > 1:
+            print("cutting")
+        pose_cost = min(1, pose_cost)
 
         return didnt_move, pose_cost
 
