@@ -206,7 +206,6 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         # back to x,y,yaw format
         correct_pose = (after_deceleration[0][0], after_deceleration[0][1], after_deceleration[1])
 
-        # todo this does not include the acceleration phase correctly
         # weighted mean squared error, yaw is split in continuous sin and cos components
         yaw_error = (math.sin(correct_pose[2]) - math.sin(current_pose[2])) ** 2 + (math.cos(correct_pose[2]) -
                                                                                     math.cos(current_pose[2])) ** 2
