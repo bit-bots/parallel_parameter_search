@@ -122,10 +122,10 @@ class AbstractWalkEngine(AbstractWalkOptimization):
         trial.set_user_attr("pose_obj", pose_obj)
 
         if self.multi_objective:
-            return [directions_left, pose_obj, stability_obj]
+            return [directions_left, pose_obj]
         else:
             # multiple directions left with 10 to make sure the sum of the other objectives is never higher
-            return directions_left + 0.5 * pose_obj + 0.5 * stability_obj
+            return directions_left + 0.5 * pose_obj
 
     def _suggest_walk_params(self, trial, trunk_height, foot_distance, foot_rise, trunk_x, z_movement):
         engine_param_dict = {}
