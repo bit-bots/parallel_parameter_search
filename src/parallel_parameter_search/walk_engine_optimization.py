@@ -75,7 +75,7 @@ class AbstractWalkEngine(AbstractWalkOptimization):
                         orientation_obj_rep_sum += orientation_obj
                         gyro_obj_rep_sum += gyro_obj
                         print(f"pose_obj {pose_obj}")
-                        print(f"stability_obj {orientation_obj}")
+                        print(f"orientation_obj {orientation_obj}")
                         print(f"gyro obj {gyro_obj}")
 
                     # use the mean as costs for this try
@@ -102,8 +102,8 @@ class AbstractWalkEngine(AbstractWalkOptimization):
         print(f"fall_sum {fall_sum}")
         print(f"orientation_obj {orientation_obj}")
         print(f"gyro obj {gyro_obj}")
-        print(f"pose_obj {pose_obj}")
         print(f"stability_obj {stability_obj}")
+        print(f"pose_obj {pose_obj}")
 
         # add costs based on the the iterations left
         directions_left = (self.number_of_iterations - it) * len(self.directions) + (len(self.directions) - d)

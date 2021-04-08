@@ -214,9 +214,9 @@ class AbstractWalkOptimization(AbstractRosOptimization):
                      (math.cos(correct_pose[2]) - math.cos(current_pose[2])) ** 2)
         pose_cost = math.sqrt((x_error + y_error + yaw_error) / 3)
 
-        # test if robot moved at all for simple case
+        # test if robot moved sufficient enough to prevent learning slower parameters
         didnt_move = False
-        didnt_move_factor = 0.25
+        didnt_move_factor = 0.75
         if v_x >= 0:
             x_correct = current_pose[0] > didnt_move_factor * correct_pose[0]
         else:
