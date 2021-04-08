@@ -229,14 +229,14 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         if (v_x != 0 and not x_correct) or (v_y != 0 and not y_correct):
             didnt_move = True
             print("didn't move")
-        print(f"x goal {correct_pose[0]} cur {current_pose[0]}")
-        print(f"y goal {correct_pose[1]} cur {current_pose[1]}")
-        print(f"yaw goal {correct_pose[2]} cur {current_pose[2]}")
+        print(f"x goal {round(correct_pose[0], 2)} cur {round(current_pose[0], 2)}")
+        print(f"y goal {round(correct_pose[1], 2)} cur {round(current_pose[1], 2)}")
+        print(f"yaw goal {round(correct_pose[2], 2)} cur {round(current_pose[2], 2)}")
 
         # scale to [0-1]
-        if pose_cost > 1:
-            print("cutting")
-        pose_cost = min(1, pose_cost)
+        if pose_cost / 10 > 1:
+            print("cutting!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1")
+        pose_cost = min(1, pose_cost / 10)
 
         return didnt_move, pose_cost
 

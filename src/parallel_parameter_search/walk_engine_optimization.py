@@ -43,8 +43,7 @@ class AbstractWalkEngine(AbstractWalkOptimization):
         orientation_obj_rep_sum = 0
         gyro_obj_rep_sum = 0
         # standing as first test, is not in loop as it will only be done once
-        fall_sum, didnt_move_sum, pose_obj, orientation_obj, gyro_obj = self.evaluate_direction(0, 0, 0,
-                                                                                                          trial, 1, 1)
+        fall_sum, didnt_move_sum, pose_obj, orientation_obj, gyro_obj = self.evaluate_direction(0, 0, 0, trial, 1, 1)
         pose_obj_rep_sum += pose_obj
         orientation_obj_rep_sum += orientation_obj
         gyro_obj_rep_sum += gyro_obj
@@ -67,9 +66,7 @@ class AbstractWalkEngine(AbstractWalkOptimization):
                     for i in range(self.repetitions):
                         self.reset_position()
                         fall, didnt_move, pose_obj, orientation_obj, gyro_obj = \
-                            self.evaluate_direction(*direction, trial,
-                                                    iteration,
-                                                    self.time_limit)
+                            self.evaluate_direction(*direction, trial, iteration, self.time_limit)
                         if fall:
                             fall_rep_sum += 1
                         if didnt_move:
@@ -103,10 +100,10 @@ class AbstractWalkEngine(AbstractWalkOptimization):
 
         stability_obj = (orientation_obj + gyro_obj) / 2
         print(f"fall_sum {fall_sum}")
-        print(f"pose_obj {pose_obj}")
         print(f"orientation_obj {orientation_obj}")
-        print(f"stability_obj {stability_obj}")
         print(f"gyro obj {gyro_obj}")
+        print(f"pose_obj {pose_obj}")
+        print(f"stability_obj {stability_obj}")
 
         # add costs based on the the iterations left
         directions_left = (self.number_of_iterations - it) * len(self.directions) + (len(self.directions) - d)
@@ -116,12 +113,11 @@ class AbstractWalkEngine(AbstractWalkOptimization):
 
         trial.set_user_attr("directions_left", fall_sum)
         trial.set_user_attr("fall_sum", fall_sum)
-        trial.set_user_attr("pose_obj", pose_obj)
         trial.set_user_attr("orientation_obj", orientation_obj)
-        trial.set_user_attr("stability_obj", stability_obj)
         trial.set_user_attr("gyro_obj", gyro_obj)
+        trial.set_user_attr("stability_obj", stability_obj)
+        trial.set_user_attr("pose_obj", pose_obj)
 
-        # todo falls are currently ignored
         if self.multi_objective:
             return [directions_left, pose_obj, stability_obj]
         else:
@@ -215,8 +211,8 @@ class WolfgangWalkEngine(AbstractWalkEngine):
         self.reset_height_offset = 0.012
 
     def suggest_walk_params(self, trial):
-        self._suggest_walk_params(trial, trunk_height=(0.38, 0.42), foot_distance=(0.15, 0.25), foot_rise=(0.05, 0.25),
-                                  trunk_x=0.03, z_movement=0.05)
+        self._suggest_walk_params(trial, trunk_height=(0.35, 0.45), foot_distance=(0.15, 0.25), foot_rise=(0.05, 0.2),
+                                  trunk_x=0.05, z_movement=0.1)
 
 
 class DarwinWalkEngine(AbstractWalkEngine):
@@ -228,7 +224,7 @@ class DarwinWalkEngine(AbstractWalkEngine):
         self.reset_height_offset = 0.09
 
     def suggest_walk_params(self, trial):
-        self._suggest_walk_params(trial, (0.20, 0.24), (0.08, 0.15), (0.02, 0.15), 0.02, 0.02)
+        self._suggest_walk_params(trial, (0.15, 0.25), (0.08, 0.16), (0.01, 0.15), 0.03, 0.05)
 
 
 class OP3WalkEngine(AbstractWalkEngine):
@@ -240,7 +236,7 @@ class OP3WalkEngine(AbstractWalkEngine):
         self.reset_height_offset = 0.01
 
     def suggest_walk_params(self, trial):
-        self._suggest_walk_params(trial, (0.13, 0.24), (0.08, 0.15), (0.02, 0.15), 0.02, 0.02)
+        self._suggest_walk_params(trial, (0.15, 0.25), (0.08, 0.16), (0.01, 0.15), 0.03, 0.05)
 
 
 class NaoWalkEngine(AbstractWalkEngine):
@@ -255,46 +251,4 @@ class NaoWalkEngine(AbstractWalkEngine):
                 {"LShoulderPitch": 1.57, "RShoulderPitch": 1.57, 'LShoulderRoll': 0.3, 'RShoulderRoll': -0.3})
 
     def suggest_walk_params(self, trial):
-        self._suggest_walk_params(trial, (0.27, 0.32), (0.1, 0.17), (0.03, 0.15), 0.02, 0.02)
-
-
-class ReemcWalkEngine(AbstractWalkEngine):
-    def __init__(self, namespace, gui, walk_as_node, sim_type='pybullet', repetitions=1, multi_objective=False):
-        super(ReemcWalkEngine, self).__init__(namespace, gui, 'reemc', walk_as_node, sim_type,
-                                              foot_link_names=['leg_left_6_link', 'leg_right_6_link'],
-                                              start_speeds=[0.1, 0.05, 0.5], repetitions=repetitions,
-                                              multi_objective=multi_objective)
-        self.reset_height_offset = -0.1
-        self.reset_rpy_offset = (-0.1, 0.15, -0.5)
-
-    def suggest_walk_params(self, trial):
-        self._suggest_walk_params(trial, (0.5, 0.65), (0.15, 0.30), 0.1, 0.15, 0.05)
-
-
-class TalosWalkEngine(AbstractWalkEngine):
-    def __init__(self, namespace, gui, walk_as_node, sim_type='pybullet', repetitions=1, multi_objective=False):
-        super(TalosWalkEngine, self).__init__(namespace, gui, 'talos', walk_as_node, sim_type,
-                                              foot_link_names=['leg_left_6_link', 'leg_right_6_link'],
-                                              start_speeds=[0.02, 0.01, 0.01], repetitions=repetitions,
-                                              multi_objective=multi_objective)
-        self.reset_height_offset = -0.13
-        self.reset_rpy_offset = (0, 0.15, 0)
-
-        if sim_type == 'pybullet':
-            self.sim.set_joints_dict({"arm_left_4_joint": -1.57, "arm_right_4_joint": -1.57})
-
-    def suggest_walk_params(self, trial):
-        self._suggest_walk_params(trial, (0.6, 0.75), (0.15, 0.4), 0.1, 0.15, 0.08)
-
-
-class AtlasWalkEngine(AbstractWalkEngine):
-    def __init__(self, namespace, gui, walk_as_node, sim_type='pybullet', repetitions=1, multi_objective=False):
-        super(AtlasWalkEngine, self).__init__(namespace, gui, 'atlas', walk_as_node, sim_type,
-                                              foot_link_names=['l_sole', 'r_sole'],
-                                              start_speeds=[0.02, 0.01, 0.01], repetitions=repetitions,
-                                              multi_objective=multi_objective)
-        self.reset_height_offset = 0.0
-        self.reset_rpy_offset = (0, 0, 0)
-
-    def suggest_walk_params(self, trial):
-        self._suggest_walk_params(trial, (0.6, 0.75), (0.15, 0.4), 0.1, 0.15, 0.08)
+        self._suggest_walk_params(trial, (0.25, 0.35), (0.1, 0.2), (0.01, 0.15), 0.03, 0.05)

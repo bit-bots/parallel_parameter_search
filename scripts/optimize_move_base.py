@@ -19,7 +19,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--storage', help='Database SQLAlchemy string, e.g. postgresql://USER:PASS@SERVER/DB_NAME',
                     default=None, type=str, required=False)
 parser.add_argument('--name', help='Name of the study', default=None, type=str, required=True)
-parser.add_argument('--robot', help='Robot model that should be used {wolfgang, darwin, op3, nao, Talos, reemc} ',
+parser.add_argument('--robot', help='Robot model that should be used {wolfgang, darwin, op3, nao} ',
                     default='wolfgang', type=str, required=False)
 parser.add_argument('--sim', help='Simulator type that should be used {pybullet, webots} ', default='pybullet',
                     type=str,
