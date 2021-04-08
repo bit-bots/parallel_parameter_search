@@ -92,7 +92,10 @@ class AbstractWalkEngine(AbstractWalkOptimization):
                         break
                 if do_break:
                     break
-        performed_evaluations = (it - 1) * len(self.directions) + d + 1
+        if it == 0:
+            performed_evaluations = 1
+        else:
+            performed_evaluations = (it - 1) * len(self.directions) + d + 1
         print(f"performed evals {performed_evaluations}")
         pose_obj = pose_obj_rep_sum / performed_evaluations
         orientation_obj = orientation_obj_rep_sum / performed_evaluations
@@ -109,7 +112,7 @@ class AbstractWalkEngine(AbstractWalkOptimization):
         directions_left = (self.number_of_iterations - it) * len(self.directions) + (len(self.directions) - d)
         if it == 0:
             # special case of falling while standing
-            directions_left = self.number_of_iterations * len(self.directions) + 1
+            directions_left = self.number_of_iterations * len(self.directions)
 
         trial.set_user_attr("directions_left", fall_sum)
         trial.set_user_attr("fall_sum", fall_sum)

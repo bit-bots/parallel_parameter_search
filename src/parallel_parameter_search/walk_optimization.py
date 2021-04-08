@@ -214,21 +214,6 @@ class AbstractWalkOptimization(AbstractRosOptimization):
                      (math.cos(correct_pose[2]) - math.cos(current_pose[2])) ** 2)
         pose_cost = math.sqrt((x_error + y_error + yaw_error) / 3)
 
-        # test if robot moved sufficient enough to prevent learning slower parameters
-        didnt_move = False
-        didnt_move_factor = 0.75
-        if v_x >= 0:
-            x_correct = current_pose[0] > didnt_move_factor * correct_pose[0]
-        else:
-            x_correct = current_pose[0] < didnt_move_factor * correct_pose[0]
-        if v_y >= 0:
-            y_correct = current_pose[1] > didnt_move_factor * correct_pose[1]
-        else:
-            y_correct = current_pose[1] < didnt_move_factor * correct_pose[1]
-
-        if (v_x != 0 and not x_correct) or (v_y != 0 and not y_correct):
-            didnt_move = True
-            print("didn't move")
         print(f"x goal {round(correct_pose[0], 2)} cur {round(current_pose[0], 2)}")
         print(f"y goal {round(correct_pose[1], 2)} cur {round(current_pose[1], 2)}")
         print(f"yaw goal {round(correct_pose[2], 2)} cur {round(current_pose[2], 2)}")
@@ -237,6 +222,10 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         if pose_cost / 10 > 1:
             print("cutting!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1")
         pose_cost = min(1, pose_cost / 10)
+
+        didnt_move = pose_cost > 0.08
+        if didnt_move:
+            print("didn't move")
 
         return didnt_move, pose_cost
 
