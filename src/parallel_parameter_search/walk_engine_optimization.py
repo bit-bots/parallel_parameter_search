@@ -97,6 +97,7 @@ class AbstractWalkEngine(AbstractWalkOptimization):
         else:
             performed_evaluations = (it - 1) * len(self.directions) + d
         print(f"performed evals {performed_evaluations}")
+        last_pose_obj = pose_obj
         pose_obj = pose_obj_rep_sum / performed_evaluations
         orientation_obj = orientation_obj_rep_sum / performed_evaluations
         gyro_obj = gyro_obj_rep_sum / performed_evaluations
@@ -120,6 +121,7 @@ class AbstractWalkEngine(AbstractWalkOptimization):
         trial.set_user_attr("gyro_obj", gyro_obj)
         trial.set_user_attr("stability_obj", stability_obj)
         trial.set_user_attr("pose_obj", pose_obj)
+        trial.set_user_attr("last_pose_obj", last_pose_obj)
 
         if self.multi_objective:
             return [directions_left, pose_obj]
