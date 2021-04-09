@@ -25,9 +25,9 @@ class AbstractWalkEngine(AbstractWalkOptimization):
         self.directions = [[start_speeds[0], 0, 0],
                            [0, start_speeds[1], 0],
                            [0, 0, start_speeds[2]],
-                           [-start_speeds[0], - start_speeds[1], 0],
-                           [-start_speeds[0], 0, start_speeds[2]],
-                           [start_speeds[0], start_speeds[1], start_speeds[2]]
+                           [-start_speeds[0], -start_speeds[1], 0],
+                           #[-start_speeds[0], 0, start_speeds[2]],
+                           #[start_speeds[0], start_speeds[1], start_speeds[2]]
                            ]
         self.repetitions = repetitions
         self.multi_objective = multi_objective
@@ -95,7 +95,7 @@ class AbstractWalkEngine(AbstractWalkOptimization):
         if it == 0:
             performed_evaluations = 1
         else:
-            performed_evaluations = (it - 1) * len(self.directions) + d + 1
+            performed_evaluations = (it - 1) * len(self.directions) + d
         print(f"performed evals {performed_evaluations}")
         pose_obj = pose_obj_rep_sum / performed_evaluations
         orientation_obj = orientation_obj_rep_sum / performed_evaluations

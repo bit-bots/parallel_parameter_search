@@ -212,16 +212,49 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         # yaw is split in continuous sin and cos components
         yaw_error = ((math.sin(correct_pose[2]) - math.sin(current_pose[2])) ** 2 +
                      (math.cos(correct_pose[2]) - math.cos(current_pose[2])) ** 2)
-        pose_cost = math.sqrt((x_error + y_error + yaw_error) / 3)
+        # absolute relative error. we assume that either v_yaw==0 or (v_x == 0 and v_y == 0)
+        yaw_error_abs = abs(math.sin(correct_pose[2]) - math.sin(current_pose[2])) + abs(
+            math.cos(correct_pose[2]) - math.cos(current_pose[2]))
+        yaw_error_abs_rel = yaw_error_abs / (abs(math.sin(correct_pose[2])) + abs(math.cos(correct_pose[2])))
+        trans_error_abs = abs(correct_pose[0] - current_pose[0]) + abs(correct_pose[1] - current_pose[1])
+        if v_yaw == 0:
+            if v_x == 0 and v_y == 0:
+                # special case of just standing
+                pose_cost = 0
+            else:
+                pose_cost = (trans_error_abs / abs(correct_pose[0] + correct_pose[1]) + yaw_error_abs / math.tau) / 2
+        elif v_x == 0 and v_y == 0:
+            pose_cost = (trans_error_abs + yaw_error_abs_rel) / 2
+        else:
+            print("can not compute error for this")
+            exit(1)
+
+        # we need to handle targets cleverly or we will have divisions by 0
+        if v_x == 0 and v_y == 0:
+            trans_target = 1
+        else:
+            # Pythagoras
+            trans_target = math.sqrt(correct_pose[0] ** 2 + correct_pose[1] ** 2)
+        if v_yaw == 0:
+            rot_target = math.tau
+        else:
+            rot_target = abs(math.sin(correct_pose[2]) - math.sin(current_pose[2])) + abs(
+                math.cos(correct_pose[2]) - math.cos(current_pose[2]))
+
+        # Pythagoras
+        trans_error_abs = math.sqrt((correct_pose[0] - current_pose[0]) ** 2 + (correct_pose[1] - current_pose[1]) ** 2)
+        rot_error_abs = abs(math.sin(correct_pose[2]) - math.sin(current_pose[2])) + abs(
+            math.cos(correct_pose[2]) - math.cos(current_pose[2]))
+        pose_cost = ((trans_error_abs / trans_target) + (rot_error_abs / rot_target)) / 2
 
         print(f"x goal {round(correct_pose[0], 2)} cur {round(current_pose[0], 2)}")
         print(f"y goal {round(correct_pose[1], 2)} cur {round(current_pose[1], 2)}")
         print(f"yaw goal {round(correct_pose[2], 2)} cur {round(current_pose[2], 2)}")
 
         # scale to [0-1]
-        if pose_cost / 10 > 1:
+        if pose_cost / 1 > 1:
             print("cutting!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1")
-        pose_cost = min(1, pose_cost / 10)
+        pose_cost = min(1, pose_cost)
 
         didnt_move = pose_cost > 0.08
         if didnt_move:
