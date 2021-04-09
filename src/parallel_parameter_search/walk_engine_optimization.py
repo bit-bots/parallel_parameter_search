@@ -83,6 +83,10 @@ class AbstractWalkEngine(AbstractWalkOptimization):
 
                     # check if we always failed in this direction and terminate this trial early
                     if fall_rep_sum == self.repetitions or didnt_move_rep_sum == self.repetitions:
+                        if fall_rep_sum == self.repetitions:
+                            trial.set_user_attr('termination_reason', 'fall')
+                        else:
+                            trial.set_user_attr('termination_reason', 'pose')
                         # terminate early and give 1 cost for each try left
                         # add extra information to trial
                         trial.set_user_attr('early_termination_at',
@@ -216,7 +220,7 @@ class WolfgangWalkEngine(AbstractWalkEngine):
         self.reset_height_offset = 0.012
 
     def suggest_walk_params(self, trial):
-        self._suggest_walk_params(trial, trunk_height=(0.35, 0.45), foot_distance=(0.15, 0.25), foot_rise=(0.05, 0.2),
+        self._suggest_walk_params(trial, trunk_height=(0.3, 0.45), foot_distance=(0.15, 0.25), foot_rise=(0.05, 0.2),
                                   trunk_x=0.05, z_movement=0.1)
 
 
