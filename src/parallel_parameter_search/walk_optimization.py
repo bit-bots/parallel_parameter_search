@@ -206,29 +206,6 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         # back to x,y,yaw format
         correct_pose = (after_deceleration[0][0], after_deceleration[0][1], after_deceleration[1])
 
-        # Root mean squared error (RMSE)
-        x_error = (correct_pose[0] - current_pose[0]) ** 2
-        y_error = (correct_pose[1] - current_pose[1]) ** 2
-        # yaw is split in continuous sin and cos components
-        yaw_error = ((math.sin(correct_pose[2]) - math.sin(current_pose[2])) ** 2 +
-                     (math.cos(correct_pose[2]) - math.cos(current_pose[2])) ** 2)
-        # absolute relative error. we assume that either v_yaw==0 or (v_x == 0 and v_y == 0)
-        yaw_error_abs = abs(math.sin(correct_pose[2]) - math.sin(current_pose[2])) + abs(
-            math.cos(correct_pose[2]) - math.cos(current_pose[2]))
-        yaw_error_abs_rel = yaw_error_abs / (abs(math.sin(correct_pose[2])) + abs(math.cos(correct_pose[2])))
-        trans_error_abs = abs(correct_pose[0] - current_pose[0]) + abs(correct_pose[1] - current_pose[1])
-        if v_yaw == 0:
-            if v_x == 0 and v_y == 0:
-                # special case of just standing
-                pose_cost = 0
-            else:
-                pose_cost = (trans_error_abs / abs(correct_pose[0] + correct_pose[1]) + yaw_error_abs / math.tau) / 2
-        elif v_x == 0 and v_y == 0:
-            pose_cost = (trans_error_abs + yaw_error_abs_rel) / 2
-        else:
-            print("can not compute error for this")
-            exit(1)
-
         # we need to handle targets cleverly or we will have divisions by 0
         if v_x == 0 and v_y == 0:
             trans_target = 1
@@ -243,6 +220,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
 
         # Pythagoras
         trans_error_abs = math.sqrt((correct_pose[0] - current_pose[0]) ** 2 + (correct_pose[1] - current_pose[1]) ** 2)
+        # yaw is split in continuous sin and cos components
         rot_error_abs = abs(math.sin(correct_pose[2]) - math.sin(current_pose[2])) + abs(
             math.cos(correct_pose[2]) - math.cos(current_pose[2]))
         pose_cost = ((trans_error_abs / trans_target) + (rot_error_abs / rot_target)) / 2
@@ -256,7 +234,8 @@ class AbstractWalkOptimization(AbstractRosOptimization):
             print("cutting!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1")
         pose_cost = min(1, pose_cost)
 
-        didnt_move = pose_cost > 0.08
+        # if error higher than 10% we will stop
+        didnt_move = pose_cost > 0.1
         if didnt_move:
             print("didn't move")
 
