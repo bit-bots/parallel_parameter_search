@@ -26,8 +26,8 @@ class AbstractWalkEngine(AbstractWalkOptimization):
                            [0, start_speeds[1], 0],
                            [0, 0, start_speeds[2]],
                            [-start_speeds[0], -start_speeds[1], 0],
-                           #[-start_speeds[0], 0, start_speeds[2]],
-                           #[start_speeds[0], start_speeds[1], start_speeds[2]]
+                           [-start_speeds[0], 0, start_speeds[2]],
+                           [start_speeds[0], start_speeds[1], start_speeds[2]]
                            ]
         self.repetitions = repetitions
         self.multi_objective = multi_objective
