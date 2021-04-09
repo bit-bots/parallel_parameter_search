@@ -234,8 +234,8 @@ class AbstractWalkOptimization(AbstractRosOptimization):
             print("cutting!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1")
         pose_cost = min(1, pose_cost)
 
-        # if error higher than 10% we will stop
-        didnt_move = pose_cost > 0.1
+        # if error higher than 25% we will stop. there is also always some error from start and stop taking some time
+        didnt_move = pose_cost > 0.25
         if didnt_move:
             print("didn't move")
 
