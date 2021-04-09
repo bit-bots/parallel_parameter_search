@@ -212,11 +212,12 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         else:
             # Pythagoras
             trans_target = math.sqrt(correct_pose[0] ** 2 + correct_pose[1] ** 2)
-        if v_yaw == 0:
-            rot_target = math.tau
-        else:
-            rot_target = abs(math.sin(correct_pose[2]) - math.sin(current_pose[2])) + abs(
-                math.cos(correct_pose[2]) - math.cos(current_pose[2]))
+        #if v_yaw == 0:
+        # always take tau as meassurement
+        rot_target = math.tau
+        #else:
+        #    rot_target = abs(math.sin(correct_pose[2]) - math.sin(current_pose[2])) + abs(
+        #        math.cos(correct_pose[2]) - math.cos(current_pose[2]))
 
         # Pythagoras
         trans_error_abs = math.sqrt((correct_pose[0] - current_pose[0]) ** 2 + (correct_pose[1] - current_pose[1]) ** 2)
