@@ -29,15 +29,6 @@ TARGET = "optimize_walk.py"
 for i in range(args.runs):
     sim_procs = []
     for j in range(args.parallel):
-        system_call = [f"rosrun parallel_parameter_search {TARGET}",
-                       f"--name {args.name}_{i}",
-                       f"--storage {args.storage}",
-                       f"--robot {args.robot}",
-                       f"--sim {args.sim}",
-                       "--type engine",
-                       f"--startup {args.startup}",
-                       f"--sampler {args.sampler}",
-                       f"--trials {args.trials}"]
         system_call = f"rosrun parallel_parameter_search {TARGET} --name {args.name}_{i}  --storage {args.storage} --robot {args.robot} --sim {args.sim} --type engine --startup {args.startup} --sampler {args.sampler} --trials {args.trials}"
         sim_procs.append(subprocess.Popen(system_call, stdout=subprocess.PIPE, shell=True))
         # sleep a bit to prevent some issues with workers taking same namespace
