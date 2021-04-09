@@ -115,7 +115,7 @@ class AbstractWalkEngine(AbstractWalkOptimization):
             # special case of falling while standing
             directions_left = self.number_of_iterations * len(self.directions)
 
-        trial.set_user_attr("directions_left", fall_sum)
+        trial.set_user_attr("directions_left", directions_left)
         trial.set_user_attr("fall_sum", fall_sum)
         trial.set_user_attr("orientation_obj", orientation_obj)
         trial.set_user_attr("gyro_obj", gyro_obj)
