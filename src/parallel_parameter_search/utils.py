@@ -22,7 +22,7 @@ def load_yaml_to_param(namespace, package, file, rospack):
                 rospy.set_param(namespace + '/' + key + '/' + key_2, value_2)
         else:
             rospy.set_param(namespace + '/' + key, value)
-
+    return data
 
 def load_robot_param(namespace, rospack, name):
     rospy.set_param(namespace + '/robot_type_name', name)

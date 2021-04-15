@@ -43,7 +43,7 @@ class AbstractWalkEngine(AbstractWalkOptimization):
         orientation_obj_rep_sum = 0
         gyro_obj_rep_sum = 0
         # standing as first test, is not in loop as it will only be done once
-        fall_sum, didnt_move_sum, pose_obj, orientation_obj, gyro_obj = self.evaluate_direction(0, 0, 0, trial, 1, 1)
+        fall_sum, didnt_move_sum, pose_obj, orientation_obj, gyro_obj, end_poses = self.evaluate_direction(0, 0, 0, 1, 1)
         pose_obj_rep_sum += pose_obj
         orientation_obj_rep_sum += orientation_obj
         gyro_obj_rep_sum += gyro_obj
@@ -65,8 +65,8 @@ class AbstractWalkEngine(AbstractWalkOptimization):
                     # do multiple repetitions of the same values since behavior is not always exactly deterministic
                     for i in range(self.repetitions):
                         self.reset_position()
-                        fall, didnt_move, pose_obj, orientation_obj, gyro_obj = \
-                            self.evaluate_direction(*direction, trial, iteration, self.time_limit)
+                        fall, didnt_move, pose_obj, orientation_obj, gyro_obj, end_poses = \
+                            self.evaluate_direction(*direction, iteration, self.time_limit)
                         if fall:
                             fall_rep_sum += 1
                         if didnt_move:
@@ -221,7 +221,7 @@ class WolfgangWalkEngine(AbstractWalkEngine):
 
     def suggest_walk_params(self, trial):
         self._suggest_walk_params(trial, trunk_height=(0.3, 0.45), foot_distance=(0.15, 0.25), foot_rise=(0.05, 0.2),
-                                  trunk_x=0.05, z_movement=0.1)
+                                  trunk_x=0.1, z_movement=0.1)
 
 
 class DarwinWalkEngine(AbstractWalkEngine):

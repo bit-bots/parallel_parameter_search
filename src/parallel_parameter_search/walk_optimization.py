@@ -22,16 +22,16 @@ from sensor_msgs.msg import Imu, JointState
 
 class AbstractWalkOptimization(AbstractRosOptimization):
 
-    def __init__(self, namespace, robot_name, walk_as_node):
+    def __init__(self, namespace, robot_name, walk_as_node, config_name="_optimization"):
         super().__init__(namespace)
         self.rospack = rospkg.RosPack()
         # set robot urdf and srdf
         load_robot_param(self.namespace, self.rospack, robot_name)
 
         # load walk params
-        load_yaml_to_param(self.namespace, 'bitbots_quintic_walk',
-                           '/config/walking_' + robot_name + '_optimization.yaml',
-                           self.rospack)
+        self.param_yaml_data = load_yaml_to_param(self.namespace, 'bitbots_quintic_walk',
+                                                  '/config/walking_' + robot_name + config_name + '.yaml',
+                                                  self.rospack)
 
         self.walk_as_node = walk_as_node
         self.current_speed = None
@@ -66,7 +66,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
     def correct_pitch(self, x, y, yaw):
         return self.trunk_pitch + self.trunk_pitch_p_coef_forward * x + self.trunk_pitch_p_coef_turn * yaw
 
-    def evaluate_direction(self, x, y, yaw, trial: optuna.Trial, iteration, time_limit, start_speed=True):
+    def evaluate_direction(self, x, y, yaw, iteration, time_limit, start_speed=True):
         if time_limit == 0:
             time_limit = 1
         if start_speed:
@@ -102,9 +102,9 @@ class AbstractWalkOptimization(AbstractRosOptimization):
 
             if passed_time > time_limit + 2:
                 # robot should have stopped now, evaluate the fitness
-                didnt_move, pose_cost = self.compute_cost(x * iteration, y * iteration, yaw * iteration)
+                didnt_move, pose_cost, poses = self.compute_cost(x * iteration, y * iteration, yaw * iteration)
                 return False, didnt_move, pose_cost, orientation_diff / passed_timesteps, \
-                       angular_vel_diff / passed_timesteps
+                       angular_vel_diff / passed_timesteps, poses
 
             # test if the robot has fallen down
             pos, rpy = self.sim.get_robot_pose_rpy()
@@ -114,9 +114,9 @@ class AbstractWalkOptimization(AbstractRosOptimization):
             # get angular_vel diff scaled to 0-1. dont take yaw, since we might actually turn around it
             angular_vel_diff += min(1, (abs(imu_msg.angular_velocity.x) + abs(imu_msg.angular_velocity.y)) / 60)
             if abs(rpy[0]) > math.radians(45) or abs(rpy[1]) > math.radians(45) or pos[2] < self.trunk_height / 2:
-                didnt_move, pose_cost = self.compute_cost(x * iteration, y * iteration, yaw * iteration)
+                didnt_move, pose_cost, poses = self.compute_cost(x * iteration, y * iteration, yaw * iteration)
                 return True, didnt_move, pose_cost, orientation_diff / passed_timesteps, \
-                       angular_vel_diff / passed_timesteps
+                       angular_vel_diff / passed_timesteps, poses
 
             if self.walk_as_node:
                 # give time to other algorithms to compute their responses
@@ -212,12 +212,8 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         else:
             # Pythagoras
             trans_target = math.sqrt(correct_pose[0] ** 2 + correct_pose[1] ** 2)
-        #if v_yaw == 0:
         # always take tau as meassurement
         rot_target = math.tau
-        #else:
-        #    rot_target = abs(math.sin(correct_pose[2]) - math.sin(current_pose[2])) + abs(
-        #        math.cos(correct_pose[2]) - math.cos(current_pose[2]))
 
         # Pythagoras
         trans_error_abs = math.sqrt((correct_pose[0] - current_pose[0]) ** 2 + (correct_pose[1] - current_pose[1]) ** 2)
@@ -240,7 +236,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         if didnt_move:
             print("didn't move")
 
-        return didnt_move, pose_cost
+        return didnt_move, pose_cost, (correct_pose, current_pose)
 
     def reset_position(self):
         height = self.trunk_height + self.reset_height_offset
