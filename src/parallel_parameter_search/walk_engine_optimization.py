@@ -226,7 +226,7 @@ class WolfgangWalkEngine(AbstractWalkEngine):
 
 class OP2WalkEngine(AbstractWalkEngine):
     def __init__(self, namespace, gui, walk_as_node, sim_type='webots', repetitions=1, multi_objective=False):
-        super(OP2WalkEngine, self).__init__(namespace, gui, 'op2', walk_as_node, sim_type,
+        super(OP2WalkEngine, self).__init__(namespace, gui, 'robotis_op2', walk_as_node, sim_type,
                                                foot_link_names=['MP_ANKLE2_L', 'MP_ANKLE2_R'],
                                                start_speeds=[0.05, 0.025, 0.25], repetitions=repetitions,
                                                multi_objective=multi_objective)
