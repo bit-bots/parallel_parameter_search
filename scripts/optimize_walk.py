@@ -13,7 +13,7 @@ import numpy as np
 
 import rospy
 
-from parallel_parameter_search.walk_engine_optimization import DarwinWalkEngine, WolfgangWalkEngine, OP3WalkEngine, \
+from parallel_parameter_search.walk_engine_optimization import OP2WalkEngine, WolfgangWalkEngine, OP3WalkEngine, \
     NaoWalkEngine
 
 from parallel_parameter_search.walk_stabilization import WolfgangWalkStabilization
@@ -22,7 +22,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--storage', help='Database SQLAlchemy string, e.g. postgresql://USER:PASS@SERVER/DB_NAME',
                     default=None, type=str, required=False)
 parser.add_argument('--name', help='Name of the study', default=None, type=str, required=True)
-parser.add_argument('--robot', help='Robot model that should be used {wolfgang, darwin, op3, nao} ',
+parser.add_argument('--robot', help='Robot model that should be used {wolfgang, op2, op3, nao} ',
                     default=None, type=str, required=True)
 parser.add_argument('--sim', help='Simulator type that should be used {pybullet, webots} ', default=None, type=str,
                     required=True)
@@ -78,8 +78,8 @@ study.set_user_attr("type", args.type)
 study.set_user_attr("repetitions", args.repetitions)
 
 if args.type == "engine":
-    if args.robot == "darwin":
-        objective = DarwinWalkEngine('worker', gui=args.gui, walk_as_node=args.node, sim_type=args.sim,
+    if args.robot == "op2":
+        objective = OP2WalkEngine('worker', gui=args.gui, walk_as_node=args.node, sim_type=args.sim,
                                      repetitions=args.repetitions, multi_objective=multi_objective)
     elif args.robot == "wolfgang":
         objective = WolfgangWalkEngine('worker', gui=args.gui, walk_as_node=args.node, sim_type=args.sim,

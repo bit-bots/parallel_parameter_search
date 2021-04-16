@@ -224,9 +224,9 @@ class WolfgangWalkEngine(AbstractWalkEngine):
                                   trunk_x=0.1, z_movement=0.1)
 
 
-class DarwinWalkEngine(AbstractWalkEngine):
+class OP2WalkEngine(AbstractWalkEngine):
     def __init__(self, namespace, gui, walk_as_node, sim_type='webots', repetitions=1, multi_objective=False):
-        super(DarwinWalkEngine, self).__init__(namespace, gui, 'darwin', walk_as_node, sim_type,
+        super(OP2WalkEngine, self).__init__(namespace, gui, 'op2', walk_as_node, sim_type,
                                                foot_link_names=['MP_ANKLE2_L', 'MP_ANKLE2_R'],
                                                start_speeds=[0.05, 0.025, 0.25], repetitions=repetitions,
                                                multi_objective=multi_objective)
