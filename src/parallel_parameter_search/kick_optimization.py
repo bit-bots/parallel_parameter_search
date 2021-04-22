@@ -110,7 +110,7 @@ class AbstractKickOptimization(AbstractRosOptimization):
 
         add('foot_rise', 0.05, 0.15, 0.01)
         add('foot_distance', 0.15, 0.25, 0.01)
-        add('kick_windup_distance', 0.1, 0.4, 0.01)
+        add('kick_windup_distance', 0.1, 0.6, 0.01)
         add('trunk_height', 0.35, 0.45, 0.01)
         add('trunk_roll', math.radians(-30), math.radians(30), math.radians(0.1))
         add('trunk_pitch', math.radians(-30), math.radians(30), math.radians(0.1))
