@@ -224,11 +224,28 @@ class AbstractKickOptimization(AbstractRosOptimization):
 
     def set_to_walkready(self):
         """Set the robot to walkready position"""
-        walkready = {"LAnklePitch": -30, "LAnkleRoll": 0, "LHipPitch": 30, "LHipRoll": 0,
-                     "LHipYaw": 0, "LKnee": 60, "RAnklePitch": 30, "RAnkleRoll": 0,
-                     "RHipPitch": -30, "RHipRoll": 0, "RHipYaw": 0, "RKnee": -60,
-                     "LShoulderPitch": 0, "LShoulderRoll": 0, "LElbow": 45, "RShoulderPitch": 0,
-                     "RShoulderRoll": 0, "RElbow": -45, "HeadPan": 0, "HeadTilt": 0}
+        walkready = {
+            "HeadPan": 0.0,
+            "HeadTilt": 0.0,
+            "LShoulderPitch": 34.341900058232895,
+            "LShoulderRoll": -0.10187296337477583,
+            "LElbow": 17.4089039999328,
+            "RShoulderPitch": -34.52380590822163,
+            "RShoulderRoll": 0.10154916169401929,
+            "RElbow": -17.44692966568184,
+            "LHipYaw": -0.9420455109052479,
+            "LHipRoll": 4.156114615225981,
+            "LHipPitch": 42.51810038124632,
+            "LKnee": 76.46280204571194,
+            "LAnklePitch": -31.726953021845897,
+            "LAnkleRoll": 4.261305249797921,
+            "RHipYaw": 1.3537998702115084,
+            "RHipRoll": -5.959789935735837,
+            "RHipPitch": -42.127449488675886,
+            "RKnee": -75.79323597048764,
+            "RAnklePitch": 31.484250845285846,
+            "RAnkleRoll": -7.3988993750834995
+        }
         msg = JointCommand()
         for name, pos in walkready.items():
             msg.joint_names.append(name)
