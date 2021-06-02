@@ -71,6 +71,45 @@ else:
     study.set_user_attr("sampler", args.sampler)
 
     objective = WolfgangKickEngineOptimization('worker', gui=args.gui, sim_type=args.sim, multi_objective=multi_objective)
+
+    # Enqueue some good parameters
+    study.enqueue_trial({
+        'foot_rise': 0.08,
+        'foot_distance': 0.2,
+        'kick_windup_distance': 0.5,
+        'trunk_height': 0.41,
+        'trunk_roll': 0.1,
+        'trunk_pitch': -0.141,
+        'trunk_yaw': 0.0611,
+        'move_trunk_time': 0.59,
+        'raise_foot_time': 0.22,
+        'move_to_ball_time': 0.19,
+        'kick_time': 0.27,
+        'move_back_time': 0.21,
+        'lower_foot_time': 0.06,
+        'move_trunk_back_time': 0.08,
+        'stabilizing_point_x': -0.02,
+        'stabilizing_point_y': -0.02
+    })
+    study.enqueue_trial({
+         'foot_rise': 0.08,
+         'foot_distance': 0.17,
+         'kick_windup_distance': 0.23,
+         'trunk_height': 0.36,
+         'trunk_roll': -0.208,
+         'trunk_pitch': 0.134,
+         'trunk_yaw': -0.007,
+         'move_trunk_time': 0.64,
+         'raise_foot_time': 0.24,
+         'move_to_ball_time': 0.13,
+         'kick_time': 0.16,
+         'move_back_time': 0.15,
+         'lower_foot_time': 0.2,
+         'move_trunk_back_time': 0.12,
+         'stabilizing_point_x': -0.02,
+         'stabilizing_point_y': 0.01,
+    })
+
     study.optimize(objective.objective, n_trials=args.trials, show_progress_bar=True, callbacks=callbacks)
 
 if multi_objective:
