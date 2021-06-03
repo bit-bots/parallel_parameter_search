@@ -196,6 +196,9 @@ class AbstractWalkEngine(AbstractWalkOptimization):
         node_param_dict["max_step_xy"] = 100.0
         node_param_dict["max_step_z"] = 100.0
         node_param_dict["max_step_angular"] = 100.0
+        node_param_dict["x_speed_multiplier"] = 1.0
+        node_param_dict["y_speed_multiplier"] = 1.0
+        node_param_dict["yaw_speed_multiplier"] = 1.0
 
         if self.walk_as_node:
             self.set_params(engine_param_dict)

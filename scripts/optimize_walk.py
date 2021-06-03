@@ -80,7 +80,7 @@ study.set_user_attr("repetitions", args.repetitions)
 if args.type == "engine":
     if args.robot == "op2":
         objective = OP2WalkEngine('worker', gui=args.gui, walk_as_node=args.node, sim_type=args.sim,
-                                     repetitions=args.repetitions, multi_objective=multi_objective)
+                                  repetitions=args.repetitions, multi_objective=multi_objective)
     elif args.robot == "wolfgang":
         objective = WolfgangWalkEngine('worker', gui=args.gui, walk_as_node=args.node, sim_type=args.sim,
                                        repetitions=args.repetitions, multi_objective=multi_objective)
@@ -101,21 +101,18 @@ elif args.type == "stabilization":
 else:
     print(f"Optimization type {args.type} not known.")
 
-if False:
-    for i in range(10):
-        study.enqueue_trial({"double_support_ratio": 0.369694443662441, "first_step_swing_factor": 1.04028436026275,
-                             "foot_distance": 0.186644036694725, "foot_rise": 0.108502704375464,
-                             "freq": 3.19944576861961, "trunk_height": 0.381180602932207,
-                             "trunk_phase": -0.244950770548031, "trunk_pitch": -0.124632420856334,
-                             "trunk_pitch_p_coef_forward": -1.57554945435966,
-                             "trunk_pitch_p_coef_turn": -2.36469993812327, "trunk_swing": 0.636554760401973,
-                             "trunk_x_offset": 0.00881017251760879, "trunk_y_offset": 0.00294130337982147,
-                             "trunk_z_movement": 0.0118517315556505, "directions_left": 1.0,
-                             "early_termination_at": [-0.6000000000000001, 0, 0.75], "fall_sum": 1.0,
-                             "first_step_trunk_phase": -0.5, "foot_apex_phase": 0.5, "foot_overshoot_phase": 1,
-                             "foot_overshoot_ratio": 0.0, "foot_put_down_phase": 1, "foot_z_pause": 0,
-                             "pose_obj": 0.22548865711055652, "stability_obj": 0.2840129391949184,
-                             "time_obj": 1.4760000000012212, "trunk_pause": 0})
+if True:
+    # old params
+    study.enqueue_trial({"double_support_ratio": 0.2, "first_step_swing_factor": 1.0,
+                         "foot_distance": 0.2, "foot_rise": 0.06, "freq": 1.8, "trunk_height": 0.4,
+                         "trunk_phase": -0.1, "trunk_pitch": 0.12,
+                         "trunk_pitch_p_coef_forward": 1.2,
+                         "trunk_pitch_p_coef_turn": -0.05, "trunk_swing": 0.4,
+                         "trunk_x_offset": 0.0, "trunk_y_offset": 0.005,
+                         "trunk_z_movement": 0.0,
+                         })
+    # best from first optimization
+    study.enqueue_trial({"double_support_ratio": 0.205697020634591, "first_step_swing_factor": 1.43802181605666, "foot_distance": 0.193167886146203, "foot_rise": 0.0634321629243628, "freq": 1.8808567497048, "trunk_height": 0.391032569052562, "trunk_phase": -0.225213829524181, "trunk_pitch": 0.178415760885359, "trunk_pitch_p_coef_forward": 0.20532497579384, "trunk_pitch_p_coef_turn": -0.323293138896975, "trunk_swing": 0.415852788166455, "trunk_x_offset": -0.0256820805595823, "trunk_y_offset": 0.00563280748937276, "trunk_z_movement": 0.00571131278337307, "directions_left": 49.0, "early_termination_at": [-0.4, 0, -0.5], "fall_sum": 0.0, "first_step_trunk_phase": -0.5, "foot_apex_phase": 0.5, "foot_overshoot_phase": 1, "foot_overshoot_ratio": 0.0, "foot_put_down_phase": 1, "foot_z_pause": 0, "gyro_obj": 0.006953839505414933, "last_pose_obj": 0.39065288525448194, "orientation_obj": 0.05556051354802003, "pose_obj": 0.17953555963822976, "stability_obj": 0.03125717652671748, "trunk_pause": 0})
 
 study.optimize(objective.objective, n_trials=args.trials, show_progress_bar=True)
 

@@ -43,7 +43,7 @@ class AbstractDynupOptimization(AbstractRosOptimization):
                 self.sim = PybulletSim(self.namespace, gui, urdf_path=urdf_path,
                                        foot_link_names=foot_link_names, terrain=True, field=False, robot=robot)
             elif sim_type == 'webots':
-                self.sim = WebotsSim(self.namespace, gui, robot, world="flat_world", ros_active=True)
+                self.sim = WebotsSim(self.namespace, gui, robot, world="walk_optim_wolfgang", ros_active=True)
             else:
                 print(f'sim type {sim_type} not known')
         # load dynup params
@@ -80,7 +80,7 @@ class AbstractDynupOptimization(AbstractRosOptimization):
             print(f"direction {self.direction}")
             exit(0)
         if self.robot == "wolfgang":
-            self.trunk_height = 0.4  # rosparam.get_param(self.namespace + "/dynup/trunk_height")
+            self.trunk_height = 0.391  # rosparam.get_param(self.namespace + "/dynup/trunk_height")
         elif self.robot == "robotis_op2":
             self.trunk_height = 0.2
         elif self.robot == "sigmaban":
@@ -88,7 +88,7 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         else:
             print(f"------robot {self.robot} not known-------")
             exit()
-        self.trunk_pitch = 0.0
+        self.trunk_pitch = 0.178
 
         self.result_subscriber = rospy.Subscriber(self.namespace + "/dynup/result", DynUpActionResult, self.result_cb)
         self.command_sub = rospy.Subscriber(self.namespace + "/DynamixelController/command", JointCommand,
@@ -566,15 +566,17 @@ class WolfgangOptimization(AbstractDynupOptimization):
             # self.pid_params(trial, "trunk_roll", self.trunk_roll_client, (-2, 2), (-4, 4), (0, 0.1), (-2, 2))
         else:
             fix("stabilizing", False)
-            fix("trunk_x_final", 0)
+            fix("trunk_x_final", -0.0256)
             add("rise_time", 0, 2, step=step_time)
             add("arm_side_offset", 0.13, 0.2, step=step_cartesian)
 
             # these are basically goal position variables, that the user has to define
             fix("trunk_height", self.trunk_height)
-            fix("trunk_pitch", 0)
-            fix("foot_distance", 0.2)
-            fix("hand_walkready_pitch", -60)
+            fix("trunk_pitch", self.trunk_pitch)
+            fix("foot_distance", 0.193)
+            fix("hand_walkready_pitch", -25)
+            fix("hand_walkready_height", -0.35)
+            fix("arm_extended_length", 0.3)
 
             if self.direction == "front":
                 add("leg_min_length_front", 0.1, 0.3, step=step_cartesian)

@@ -102,16 +102,16 @@ study.set_user_attr("score", args.score)
 #                     "trunk_x": -0.05,
 #                     "max_leg_angle": 60})
 
-if False:
+if True:
+    # old sim params
     study.enqueue_trial(
-        {"arm_side_offset": 0.0677590160887494, "leg_min_length": 0.2067670533147, "max_leg_angle": 30.4292309010807,
-         "rise_time": 0.0733678477255489, "time_foot_close": 0.146339845575924,
-         "time_foot_ground_front": 0.0693103655425997, "time_hands_front": 0.124713299857784,
-         "time_hands_rotate": 0.326563977601274, "time_hands_side": 0.0560835529050166,
-         "time_to_squat": 0.188037029076921, "time_torso_45": 0.281232209972938,
-         "trunk_overshoot_angle_front": -43.938101118461, "trunk_x_front": 0.0362803269077757,
-         "wait_in_squat_front": 0.0763752798324003, "foot_distance": 0.2, "hand_walkready_pitch": -60.0,
-         "stabilizing": False, "trunk_height": 0.4, "trunk_pitch": 0.0, "trunk_x_final": 0.0})
+        {"arm_side_offset": 0.148, "leg_min_length_front": 0.244, "leg_min_length_back": 0.253, "max_leg_angle": 71.71,
+         "rise_time": 0.84, "time_foot_close": 0.0,
+         "time_foot_ground_front": 0.132, "time_hands_front": 0.396,
+         "time_hands_rotate": 0.231, "time_hands_side": 0.132,
+         "time_to_squat": 0.924, "time_torso_45": 0.462,
+         "trunk_overshoot_angle_front": -10.54, "trunk_x_front": 0.091,
+         "wait_in_squat_front": 0.165})
 
 if args.stability:
     study.enqueue_trial(
