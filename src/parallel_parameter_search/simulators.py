@@ -37,6 +37,9 @@ class AbstractSim:
     def set_gravity(self, on):
         raise NotImplementedError
 
+    def set_self_collision(self, active):
+        raise NotImplementedError
+
     def reset_robot_pose(self, pos, quat):
         raise NotImplementedError
 
@@ -203,6 +206,9 @@ class WebotsSim(AbstractSim, ABC):
 
     def set_gravity(self, on):
         self.robot_controller.set_gravity(on)
+
+    def set_self_collision(self, active):
+        self.robot_controller.set_self_collision(active)
 
     def reset_robot_pose(self, pos, quat):
         self.robot_controller.reset_robot_pose(pos, quat)

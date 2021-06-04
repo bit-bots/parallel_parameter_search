@@ -88,7 +88,7 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         else:
             print(f"------robot {self.robot} not known-------")
             exit()
-        self.trunk_pitch = 0.178
+        self.trunk_pitch = 0
 
         self.result_subscriber = rospy.Subscriber(self.namespace + "/dynup/result", DynUpActionResult, self.result_cb)
         self.command_sub = rospy.Subscriber(self.namespace + "/DynamixelController/command", JointCommand,
@@ -434,10 +434,11 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         else:
             # reset simulation
             self.sim.set_gravity(False)
+            self.sim.set_self_collision(False)
             self.sim.reset_robot_pose((0, 0, 1), (0, 0, 0, 1))
         time = self.get_time()
 
-        while self.get_time() - time < 2:
+        while self.get_time() - time < 10:
             msg = JointCommand()
             if self.robot == "wolfgang":
                 msg.joint_names = ["HeadPan", "HeadTilt", "LElbow", "LShoulderPitch", "LShoulderRoll", "RElbow",
@@ -446,7 +447,7 @@ class AbstractDynupOptimization(AbstractRosOptimization):
                                    "RAnklePitch",
                                    "RAnkleRoll"]
                 if self.direction == "back":
-                    msg.positions = [0, 0, 0.79, 0, 0, -0.79, 0, 0, -0.01, 0.06, 0.47, 1.01, -0.45, 0.06, 0.01, -0.06,
+                    msg.positions = [0, 0, 0.82, 0.89, 0, -0.82, -0.89, 0, -0.01, 0.06, 0.47, 1.01, -0.45, 0.06, 0.01, -0.06,
                                      -0.47,
                                      -1.01, 0.45, -0.06]  # walkready
                 elif self.direction == "front":
@@ -488,6 +489,7 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         else:
             self.reset_position()
             self.sim.set_gravity(True)
+            self.sim.set_self_collision(True)
             time = self.get_time()
             while not self.get_time() - time > 2:
                 self.sim.step_sim()
