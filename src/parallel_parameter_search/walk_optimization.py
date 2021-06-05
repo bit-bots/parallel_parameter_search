@@ -251,6 +251,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         # reset simulation
         # let the robot do a few steps in the air to get correct walkready position
         self.sim.set_gravity(False)
+        self.sim.set_self_collision(False)
         self.sim.reset_robot_pose((0, 0, 1), (0, 0, 0, 1))
         self.set_cmd_vel(0.1, 0, 0)
         # set arms correctly
@@ -268,6 +269,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         else:
             self.complete_walking_step()
         self.sim.set_gravity(True)
+        self.sim.set_self_collision(True)
         self.reset_position()
 
     def set_cmd_vel(self, x, y, yaw):
