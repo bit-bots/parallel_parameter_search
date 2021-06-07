@@ -256,8 +256,9 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         self.set_cmd_vel(0.1, 0, 0)
         # set arms correctly
         joint_command_msg = JointCommand()
-        joint_command_msg.joint_names = ["LElbow", "RElbow"]
-        joint_command_msg.positions = [math.radians(60), math.radians(-60)]
+        joint_command_msg.joint_names = ["LElbow", "RElbow", "LShoulderPitch", "RShoulderPitch"]
+        joint_command_msg.positions = [math.radians(35.86), math.radians(-36.10), math.radians(75.27),
+                                       math.radians(-75.58)]
         self.sim.set_joints(joint_command_msg)
         if self.walk_as_node:
             self.sim.run_simulation(duration=2, sleep=0.01)
