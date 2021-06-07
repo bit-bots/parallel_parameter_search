@@ -32,7 +32,7 @@ for i in range(args.runs):
         system_call = f"rosrun parallel_parameter_search {TARGET} --name {args.name}_{i}  --storage {args.storage} --robot {args.robot} --sim {args.sim} --type engine --startup {args.startup} --sampler {args.sampler} --trials {args.trials}"
         sim_procs.append(subprocess.Popen(system_call, stdout=subprocess.PIPE, shell=True))
         # sleep a bit to prevent some issues with workers taking same namespace
-        sleep(10)
+        sleep(20)
     print(sim_procs)
     # wait for all to finish
     for p in sim_procs:

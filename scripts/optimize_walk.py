@@ -102,7 +102,6 @@ else:
     print(f"Optimization type {args.type} not known.")
 
 if True:
-    print(study.get_trials())
     if len(study.get_trials()) == 0:
         # old params
         study.enqueue_trial({"double_support_ratio": 0.2, "first_step_swing_factor": 1.0,
