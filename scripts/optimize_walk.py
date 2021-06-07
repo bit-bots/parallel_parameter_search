@@ -30,7 +30,7 @@ parser.add_argument('--gui', help="Activate gui", action='store_true')
 parser.add_argument('--node', help="Run walking as extra node", action='store_true')
 parser.add_argument('--type', help='Optimization type that should be used {engine, stabilization} ', default=None,
                     type=str, required=True)
-parser.add_argument('--startup', help='Startup trials', default=None,
+parser.add_argument('--startup', help='Startup trials', default=-1,
                     type=int, required=False)
 parser.add_argument('--trials', help='Trials to be evaluated', default=10000,
                     type=int, required=True)
@@ -52,7 +52,7 @@ if args.sampler == "TPE":
 elif args.sampler == "CMAES":
     sampler = CmaEsSampler(n_startup_trials=n_startup_trials, seed=seed)
 elif args.sampler == "MOTPE":
-    if n_startup_trials is None:
+    if n_startup_trials is -1:
         n_startup_trials = num_variables * 11 - 1
     sampler = MOTPESampler(n_startup_trials=n_startup_trials, seed=seed)
     multi_objective = True

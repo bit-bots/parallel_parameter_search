@@ -15,7 +15,7 @@ parser.add_argument('--robot', help='Robot model that should be used {wolfgang, 
                     default=None, type=str, required=True)
 parser.add_argument('--sim', help='Simulator type that should be used {pybullet, webots} ', default=None, type=str,
                     required=True)
-parser.add_argument('--startup', help='Startup trials', default=None, type=int, required=False)
+parser.add_argument('--startup', help='Startup trials', default=-1, type=int, required=False)
 parser.add_argument('--trials', help='Trials to be evaluated', default=1000, type=int, required=True)
 parser.add_argument('--sampler', help='Which sampler {TPE, CMAES}', type=str, required=True)
 parser.add_argument('--runs', help='How often should the study be performed', default=1, type=int, required=True)
