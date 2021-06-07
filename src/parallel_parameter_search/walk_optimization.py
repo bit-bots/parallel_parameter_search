@@ -261,12 +261,12 @@ class AbstractWalkOptimization(AbstractRosOptimization):
                                        math.radians(-75.58)]
         self.sim.set_joints(joint_command_msg)
         if self.walk_as_node:
-            self.sim.run_simulation(duration=2, sleep=0.01)
+            self.sim.run_simulation(duration=4, sleep=0.01)
         else:
             self.complete_walking_step()
         self.set_cmd_vel(0, 0, 0)
         if self.walk_as_node:
-            self.sim.run_simulation(duration=2, sleep=0.01)
+            self.sim.run_simulation(duration=4, sleep=0.01)
         else:
             self.complete_walking_step()
         self.sim.set_gravity(True)
