@@ -102,17 +102,42 @@ else:
     print(f"Optimization type {args.type} not known.")
 
 if True:
-    # old params
-    study.enqueue_trial({"double_support_ratio": 0.2, "first_step_swing_factor": 1.0,
-                         "foot_distance": 0.2, "foot_rise": 0.06, "freq": 1.8, "trunk_height": 0.4,
-                         "trunk_phase": -0.1, "trunk_pitch": 0.12,
-                         "trunk_pitch_p_coef_forward": 1.2,
-                         "trunk_pitch_p_coef_turn": -0.05, "trunk_swing": 0.4,
-                         "trunk_x_offset": 0.0, "trunk_y_offset": 0.005,
-                         "trunk_z_movement": 0.0,
-                         })
-    # best from first optimization
-    study.enqueue_trial({"double_support_ratio": 0.205697020634591, "first_step_swing_factor": 1.43802181605666, "foot_distance": 0.193167886146203, "foot_rise": 0.0634321629243628, "freq": 1.8808567497048, "trunk_height": 0.391032569052562, "trunk_phase": -0.225213829524181, "trunk_pitch": 0.178415760885359, "trunk_pitch_p_coef_forward": 0.20532497579384, "trunk_pitch_p_coef_turn": -0.323293138896975, "trunk_swing": 0.415852788166455, "trunk_x_offset": -0.0256820805595823, "trunk_y_offset": 0.00563280748937276, "trunk_z_movement": 0.00571131278337307, "directions_left": 49.0, "early_termination_at": [-0.4, 0, -0.5], "fall_sum": 0.0, "first_step_trunk_phase": -0.5, "foot_apex_phase": 0.5, "foot_overshoot_phase": 1, "foot_overshoot_ratio": 0.0, "foot_put_down_phase": 1, "foot_z_pause": 0, "gyro_obj": 0.006953839505414933, "last_pose_obj": 0.39065288525448194, "orientation_obj": 0.05556051354802003, "pose_obj": 0.17953555963822976, "stability_obj": 0.03125717652671748, "trunk_pause": 0})
+    print(study.get_trials())
+    if len(study.get_trials()) == 0:
+        # old params
+        study.enqueue_trial({"double_support_ratio": 0.2, "first_step_swing_factor": 1.0,
+                             "foot_distance": 0.2, "foot_rise": 0.06, "freq": 1.8, "trunk_height": 0.4,
+                             "trunk_phase": -0.1, "trunk_pitch": 0.12,
+                             "trunk_pitch_p_coef_forward": 1.2,
+                             "trunk_pitch_p_coef_turn": -0.05, "trunk_swing": 0.4,
+                             "trunk_x_offset": 0.0, "trunk_y_offset": 0.005,
+                             "trunk_z_movement": 0.0,
+                             })
+        # best from first optimization
+        study.enqueue_trial({"double_support_ratio": 0.205697020634591, "first_step_swing_factor": 1.43802181605666,
+                             "foot_distance": 0.193167886146203, "foot_rise": 0.0634321629243628,
+                             "freq": 1.8808567497048,
+                             "trunk_height": 0.391032569052562, "trunk_phase": -0.225213829524181,
+                             "trunk_pitch": 0.178415760885359, "trunk_pitch_p_coef_forward": 0.20532497579384,
+                             "trunk_pitch_p_coef_turn": -0.323293138896975, "trunk_swing": 0.415852788166455,
+                             "trunk_x_offset": -0.0256820805595823, "trunk_y_offset": 0.00563280748937276,
+                             "trunk_z_movement": 0.00571131278337307, })
+
+        # best from second optimization
+        study.enqueue_trial({"double_support_ratio": 0.15,
+                             "first_step_swing_factor": 1.0,
+                             "foot_distance": 0.193,
+                             "foot_rise": 0.08,
+                             "freq": 1.881,
+                             "trunk_height": 0.391,
+                             "trunk_phase": -0.225,
+                             "trunk_pitch": 0.178,
+                             "trunk_pitch_p_coef_forward": 0.205,
+                             "trunk_pitch_p_coef_turn": -0.323,
+                             "trunk_swing": 0.3,
+                             "trunk_x_offset": -0.0256,
+                             "trunk_y_offset": 0.0056,
+                             "trunk_z_movement": 0.0057})
 
 study.optimize(objective.objective, n_trials=args.trials, show_progress_bar=True)
 
