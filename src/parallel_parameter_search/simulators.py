@@ -228,6 +228,9 @@ class WebotsSim(AbstractSim, ABC):
     def reset(self):
         self.robot_controller.reset()
 
+    def rest_robot_init(self):
+        self.robot_controller.reset_robot_init()
+
     def get_time(self):
         return self.robot_controller.time
 
