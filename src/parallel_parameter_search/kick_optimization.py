@@ -14,9 +14,10 @@ from parallel_parameter_search.simulators import PybulletSim, WebotsSim
 
 
 class AbstractKickOptimization(AbstractRosOptimization):
-    def __init__(self, namespace, gui, robot_name, sim_type, multi_objective, foot_link_names=()):
+    def __init__(self, namespace, gui, robot_name, sim_type, multi_objective, foot_link_names=(), kamikaze=False):
         super().__init__(namespace)
         self.multi_objective = multi_objective
+        self.kamikaze = kamikaze
         self.rospack = rospkg.RosPack()
         # set robot urdf and srdf
         load_robot_param(self.namespace, self.rospack, robot_name)
@@ -41,12 +42,19 @@ class AbstractKickOptimization(AbstractRosOptimization):
             sys.exit(f'sim type {sim_type} not known')
 
         # each direction consists of x, y (ball position), yaw (kick direction) and kick speed
-        self.directions = ((0.2, 0.09, 0, 1),  # straight kick, left
-                           (0.2, -0.09, 0, 1),  # straight kick, right
-                           (0.2, 0, 0, 1),  # straight kick in the middle
-                           (0.2, 0.09, math.radians(90), 1),  # side kick, to left side
-                           (0.2, -0.09, -math.radians(90), 1),  # side kick, to right side
-                           )
+        #self.directions = ((0.2, 0.09, 0, 1),  # straight kick, left
+        #                   (0.2, -0.09, 0, 1),  # straight kick, right
+        #                   (0.2, 0, 0, 1),  # straight kick in the middle
+        #                   (0.2, 0.09, math.radians(90), 1),  # side kick, to left side
+        #                   (0.2, -0.09, -math.radians(90), 1),  # side kick, to right side
+        #                   )
+        self.directions = ((0.2, 0.09, 0),
+                           (0.2, -0.09, 0),
+                           (0.2, 0, 0),
+                           (0.2, 0, math.radians(20)),
+                           (0.2, 0, math.radians(-20)))
+
+        self.kick_speed = 0
 
         # needs to be specified by subclasses
         self.reset_trunk_height = 0
@@ -83,15 +91,18 @@ class AbstractKickOptimization(AbstractRosOptimization):
                     ]
                     return cost
             else:
-                if fell:
-                    # just take a rather large cost
-                    cost_try = 10 / self.sim.get_timestep()
+                if self.kamikaze:
+                    cost_try = -ball_velocity
                 else:
-                    # Minimize error and steps, maximize velocity
-                    cost_try = direction_error * steps / ball_velocity
+                    if fell:
+                        # just take a rather large cost
+                        cost_try = 10 / self.sim.get_timestep()
+                    else:
+                        # Minimize error and steps, maximize velocity
+                        cost_try = direction_error * steps / ball_velocity
                 cost += cost_try
                 # check if we failed in this direction and terminate this trial early
-                if fell:
+                if not self.kamikaze and fell:
                     # terminate early and give large cost for each try left
                     return cost + (10 / self.sim.get_timestep()) * (len(self.directions) - d)
         return cost
@@ -132,19 +143,21 @@ class AbstractKickOptimization(AbstractRosOptimization):
 
         self.kick.set_params(param_dict)
 
-    def evaluate_goal(self, x, y, yaw, speed, trial: optuna.Trial):
+        self.kick_speed = trial.suggest_float('kick_speed', 0, 10, step=0.1)
+
+    def evaluate_goal(self, x, y, yaw, trial: optuna.Trial):
         """
         Evaluate a single kick goal, i.e. one execution of a kick
         Returns robot fell down before kick?, robot fell down?, number of timesteps, maximum ball velocity, ball direction
         """
         max_ball_velocity = 0
         max_ball_velocity_vector = (0, 0)
-        goal_msg = self.get_kick_goal_msg(x, y, yaw, speed)
+        goal_msg = self.get_kick_goal_msg(x, y, yaw)
         self.kick.set_goal(goal_msg, self.sim.get_joint_state_msg())
         self.sim.place_ball(x, y)
         self.sim.step_sim()
         self.sim.step_sim()
-        print(f'goal: {x} {y} {yaw} {speed}')
+        print(f'goal: {x} {y} {yaw}')
         start_time = self.sim.get_time()
         kick_finished = False
         self.last_time = self.sim.get_time()
@@ -272,20 +285,20 @@ class AbstractKickOptimization(AbstractRosOptimization):
         for _ in range(20):
             self.sim.step_sim()
 
-    def get_kick_goal_msg(self, x, y, yaw, speed):
+    def get_kick_goal_msg(self, x, y, yaw):
         msg = KickGoal()
         msg.header.stamp = rospy.Time(self.sim.get_time())
         msg.header.frame_id = "base_footprint"
         msg.kick_direction = Quaternion(*quaternion_from_euler(0, 0, yaw))
-        msg.kick_speed = speed
+        msg.kick_speed = self.kick_speed
         msg.ball_position.x = x
         msg.ball_position.y = y
         return msg
 
 
 class WolfgangKickEngineOptimization(AbstractKickOptimization):
-    def __init__(self, namespace, gui, sim_type='pybullet', multi_objective=False):
-        super().__init__(namespace, gui, 'wolfgang', sim_type, multi_objective)
+    def __init__(self, namespace, gui, sim_type='pybullet', multi_objective=False, kamikaze=False):
+        super().__init__(namespace, gui, 'wolfgang', sim_type, multi_objective, kamikaze=kamikaze)
         # These are the start values from the kick, they come from the walking
         self.reset_trunk_height = 0.42
         self.reset_trunk_pitch = 0.26
