@@ -11,8 +11,8 @@ class KickRunner(WolfgangKickEngineOptimization):
     def __init__(self, gui=False):
         super().__init__(namespace='evaluator', gui=gui, sim_type='webots')
 
-    def set_goal(self, ball_x, ball_y, angle, speed):
-        msg = self.get_kick_goal_msg(ball_x, ball_y, angle, speed)
+    def set_goal(self, ball_x, ball_y, angle):
+        msg = self.get_kick_goal_msg(ball_x, ball_y, angle)
         self.kick.set_goal(msg, self.sim.get_joint_state_msg())
         self.sim.place_ball(ball_x, ball_y)
         self.sim.step_sim()
@@ -76,11 +76,11 @@ if __name__ == '__main__':
         params = json.load(f)
 
     evaluate_goals = [
-        (0.2, 0, math.radians(0), 1),
-        (0.2, 0, math.radians(45), 1),
-        (0.2, 0, math.radians(-45), 1),
-        (0.2, 0.1, math.radians(20), 1),
-        (0.2, 0, math.radians(-90), 1),
+        (0.15, 0.11, math.radians(0)),
+        (0.2, 0.1, math.radians(0)),
+        (0.25, 0.09, math.radians(0)),
+        (0.2, 0.1, math.radians(20)),
+        (0.2, 0.1, math.radians(-20)),
     ]
 
     colors = ('tab:blue', 'tab:orange', 'tab:green', 'tab:red', 'tab:purple', 'tab:brown', 'tab:pink')
@@ -96,6 +96,7 @@ if __name__ == '__main__':
         axes.set_ylim((-0.5, 4))
         for i, goal in enumerate(evaluate_goals):
             kick_runner.set_kick_params(param_set)
+            kick_runner.kick_speed = param_set.get('kick_speed', 1)
             kick_runner.reset()
             kick_runner.set_goal(*goal)
             kick_runner.perform()
