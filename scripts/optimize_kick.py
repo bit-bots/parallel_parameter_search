@@ -70,7 +70,7 @@ else:
                                     sampler=sampler, load_if_exists=True)
     study.set_user_attr("sampler", args.sampler)
 
-    objective = WolfgangKickEngineOptimization('worker', gui=args.gui, sim_type=args.sim, multi_objective=multi_objective)
+    objective = WolfgangKickEngineOptimization('worker', gui=args.gui, sim_type=args.sim, multi_objective=multi_objective, kamikaze=True)
 
     # Enqueue some good parameters
     study.enqueue_trial({
@@ -89,25 +89,46 @@ else:
         'lower_foot_time': 0.06,
         'move_trunk_back_time': 0.08,
         'stabilizing_point_x': -0.02,
-        'stabilizing_point_y': -0.02
+        'stabilizing_point_y': -0.02,
+        'kick_speed': 1,
     })
     study.enqueue_trial({
-         'foot_rise': 0.08,
-         'foot_distance': 0.17,
-         'kick_windup_distance': 0.23,
-         'trunk_height': 0.36,
-         'trunk_roll': -0.208,
-         'trunk_pitch': 0.134,
-         'trunk_yaw': -0.007,
-         'move_trunk_time': 0.64,
-         'raise_foot_time': 0.24,
-         'move_to_ball_time': 0.13,
-         'kick_time': 0.16,
-         'move_back_time': 0.15,
-         'lower_foot_time': 0.2,
-         'move_trunk_back_time': 0.12,
-         'stabilizing_point_x': -0.02,
-         'stabilizing_point_y': 0.01,
+        'foot_rise': 0.08,
+        'foot_distance': 0.17,
+        'kick_windup_distance': 0.23,
+        'trunk_height': 0.36,
+        'trunk_roll': -0.208,
+        'trunk_pitch': 0.134,
+        'trunk_yaw': -0.007,
+        'move_trunk_time': 0.64,
+        'raise_foot_time': 0.24,
+        'move_to_ball_time': 0.13,
+        'kick_time': 0.16,
+        'move_back_time': 0.15,
+        'lower_foot_time': 0.2,
+        'move_trunk_back_time': 0.12,
+        'stabilizing_point_x': -0.02,
+        'stabilizing_point_y': 0.01,
+        'kick_speed': 1,
+    })
+    study.enqueue_trial({
+        'foot_rise': 0.08,
+        'foot_distance': 0.2,
+        'kick_windup_distance': 0.29,
+        'trunk_height': 0.39,
+        'trunk_roll': 0.101229096615671,
+        'trunk_pitch': -0.136135681655558,
+        'trunk_yaw': 0.0558505360638186,
+        'move_trunk_time': 0.56,
+        'raise_foot_time': 0.15,
+        'move_to_ball_time': 0.19,
+        'kick_time': 0.15,
+        'move_back_time': 0.07,
+        'lower_foot_time': 0.06,
+        'move_trunk_back_time': 0.08,
+        'stabilizing_point_x': -0.02,
+        'stabilizing_point_y': -0.02,
+        'kick_speed': 1,
     })
 
     study.optimize(objective.objective, n_trials=args.trials, show_progress_bar=True, callbacks=callbacks)
