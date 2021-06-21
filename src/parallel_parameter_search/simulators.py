@@ -37,6 +37,9 @@ class AbstractSim:
     def set_gravity(self, on):
         raise NotImplementedError
 
+    def set_self_collision(self, active):
+        raise NotImplementedError
+
     def reset_robot_pose(self, pos, quat):
         raise NotImplementedError
 
@@ -74,6 +77,8 @@ class AbstractSim:
     def set_ball_position(self, x, y):
         raise NotImplementedError
 
+    def close(self):
+        raise NotImplementedError
 
 class PybulletSim(AbstractSim):
 
@@ -172,9 +177,10 @@ class WebotsSim(AbstractSim, ABC):
                      path + "/worlds/" + world + ".wbt"]
         if not gui:
             arguments.append("--minimize")
-        sim_proc = subprocess.Popen(arguments)
+            arguments.append("--no-rendering")
+        self.sim_proc = subprocess.Popen(arguments, stdout=subprocess.PIPE)
 
-        os.environ["WEBOTS_PID"] = str(sim_proc.pid)
+        os.environ["WEBOTS_PID"] = str(self.sim_proc.pid)
 
         if gui:
             mode = 'normal'
@@ -182,7 +188,7 @@ class WebotsSim(AbstractSim, ABC):
             mode = 'fast'
 
         self.robot_controller = RobotSupervisorController(ros_active, mode, robot, base_ns=namespace + '/',
-                                                          model_states_active=False)
+                                                          model_states_active=False, camera_active=False)
 
     def step_sim(self):
         self.robot_controller.step()
@@ -201,6 +207,9 @@ class WebotsSim(AbstractSim, ABC):
     def set_gravity(self, on):
         self.robot_controller.set_gravity(on)
 
+    def set_self_collision(self, active):
+        self.robot_controller.set_self_collision(active)
+
     def reset_robot_pose(self, pos, quat):
         self.robot_controller.reset_robot_pose(pos, quat)
 
@@ -218,6 +227,9 @@ class WebotsSim(AbstractSim, ABC):
 
     def reset(self):
         self.robot_controller.reset()
+
+    def reset_robot_init(self):
+        self.robot_controller.reset_robot_init()
 
     def get_time(self):
         return self.robot_controller.time
@@ -262,3 +274,9 @@ class WebotsSim(AbstractSim, ABC):
             if name == msg.name[i]:
                 return msg.position[i]
         sys.exit(f"joint {name} not found")
+
+    def close(self):
+        print("hi")
+        self.sim_proc.terminate()
+        self.sim_proc.wait()
+        self.sim_proc.kill()
