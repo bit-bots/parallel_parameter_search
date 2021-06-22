@@ -184,7 +184,7 @@ class AbstractKickOptimization(AbstractRosOptimization):
                      pos[2] < self.reset_trunk_height / 2):
                 # add extra information to trial
                 passed_timesteps = max(1, passed_time / self.sim.get_timestep())
-                trial.set_user_attr('early_termination_at', (x, y, yaw))
+                trial.set_user_attr('early_termination_at', (self.goal_x, y, yaw))
                 return True, True, passed_timesteps, max_ball_velocity, max_ball_velocity_vector, self.sim.get_ball_position()
 
             current_time = self.sim.get_time()
@@ -202,7 +202,7 @@ class AbstractKickOptimization(AbstractRosOptimization):
         # kick is finished, wait until the ball is no longer moving
         vx, vy, vz = self.sim.get_ball_velocity()
         abs_velocity = (vx ** 2 + vy ** 2 + vz ** 2) ** (1 / 3)
-        while abs_velocity > 0.01:
+        while abs_velocity > 0.05 and self.sim.get_time() - start_time < 20:
             self.sim.step_sim()
             vx, vy, vz = self.sim.get_ball_velocity()
             abs_velocity = (vx ** 2 + vy ** 2 + vz ** 2) ** (1 / 3)
