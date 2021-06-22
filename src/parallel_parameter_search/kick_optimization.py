@@ -48,11 +48,8 @@ class AbstractKickOptimization(AbstractRosOptimization):
         #                   (0.2, 0.09, math.radians(90), 1),  # side kick, to left side
         #                   (0.2, -0.09, -math.radians(90), 1),  # side kick, to right side
         #                   )
-        self.directions = ((0.2, 0.09, 0),
-                           (0.2, -0.09, 0),
-                           (0.2, 0, 0),
-                           (0.2, 0, math.radians(20)),
-                           (0.2, 0, math.radians(-20)))
+        self.directions = ((0.2, 0, math.radians(30)),
+                           (0.2, 0, math.radians(-30)))
 
         self.kick_speed = 0
 
@@ -76,7 +73,7 @@ class AbstractKickOptimization(AbstractRosOptimization):
             cost = 0
         for d, direction in enumerate(self.directions):
             self.reset()
-            fell_before_kick, fell, steps, ball_velocity, ball_direction = self.evaluate_goal(*direction, trial)
+            fell_before_kick, fell, steps, ball_velocity, ball_direction, ball_pos = self.evaluate_goal(*direction, trial)
             direction_error = self.compute_yaw_error(direction)
             if self.multi_objective:
                 cost_try = [0 if fell else 1, steps, ball_velocity, direction_error]
@@ -92,7 +89,7 @@ class AbstractKickOptimization(AbstractRosOptimization):
                     return cost
             else:
                 if self.kamikaze:
-                    cost_try = -ball_velocity
+                    cost_try = -ball_pos[0]
                 else:
                     if fell:
                         # just take a rather large cost
@@ -141,23 +138,31 @@ class AbstractKickOptimization(AbstractRosOptimization):
         add('stabilizing_point_x', -0.1, 0.1, 0.01)
         add('stabilizing_point_y', -0.1, 0.1, 0.01)
 
+        add('earlier_time', 0, 0.1, 0.01)
+        add('foot_rise_kick', 0, 0.2, 0.01)
+        add('foot_rise_lower', 0, 0.2, 0.01)
+        add('foot_pitch', 0, 1, 0.01)
+        add('foot_extra_forward', 0, 0.1, 0.01)
+
         self.kick.set_params(param_dict)
 
-        self.kick_speed = trial.suggest_float('kick_speed', 0, 10, step=0.1)
+        self.kick_speed = trial.suggest_float('kick_speed', 0, 10, step=0.01)
+        self.goal_x = trial.suggest_float('goal_x', 0.1, 0.3, step=0.01)
+        self.ball_x = trial.suggest_float('ball_x', 0.1, 0.3, step=0.01)
 
-    def evaluate_goal(self, x, y, yaw, trial: optuna.Trial):
+    def evaluate_goal(self, _, y, yaw, trial: optuna.Trial):
         """
         Evaluate a single kick goal, i.e. one execution of a kick
         Returns robot fell down before kick?, robot fell down?, number of timesteps, maximum ball velocity, ball direction
         """
         max_ball_velocity = 0
         max_ball_velocity_vector = (0, 0)
-        goal_msg = self.get_kick_goal_msg(x, y, yaw)
+        goal_msg = self.get_kick_goal_msg(self.goal_x, y, yaw)
         self.kick.set_goal(goal_msg, self.sim.get_joint_state_msg())
-        self.sim.place_ball(x, y)
+        self.sim.place_ball(self.ball_x, y)
         self.sim.step_sim()
         self.sim.step_sim()
-        print(f'goal: {x} {y} {yaw}')
+        print(f'goal: {self.goal_x} {y} {yaw}')
         start_time = self.sim.get_time()
         kick_finished = False
         self.last_time = self.sim.get_time()
@@ -180,7 +185,7 @@ class AbstractKickOptimization(AbstractRosOptimization):
                 # add extra information to trial
                 passed_timesteps = max(1, passed_time / self.sim.get_timestep())
                 trial.set_user_attr('early_termination_at', (x, y, yaw))
-                return True, True, passed_timesteps, max_ball_velocity, max_ball_velocity_vector
+                return True, True, passed_timesteps, max_ball_velocity, max_ball_velocity_vector, self.sim.get_ball_position()
 
             current_time = self.sim.get_time()
             joint_command = self.kick.step(current_time - self.last_time,
@@ -194,16 +199,22 @@ class AbstractKickOptimization(AbstractRosOptimization):
 
         passed_time = self.sim.get_time() - start_time
         passed_timesteps = max(1, passed_time / self.sim.get_timestep())
-        # kick is finished, wait if robot is falling down
-        while self.sim.get_time() < start_time + passed_time + 2:
+        # kick is finished, wait until the ball is no longer moving
+        vx, vy, vz = self.sim.get_ball_velocity()
+        abs_velocity = (vx ** 2 + vy ** 2 + vz ** 2) ** (1 / 3)
+        while abs_velocity > 0.01:
             self.sim.step_sim()
+            vx, vy, vz = self.sim.get_ball_velocity()
+            abs_velocity = (vx ** 2 + vy ** 2 + vz ** 2) ** (1 / 3)
 
         pos, rpy = self.sim.get_robot_pose_rpy()
         if abs(rpy[0]) > math.radians(45) or abs(rpy[1]) > math.radians(45) or pos[2] < self.reset_trunk_height / 2:
             # robot fell
-            return False, True, passed_timesteps, max_ball_velocity, max_ball_velocity_vector
+            fall = True
+        else:
+            fall = False
 
-        return False, False, passed_timesteps, max_ball_velocity, max_ball_velocity_vector
+        return False, fall, passed_timesteps, max_ball_velocity, max_ball_velocity_vector, self.sim.get_ball_position()
 
     def run_kick(self, duration):
         """Execute the whole kick, only used for debug"""
