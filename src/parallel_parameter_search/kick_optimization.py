@@ -138,11 +138,11 @@ class AbstractKickOptimization(AbstractRosOptimization):
         add('stabilizing_point_x', -0.1, 0.1, 0.01)
         add('stabilizing_point_y', -0.1, 0.1, 0.01)
 
-        add('earlier_time', 0, 0.1, 0.01)
-        add('foot_rise_kick', 0, 0.2, 0.01)
-        add('foot_rise_lower', 0, 0.2, 0.01)
-        add('foot_pitch', 0, 1, 0.01)
-        add('foot_extra_forward', 0, 0.1, 0.01)
+        add('windup_hip', 0, 90, 1)
+        add('windup_knee', 0, 120, 1)
+        add('windup_ankle', -30, 90, 1)
+        add('knee_time', 0, param_dict['kick_time'], 0.01)
+        add('ankle_time', 0, param_dict['kick_time'], 0.01)
 
         self.kick.set_params(param_dict)
 
@@ -194,6 +194,9 @@ class AbstractKickOptimization(AbstractRosOptimization):
                 kick_finished = True
             else:
                 self.sim.set_joints(joint_command)
+                joint_torque_command = self.kick.get_torque_command()
+                if len(joint_torque_command.joint_names) > 0:
+                    self.sim.set_joints(joint_torque_command)
                 self.last_time = current_time
                 self.sim.step_sim()
 
