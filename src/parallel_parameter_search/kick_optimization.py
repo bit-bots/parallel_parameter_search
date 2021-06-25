@@ -90,7 +90,7 @@ class AbstractKickOptimization(AbstractRosOptimization):
                     return cost
             else:
                 if self.kamikaze:
-                    cost_try = -ball_pos[0]
+                    cost_try = 0 if fell else -ball_pos[0]
                 else:
                     if fell:
                         # just take a rather large cost
@@ -120,7 +120,7 @@ class AbstractKickOptimization(AbstractRosOptimization):
         add('foot_rise', 0.05, 0.15, 0.01)
         add('foot_distance', 0.15, 0.25, 0.01)
         add('kick_windup_distance', 0.1, 0.6, 0.01)
-        add('trunk_height', 0.35, 0.45, 0.01)
+        add('trunk_height', 0.35, 0.40, 0.01)
         add('trunk_roll', math.radians(-30), math.radians(30), math.radians(0.1))
         add('trunk_pitch', math.radians(-30), math.radians(30), math.radians(0.1))
         add('trunk_yaw', math.radians(-45), math.radians(45), math.radians(0.1))
@@ -248,7 +248,7 @@ class AbstractKickOptimization(AbstractRosOptimization):
                                              self.reset_rpy_offset[1] + pitch,
                                              self.reset_rpy_offset[2])
 
-        self.sim.reset_robot_pose((0, 0, height), (x, y, z, w))
+        self.sim.reset_robot_pose((-0.1, 0, height), (x, y, z, w))
 
     def set_to_walkready(self):
         """Set the robot to walkready position"""
