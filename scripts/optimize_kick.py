@@ -72,6 +72,33 @@ else:
 
     objective = WolfgangKickEngineOptimization('worker', gui=args.gui, sim_type=args.sim, multi_objective=multi_objective, kamikaze=True)
 
+    study.enqueue_trial({
+        "ankle_time": 0.18,
+        "ball_x": 0.17,
+        "foot_distance": 0.2,
+        "foot_rise": 0.15,
+        "goal_x": 0.1,
+        "kick_speed": 5.59,
+        "kick_time": 0.3,
+        "kick_windup_distance": 0.57,
+        "knee_time": 0.16,
+        "lower_foot_time": 0.5,
+        "move_back_time": 0.22,
+        "move_to_ball_time": 0.5,
+        "move_trunk_back_time": 0.25,
+        "move_trunk_time": 1.0,
+        "raise_foot_time": 1.5,
+        "stabilizing_point_x": -0.025,
+        "stabilizing_point_y": 0.01,
+        "trunk_height": 0.42,
+        "trunk_pitch": 0,
+        "trunk_roll": 0.2,
+        "trunk_yaw": 0,
+        "windup_ankle": 30.0,
+        "windup_hip": 30.0,
+        "windup_knee": 120.0,
+    })
+
     study.optimize(objective.objective, n_trials=args.trials, show_progress_bar=True, callbacks=callbacks)
 
 if multi_objective:
