@@ -48,7 +48,7 @@ class AbstractKickOptimization(AbstractRosOptimization):
         #                   (0.2, 0.09, math.radians(90), 1),  # side kick, to left side
         #                   (0.2, -0.09, -math.radians(90), 1),  # side kick, to right side
         #                   )
-        self.directions = ((0.2, 0, 0),)
+        self.directions = ((0.2, 0.1, 0),)
 
         self.kick_speed = 0
 
