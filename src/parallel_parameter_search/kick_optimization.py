@@ -287,8 +287,11 @@ class AbstractKickOptimization(AbstractRosOptimization):
         # move ball away
         self.sim.place_ball(3, 0)
         self.sim.set_gravity(False)
-        # move the robot in the air
+        self.sim.reset_robot_init()
         self.sim.reset_robot_pose((0, 0, 1), (0, 0, 0, 1))
+        for _ in range(20):
+            self.sim.step_sim()
+        # move the robot in the air
         self.set_to_walkready()
         for _ in range(20):
             self.sim.step_sim()

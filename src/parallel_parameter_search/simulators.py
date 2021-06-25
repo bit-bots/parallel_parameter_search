@@ -195,3 +195,6 @@ class WebotsSim(AbstractSim):
     def get_ball_velocity(self):
         # only return linear velocity
         return self.robot_controller.get_ball_velocity()[:3]
+
+    def reset_robot_init(self):
+        self.robot_controller.reset_robot_init()
