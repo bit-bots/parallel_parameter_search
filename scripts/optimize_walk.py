@@ -44,7 +44,7 @@ args = parser.parse_args()
 seed = np.random.randint(2 ** 32 - 1)
 n_startup_trials = args.startup
 
-num_variables = 2
+num_variables = 4
 
 multi_objective = False
 if args.sampler == "TPE":
@@ -66,10 +66,10 @@ else:
     exit(1)
 
 if multi_objective:
-    study = optuna.create_study(study_name=args.name, storage=args.storage, directions=["minimize"] * num_variables,
+    study = optuna.create_study(study_name=args.name, storage=args.storage, directions=["maximize"] * num_variables,
                                 sampler=sampler, load_if_exists=True)
 else:
-    study = optuna.create_study(study_name=args.name, storage=args.storage, direction="minimize",
+    study = optuna.create_study(study_name=args.name, storage=args.storage, direction="maximize",
                                 sampler=sampler, load_if_exists=True)
 
 study.set_user_attr("sampler", args.sampler)
