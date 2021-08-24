@@ -48,13 +48,13 @@ num_variables = 4
 
 multi_objective = False
 if args.sampler == "TPE":
-    sampler = TPESampler(n_startup_trials=n_startup_trials, seed=seed, multivariate=False)
+    sampler = TPESampler(n_startup_trials=n_startup_trials, seed=seed, multivariate=False, constant_liar=True)
 elif args.sampler == "CMAES":
     sampler = CmaEsSampler(n_startup_trials=n_startup_trials, seed=seed)
 elif args.sampler == "MOTPE":
     if n_startup_trials == -1:
         n_startup_trials = num_variables * 11 - 1
-    sampler = MOTPESampler(n_startup_trials=n_startup_trials, seed=seed)
+    sampler = TPESampler(n_startup_trials=n_startup_trials, seed=seed, multivariate=True, constant_liar=True)
     multi_objective = True
 elif args.sampler == "NSGA2":
     sampler = NSGAIISampler(seed=seed)

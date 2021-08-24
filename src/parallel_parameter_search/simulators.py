@@ -82,7 +82,7 @@ class AbstractSim:
 
 class PybulletSim(AbstractSim):
 
-    def __init__(self, namespace, gui, urdf_path=None, foot_link_names=[], terrain=False, field=True, robot="wolfgang"):
+    def __init__(self, namespace, gui, urdf_path=None, foot_link_names=[], terrain=False, field=False, robot="wolfgang"):
         super(AbstractSim, self).__init__()
         self.namespace = namespace
         # load simuation params
@@ -160,6 +160,10 @@ class PybulletSim(AbstractSim):
     def get_joint_names(self):
         return self.sim.get_joint_names()
 
+    def set_self_collision(self, active):
+        rospy.logwarn_once("self collision in pybullet has to be set during loading of URDF")
+        return
+
 
 class WebotsSim(AbstractSim, ABC):
 
@@ -211,7 +215,7 @@ class WebotsSim(AbstractSim, ABC):
         self.robot_controller.set_self_collision(active)
 
     def reset_robot_pose(self, pos, quat):
-        self.robot_controller.reset_robot_pose(pos, quat)
+        self.robot_controller.reset_robot_pose(pos, quat, reset_joints=False)
 
     def set_robot_pose(self, pos, quat):
         self.robot_controller.set_robot_pose_quat(pos, quat)
