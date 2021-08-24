@@ -250,7 +250,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         if isinstance(self.sim, WebotsSim):
             # fix for strange webots physic errors
             self.sim.reset_robot_init()
-        self.sim.reset_robot_pose((0, 0, 1), (0, 0, 0, 1))
+        self.sim.reset_robot_pose((0, 0, 1), (0, 0, 0, 1), reset_joints=True)
         self.set_cmd_vel(0.1, 0, 0)
         # set arms correctly
         joint_command_msg = JointCommand()

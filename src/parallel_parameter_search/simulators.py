@@ -40,7 +40,7 @@ class AbstractSim:
     def set_self_collision(self, active):
         raise NotImplementedError
 
-    def reset_robot_pose(self, pos, quat):
+    def reset_robot_pose(self, pos, quat, reset_joints=False):
         raise NotImplementedError
 
     def get_robot_pose(self):
@@ -103,8 +103,8 @@ class PybulletSim(AbstractSim):
     def reset_simulation(self):
         self.sim.reset_simulation()
 
-    def reset_robot_pose(self, pos, quat):
-        self.sim.reset_robot_pose(pos, quat)
+    def reset_robot_pose(self, pos, quat, reset_joints=False):
+        self.sim.reset_robot_pose(pos, quat, reset_joints=reset_joints)
 
     def set_robot_pose(self, pos, quat):
         self.sim.set_robot_pose(pos, quat)
@@ -216,7 +216,7 @@ class WebotsSim(AbstractSim, ABC):
     def set_self_collision(self, active):
         self.robot_controller.set_self_collision(active)
 
-    def reset_robot_pose(self, pos, quat):
+    def reset_robot_pose(self, pos, quat, reset_joints=False):
         self.robot_controller.reset_robot_pose(pos, quat)
 
     def set_robot_pose(self, pos, quat):
