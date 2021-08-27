@@ -78,9 +78,25 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         start_time = self.sim.get_time()
         orientation_diff = 0.0
         angular_vel_diff = 0.0
+        last_yaw = 0
+        summed_yaw = 0
 
         # wait till time for test is up or stopping condition has been reached
         while not rospy.is_shutdown():
+            # 2D pose
+            pos, rpy = self.sim.get_robot_pose_rpy()
+            # we need to sum the yaw manually to recognize complete turns
+            current_yaw = rpy[2]
+            if last_yaw > math.tau / 4 and current_yaw < 0:
+                # counter clockwise turn
+                last_yaw = -math.tau / 2 - (math.tau / 2 - last_yaw)
+            elif last_yaw < -math.tau / 4 and current_yaw > 0:
+                # clockwise turn
+                last_yaw = math.tau / 2 + (math.tau / 2 + last_yaw)
+            summed_yaw += current_yaw - last_yaw
+            current_pose = [pos[0], pos[1], summed_yaw]
+            last_yaw = current_yaw
+
             passed_time = self.sim.get_time() - start_time
             passed_timesteps = passed_time / self.sim.get_timestep()
             if passed_timesteps == 0:
@@ -98,11 +114,11 @@ class AbstractWalkOptimization(AbstractRosOptimization):
 
             if passed_time > time_limit:
                 # reached time limit, stop robot
-                self.set_cmd_vel(0, 0, 0)
+                self.set_cmd_vel(0, 0, 0, stop=True)
 
             if passed_time > time_limit + 2:
                 # robot should have stopped now, evaluate the fitness
-                pose_cost, poses = self.compute_cost(x, y, yaw)
+                pose_cost, poses = self.compute_cost(x, y, yaw, current_pose)
                 return False, pose_cost, orientation_diff / passed_timesteps, \
                        angular_vel_diff / passed_timesteps, poses
 
@@ -114,7 +130,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
             # get angular_vel diff scaled to 0-1. dont take yaw, since we might actually turn around it
             angular_vel_diff += min(1, (abs(imu_msg.angular_velocity.x) + abs(imu_msg.angular_velocity.y)) / 60)
             if abs(rpy[0]) > math.radians(45) or abs(rpy[1]) > math.radians(45) or pos[2] < self.trunk_height / 2:
-                pose_cost, poses = self.compute_cost(x, y, yaw)
+                pose_cost, poses = self.compute_cost(x, y, yaw, current_pose)
                 return True, pose_cost, orientation_diff / passed_timesteps, \
                        angular_vel_diff / passed_timesteps, poses
 
@@ -171,7 +187,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
                     # if walking does not perform step correctly due to impossible IK problems, do a timeout
                     break
 
-    def compute_cost(self, v_x, v_y, v_yaw):
+    def compute_cost(self, v_x, v_y, v_yaw, current_pose):
         def get_matrix(v_x, v_y, v_yaw, t):
             if v_yaw == 0:
                 # prevent division by zero
@@ -182,11 +198,6 @@ class AbstractWalkOptimization(AbstractRosOptimization):
 
         def rotation(yaw):
             return np.array([[math.cos(yaw), -math.sin(yaw)], [math.sin(yaw), math.cos(yaw)]])
-
-        # 2D pose
-        pos, rpy = self.sim.get_robot_pose_rpy()
-        current_pose = [pos[0], pos[1], rpy[2]]
-        t = self.time_limit
 
         # compute end pose. robot is basically walking on circles where radius=v_x/v_yaw and v_y/v_yaw
         # we need to include the acceleration and deceleration phases
@@ -212,7 +223,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         else:
             # Pythagoras
             trans_target = math.sqrt(correct_pose[0] ** 2 + correct_pose[1] ** 2)
-        # always take tau as meassurement
+        # always take tau as measurement
         rot_target = math.tau
 
         # Pythagoras
@@ -222,9 +233,9 @@ class AbstractWalkOptimization(AbstractRosOptimization):
             math.cos(correct_pose[2]) - math.cos(current_pose[2]))
         pose_cost = ((trans_error_abs / trans_target) + (rot_error_abs / rot_target)) / 2
 
-        #print(f"x goal {round(correct_pose[0], 2)} cur {round(current_pose[0], 2)}")
-        #print(f"y goal {round(correct_pose[1], 2)} cur {round(current_pose[1], 2)}")
-        #print(f"yaw goal {round(correct_pose[2], 2)} cur {round(current_pose[2], 2)}")
+        # print(f"x goal {round(correct_pose[0], 2)} cur {round(current_pose[0], 2)}")
+        # print(f"y goal {round(correct_pose[1], 2)} cur {round(current_pose[1], 2)}")
+        # print(f"yaw goal {round(correct_pose[2], 2)} cur {round(current_pose[2], 2)}")
 
         # scale to [0-1]
         if pose_cost / 1 > 1:
@@ -262,22 +273,24 @@ class AbstractWalkOptimization(AbstractRosOptimization):
             self.sim.run_simulation(duration=4, sleep=0.01)
         else:
             self.complete_walking_step()
-        self.set_cmd_vel(0, 0, 0)
+        self.set_cmd_vel(0, 0, 0, stop=True)
         if self.walk_as_node:
             self.sim.run_simulation(duration=4, sleep=0.01)
         else:
             self.complete_walking_step()
-            self.complete_walking_step()
         self.sim.set_gravity(True)
-        #self.sim.set_self_collision(True)
+        # self.sim.set_self_collision(True)
         self.reset_position()
+        self.sim.run_simulation(duration=1, sleep=0.01)
 
-    def set_cmd_vel(self, x, y, yaw):
+    def set_cmd_vel(self, x, y, yaw, stop=False):
         msg = Twist()
         msg.linear.x = x
         msg.linear.y = y
         msg.linear.z = 0
         msg.angular.z = yaw
+        if stop:
+            msg.angular.x = -1
         if self.walk_as_node:
             self.cmd_vel_pub.publish(msg)
         else:

@@ -46,8 +46,8 @@ class EvaluateWalk(AbstractWalkOptimization):
                 speed[2] += increase[2]
                 for i in range(self.repetitions):
                     self.reset_position()
-                    fall, didnt_move, pose_obj, orientation_obj, gyro_obj, end_poses = \
-                        self.evaluate_direction(*speed, 1, self.time_limit)
+                    fall, pose_obj, orientation_obj, gyro_obj, end_poses = \
+                        self.evaluate_direction(*speed, self.time_limit)
                     goal_end_pose = end_poses[0]
                     actual_end_pose = end_poses[1]
                     real_speed_multipliers = []
