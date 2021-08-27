@@ -281,7 +281,6 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         self.sim.set_gravity(True)
         # self.sim.set_self_collision(True)
         self.reset_position()
-        self.sim.run_simulation(duration=1, sleep=0.01)
 
     def set_cmd_vel(self, x, y, yaw, stop=False):
         msg = Twist()
