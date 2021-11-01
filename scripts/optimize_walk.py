@@ -54,7 +54,7 @@ elif args.sampler == "CMAES":
 elif args.sampler == "MOTPE":
     if n_startup_trials == -1:
         n_startup_trials = num_variables * 11 - 1
-    sampler = TPESampler(n_startup_trials=n_startup_trials, seed=seed, multivariate=True, constant_liar=True)
+    sampler = TPESampler(n_startup_trials=n_startup_trials, seed=seed, multivariate=False, constant_liar=True)
     multi_objective = True
 elif args.sampler == "NSGA2":
     sampler = NSGAIISampler(seed=seed)

@@ -102,8 +102,8 @@ class AbstractWalkEngine(AbstractWalkOptimization):
             trial.set_user_attr(name, value)
 
         add('double_support_ratio', 0.0, 0.5)
-        #add('freq', 0.5, 5)
-        fix('freq', 1)
+        add('freq', 0.5, 5)
+        #fix('freq', 0.5)
 
         add('foot_distance', foot_distance[0], foot_distance[1])
         add('trunk_height', trunk_height[0], trunk_height[1])
@@ -182,7 +182,7 @@ class WolfgangWalkEngine(AbstractWalkEngine):
         self.reset_height_offset = 0.012
 
     def suggest_walk_params(self, trial):
-        self._suggest_walk_params(trial, trunk_height=(0.35, 0.45), foot_distance=(0.15, 0.25), foot_rise=(0.1, 0.2),
+        self._suggest_walk_params(trial, trunk_height=(0.35, 0.42), foot_distance=(0.15, 0.25), foot_rise=(0.05, 0.15),
                                   trunk_x=0.1, z_movement=0.1)
 
 
