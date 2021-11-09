@@ -101,7 +101,7 @@ class AbstractWalkEngine(AbstractWalkOptimization):
             engine_param_dict[name] = value
             trial.set_user_attr(name, value)
 
-        add('double_support_ratio', 0.0, 0.8)
+        add('double_support_ratio', 0.0, 0.5)
         add('freq', 1, 5)
         #fix('freq', 1)
 
