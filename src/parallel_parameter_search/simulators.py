@@ -169,7 +169,7 @@ class PybulletSim(AbstractSim):
 
 class WebotsSim(AbstractSim, ABC):
 
-    def __init__(self, namespace, gui, robot="wolfgang", ros_active=False, world="robot_supervisor"):
+    def __init__(self, namespace, gui, robot="wolfgang", ros_active=False, world="robot_supervisor", start_webots=True):
         # start webots
         super().__init__()
         rospack = rospkg.RosPack()
@@ -178,15 +178,15 @@ class WebotsSim(AbstractSim, ABC):
             self.true_odom_publisher = rospy.Publisher(namespace + "/true_odom", Odometry, queue_size=1)
         path = rospack.get_path("wolfgang_webots_sim")
 
-        arguments = ["webots",
-                     "--batch",
-                     path + "/worlds/" + world + ".wbt"]
-        if not gui:
-            arguments.append("--minimize")
-            arguments.append("--no-rendering")
-        self.sim_proc = subprocess.Popen(arguments, stdout=subprocess.PIPE)
-
-        os.environ["WEBOTS_PID"] = str(self.sim_proc.pid)
+        if start_webots:
+            arguments = ["webots",
+                         "--batch",
+                         path + "/worlds/" + world + ".wbt"]
+            if not gui:
+                arguments.append("--minimize")
+                arguments.append("--no-rendering")
+            self.sim_proc = subprocess.Popen(arguments, stdout=subprocess.PIPE)
+            os.environ["WEBOTS_PID"] = str(self.sim_proc.pid)
 
         if gui:
             mode = 'normal'
