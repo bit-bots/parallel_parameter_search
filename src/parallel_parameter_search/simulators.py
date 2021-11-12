@@ -82,7 +82,7 @@ class AbstractSim:
 
 class PybulletSim(AbstractSim):
 
-    def __init__(self, namespace, gui, urdf_path=None, foot_link_names=[], terrain=False, field=False, robot="wolfgang"):
+    def __init__(self, namespace, gui, urdf_path=None, foot_link_names=[], terrain_height=0, field=False, robot="wolfgang"):
         super(AbstractSim, self).__init__()
         self.namespace = namespace
         # load simuation params
@@ -90,7 +90,7 @@ class PybulletSim(AbstractSim):
         # print(self.namespace)
         load_yaml_to_param("/" + self.namespace, 'wolfgang_pybullet_sim', '/config/config.yaml', rospack)
         self.gui = gui
-        self.sim: Simulation = Simulation(gui, urdf_path=urdf_path, foot_link_names=foot_link_names, terrain=terrain,
+        self.sim: Simulation = Simulation(gui, urdf_path=urdf_path, foot_link_names=foot_link_names, terrain_height=terrain_height,
                                           field=field, robot=robot)
         self.sim_interface: ROSInterface = ROSInterface(self.sim, namespace="/" + self.namespace + '/', node=False)
 
