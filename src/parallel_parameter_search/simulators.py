@@ -217,7 +217,7 @@ class WebotsSim(AbstractSim, ABC):
         self.robot_controller.set_self_collision(active)
 
     def reset_robot_pose(self, pos, quat, reset_joints=False):
-        self.robot_controller.reset_robot_pose(pos, quat)
+        self.robot_controller.reset_robot_pose(pos, quat, reset_joints)
 
     def set_robot_pose(self, pos, quat):
         self.robot_controller.set_robot_pose_quat(pos, quat)

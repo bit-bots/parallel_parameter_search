@@ -233,13 +233,9 @@ class AbstractWalkOptimization(AbstractRosOptimization):
             math.cos(correct_pose[2]) - math.cos(current_pose[2]))
         pose_cost = ((trans_error_abs / trans_target) + (rot_error_abs / rot_target)) / 2
 
-        # print(f"x goal {round(correct_pose[0], 2)} cur {round(current_pose[0], 2)}")
-        # print(f"y goal {round(correct_pose[1], 2)} cur {round(current_pose[1], 2)}")
-        # print(f"yaw goal {round(correct_pose[2], 2)} cur {round(current_pose[2], 2)}")
-
         # scale to [0-1]
-        if pose_cost / 1 > 1:
-            print("cutting!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1")
+        if pose_cost > 1:
+            print("cutting pose cost to normalize it to [0-1]")
         pose_cost = min(1, pose_cost)
 
         return pose_cost, (correct_pose, current_pose)
