@@ -44,17 +44,17 @@ args = parser.parse_args()
 seed = np.random.randint(2 ** 32 - 1)
 n_startup_trials = args.startup
 
-num_variables = 2
+num_variables = 4
 
 multi_objective = False
 if args.sampler == "TPE":
-    sampler = TPESampler(n_startup_trials=n_startup_trials, seed=seed, multivariate=False)
+    sampler = TPESampler(n_startup_trials=n_startup_trials, seed=seed, multivariate=False, constant_liar=True)
 elif args.sampler == "CMAES":
     sampler = CmaEsSampler(n_startup_trials=n_startup_trials, seed=seed)
 elif args.sampler == "MOTPE":
     if n_startup_trials == -1:
         n_startup_trials = num_variables * 11 - 1
-    sampler = MOTPESampler(n_startup_trials=n_startup_trials, seed=seed)
+    sampler = TPESampler(n_startup_trials=n_startup_trials, seed=seed, multivariate=False, constant_liar=True)
     multi_objective = True
 elif args.sampler == "NSGA2":
     sampler = NSGAIISampler(seed=seed)
@@ -66,10 +66,10 @@ else:
     exit(1)
 
 if multi_objective:
-    study = optuna.create_study(study_name=args.name, storage=args.storage, directions=["minimize"] * num_variables,
+    study = optuna.create_study(study_name=args.name, storage=args.storage, directions=["maximize"] * num_variables,
                                 sampler=sampler, load_if_exists=True)
 else:
-    study = optuna.create_study(study_name=args.name, storage=args.storage, direction="minimize",
+    study = optuna.create_study(study_name=args.name, storage=args.storage, direction="maximize",
                                 sampler=sampler, load_if_exists=True)
 
 study.set_user_attr("sampler", args.sampler)
@@ -101,42 +101,20 @@ elif args.type == "stabilization":
 else:
     print(f"Optimization type {args.type} not known.")
 
-if True:
+if False:
     if len(study.get_trials()) == 0:
         # old params
-        study.enqueue_trial({"double_support_ratio": 0.2, "first_step_swing_factor": 1.0,
-                             "foot_distance": 0.2, "foot_rise": 0.06, "freq": 1.8, "trunk_height": 0.4,
-                             "trunk_phase": -0.1, "trunk_pitch": 0.12,
-                             "trunk_pitch_p_coef_forward": 1.2,
-                             "trunk_pitch_p_coef_turn": -0.05, "trunk_swing": 0.4,
-                             "trunk_x_offset": 0.0, "trunk_y_offset": 0.005,
-                             "trunk_z_movement": 0.0,
-                             })
-        # best from first optimization
-        study.enqueue_trial({"double_support_ratio": 0.205697020634591, "first_step_swing_factor": 1.43802181605666,
-                             "foot_distance": 0.193167886146203, "foot_rise": 0.0634321629243628,
-                             "freq": 1.8808567497048,
-                             "trunk_height": 0.391032569052562, "trunk_phase": -0.225213829524181,
-                             "trunk_pitch": 0.178415760885359, "trunk_pitch_p_coef_forward": 0.20532497579384,
-                             "trunk_pitch_p_coef_turn": -0.323293138896975, "trunk_swing": 0.415852788166455,
-                             "trunk_x_offset": -0.0256820805595823, "trunk_y_offset": 0.00563280748937276,
-                             "trunk_z_movement": 0.00571131278337307, })
-
-        # best from second optimization
-        study.enqueue_trial({"double_support_ratio": 0.15,
-                             "first_step_swing_factor": 1.0,
-                             "foot_distance": 0.193,
-                             "foot_rise": 0.08,
-                             "freq": 1.881,
-                             "trunk_height": 0.391,
-                             "trunk_phase": -0.225,
-                             "trunk_pitch": 0.178,
-                             "trunk_pitch_p_coef_forward": 0.205,
-                             "trunk_pitch_p_coef_turn": -0.323,
-                             "trunk_swing": 0.3,
-                             "trunk_x_offset": -0.0256,
-                             "trunk_y_offset": 0.0056,
-                             "trunk_z_movement": 0.0057})
+        for i in range(1):
+            study.enqueue_trial(
+                {"double_support_ratio": 0.187041787093062, "first_step_swing_factor": 0.988265815486162,
+                 "foot_distance": 0.191986968311401, "foot_rise": 0.0805917174531535, "freq": 2.81068228309542,
+                 "trunk_height": 0.364281403417376, "trunk_phase": -0.19951206583248, "trunk_pitch": 0.338845862625267,
+                 "trunk_pitch_p_coef_forward": -1.36707568402799, "trunk_pitch_p_coef_turn": -0.621298812652778,
+                 "trunk_swing": 0.342345300382608, "trunk_x_offset": -0.0178414805249525,
+                 "trunk_y_offset": 0.000997552190718013, "trunk_z_movement": 0.0318583647276103,
+                 "early_termination_at": [0.0, 0.0, 35.0], "first_step_trunk_phase": -0.5, "foot_apex_phase": 0.5,
+                 "foot_overshoot_phase": 1.0, "foot_overshoot_ratio": 0.0, "foot_put_down_phase": 1.0,
+                 "foot_z_pause": 0.0, "trunk_pause": 0.0})
 
 study.optimize(objective.objective, n_trials=args.trials, show_progress_bar=True)
 

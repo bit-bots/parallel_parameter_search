@@ -1,5 +1,6 @@
 import math
 
+import numpy as np
 import rospy
 from parallel_parameter_search.walk_optimization import AbstractWalkOptimization
 
@@ -22,12 +23,14 @@ class AbstractWalkEngine(AbstractWalkOptimization):
         if not start_speeds:
             print("please set start speeds")
             exit(1)
-        self.directions = [[start_speeds[0], 0, 0],
-                           [0, start_speeds[1], 0],
-                           [0, 0, start_speeds[2]],
-                           [-start_speeds[0], -start_speeds[1], 0],
-                           [-start_speeds[0], 0, -start_speeds[2]],
-                           [start_speeds[0], start_speeds[1], start_speeds[2]]
+        self.start_speeds = start_speeds
+        self.directions = [np.array([1, 0, 0]),
+                           np.array([-1, 0, 0]),
+                           np.array([0, 1, 0]),
+                           np.array([0, 0, 1]),
+                           # np.array([1, -1, 0]),
+                           # np.array([-1, 1, 0]),
+                           # np.array([1, 0, -1])
                            ]
         self.repetitions = repetitions
         self.multi_objective = multi_objective
@@ -37,101 +40,56 @@ class AbstractWalkEngine(AbstractWalkOptimization):
         self.suggest_walk_params(trial)
         self.reset()
 
-        d = 0
-        it = 0
-        pose_obj_rep_sum = 0
-        orientation_obj_rep_sum = 0
-        gyro_obj_rep_sum = 0
+        max_speeds = [0] * len(self.directions)
         # standing as first test, is not in loop as it will only be done once
-        fall_sum, didnt_move_sum, pose_obj, orientation_obj, gyro_obj, end_poses = self.evaluate_direction(0, 0, 0, 1, 1)
-        pose_obj_rep_sum += pose_obj
-        orientation_obj_rep_sum += orientation_obj
-        gyro_obj_rep_sum += gyro_obj
-
+        fall_sum, pose_obj, orientation_obj, gyro_obj, end_poses = self.evaluate_direction(0, 0, 0, 1)
         if fall_sum:
             # terminate early and give 1 cost for each try left
             trial.set_user_attr('early_termination_at', (0, 0, 0))
-            fall_sum = 1
         else:
-            # iterate over the directions to increase the speed
-            for iteration in range(1, self.number_of_iterations + 1):
-                it += 1
-                d = 0
-                do_break = False
-                for direction in self.directions:
-                    d += 1
+            # iterate over the directions
+            d = 0
+            for direction in self.directions:
+                # constantly increase the speed
+                for iteration in range(1, self.number_of_iterations + 1):
+                    cmd_vel = direction * np.array(self.start_speeds) * iteration
                     fall_rep_sum = 0
-                    didnt_move_rep_sum = 0
+                    mean_speed = 0
                     # do multiple repetitions of the same values since behavior is not always exactly deterministic
                     for i in range(self.repetitions):
                         self.reset_position()
-                        fall, didnt_move, pose_obj, orientation_obj, gyro_obj, end_poses = \
-                            self.evaluate_direction(*direction, iteration, self.time_limit)
+                        fall, pose_obj, orientation_obj, gyro_obj, (goal_pose, end_pose) = \
+                            self.evaluate_direction(*cmd_vel, self.time_limit)
                         if fall:
                             fall_rep_sum += 1
-                        if didnt_move:
-                            didnt_move_rep_sum += 1
-                        pose_obj_rep_sum += pose_obj
-                        orientation_obj_rep_sum += orientation_obj
-                        gyro_obj_rep_sum += gyro_obj
-                        print(f"pose_obj {pose_obj}")
-                        print(f"orientation_obj {orientation_obj}")
-                        print(f"gyro obj {gyro_obj}")
 
-                    # use the mean as costs for this try
-                    fall_sum += fall_rep_sum
+                        # get the relevant part of the end pose with this cmd_vel
+                        distance = np.linalg.norm(np.abs(direction) * np.array(end_pose))
+                        mean_speed += distance / 10
 
-                    # check if we always failed in this direction and terminate this trial early
-                    if fall_rep_sum == self.repetitions or didnt_move_rep_sum == self.repetitions:
-                        if fall_rep_sum == self.repetitions:
-                            trial.set_user_attr('termination_reason', 'fall')
-                        else:
-                            trial.set_user_attr('termination_reason', 'pose')
+                    # check if we always failed in this direction and terminate this direction
+                    if fall_rep_sum == self.repetitions:
                         # terminate early and give 1 cost for each try left
                         # add extra information to trial
                         trial.set_user_attr('early_termination_at',
-                                            (direction[0] * iteration, direction[1] * iteration,
-                                             direction[2] * iteration))
-                        do_break = True
+                                            (float(direction[0]) * iteration, float(direction[1]) * iteration,
+                                             float(direction[2]) * iteration))
+                        print("break fall")
+                        self.reset()
                         break
-                if do_break:
-                    break
-        if it == 0:
-            performed_evaluations = 1
-        else:
-            performed_evaluations = (it - 1) * len(self.directions) + d
-        print(f"performed evals {performed_evaluations}")
-        last_pose_obj = pose_obj
-        pose_obj = pose_obj_rep_sum / performed_evaluations
-        orientation_obj = orientation_obj_rep_sum / performed_evaluations
-        gyro_obj = gyro_obj_rep_sum / performed_evaluations
 
-        stability_obj = (orientation_obj + gyro_obj) / 2
-        print(f"fall_sum {fall_sum}")
-        print(f"orientation_obj {orientation_obj}")
-        print(f"gyro obj {gyro_obj}")
-        print(f"stability_obj {stability_obj}")
-        print(f"pose_obj {pose_obj}")
-
-        # add costs based on the the iterations left
-        directions_left = (self.number_of_iterations - it) * len(self.directions) + (len(self.directions) - d)
-        if it == 0:
-            # special case of falling while standing
-            directions_left = self.number_of_iterations * len(self.directions)
-
-        trial.set_user_attr("directions_left", directions_left)
-        trial.set_user_attr("fall_sum", fall_sum)
-        trial.set_user_attr("orientation_obj", orientation_obj)
-        trial.set_user_attr("gyro_obj", gyro_obj)
-        trial.set_user_attr("stability_obj", stability_obj)
-        trial.set_user_attr("pose_obj", pose_obj)
-        trial.set_user_attr("last_pose_obj", last_pose_obj)
-
+                    mean_speed /= self.repetitions
+                    if mean_speed > max_speeds[d]:
+                        max_speeds[d] = mean_speed
+                    else:
+                        # we did not manage to go further
+                        print("break speed")
+                        break
+                d += 1
         if self.multi_objective:
-            return [directions_left, pose_obj]
+            return max_speeds
         else:
-            # multiple directions left with 10 to make sure the sum of the other objectives is never higher
-            return directions_left + 0.5 * pose_obj
+            return np.min(max_speeds)
 
     def _suggest_walk_params(self, trial, trunk_height, foot_distance, foot_rise, trunk_x, z_movement):
         engine_param_dict = {}
@@ -144,7 +102,8 @@ class AbstractWalkEngine(AbstractWalkOptimization):
             trial.set_user_attr(name, value)
 
         add('double_support_ratio', 0.0, 0.5)
-        add('freq', 0.5, 5)
+        add('freq', 1, 5)
+        #fix('freq', 1)
 
         add('foot_distance', foot_distance[0], foot_distance[1])
         add('trunk_height', trunk_height[0], trunk_height[1])
@@ -218,21 +177,21 @@ class AbstractWalkEngine(AbstractWalkOptimization):
 class WolfgangWalkEngine(AbstractWalkEngine):
     def __init__(self, namespace, gui, walk_as_node, sim_type='pybullet', repetitions=1, multi_objective=False):
         super(WolfgangWalkEngine, self).__init__(namespace, gui, 'wolfgang', walk_as_node, sim_type,
-                                                 start_speeds=[0.2, 0.05, 0.25], repetitions=repetitions,
+                                                 start_speeds=[0.05, 0.025, 0.1], repetitions=repetitions,
                                                  multi_objective=multi_objective)
         self.reset_height_offset = 0.012
 
     def suggest_walk_params(self, trial):
-        self._suggest_walk_params(trial, trunk_height=(0.3, 0.45), foot_distance=(0.15, 0.25), foot_rise=(0.05, 0.2),
+        self._suggest_walk_params(trial, trunk_height=(0.39, 0.43), foot_distance=(0.15, 0.25), foot_rise=(0.05, 0.15),
                                   trunk_x=0.1, z_movement=0.1)
 
 
 class OP2WalkEngine(AbstractWalkEngine):
     def __init__(self, namespace, gui, walk_as_node, sim_type='webots', repetitions=1, multi_objective=False):
         super(OP2WalkEngine, self).__init__(namespace, gui, 'robotis_op2', walk_as_node, sim_type,
-                                               foot_link_names=['MP_ANKLE2_L', 'MP_ANKLE2_R'],
-                                               start_speeds=[0.05, 0.025, 0.25], repetitions=repetitions,
-                                               multi_objective=multi_objective)
+                                            foot_link_names=['l_sole', 'r_sole'],
+                                            start_speeds=[0.05, 0.025, 0.25], repetitions=repetitions,
+                                            multi_objective=multi_objective)
         self.reset_height_offset = 0.09
 
     def suggest_walk_params(self, trial):

@@ -40,7 +40,7 @@ class AbstractSim:
     def set_self_collision(self, active):
         raise NotImplementedError
 
-    def reset_robot_pose(self, pos, quat):
+    def reset_robot_pose(self, pos, quat, reset_joints=False):
         raise NotImplementedError
 
     def get_robot_pose(self):
@@ -82,7 +82,7 @@ class AbstractSim:
 
 class PybulletSim(AbstractSim):
 
-    def __init__(self, namespace, gui, urdf_path=None, foot_link_names=[], terrain=False, field=True, robot="wolfgang"):
+    def __init__(self, namespace, gui, urdf_path=None, foot_link_names=[], terrain_height=0, field=False, robot="wolfgang"):
         super(AbstractSim, self).__init__()
         self.namespace = namespace
         # load simuation params
@@ -90,7 +90,7 @@ class PybulletSim(AbstractSim):
         # print(self.namespace)
         load_yaml_to_param("/" + self.namespace, 'wolfgang_pybullet_sim', '/config/config.yaml', rospack)
         self.gui = gui
-        self.sim: Simulation = Simulation(gui, urdf_path=urdf_path, foot_link_names=foot_link_names, terrain=terrain,
+        self.sim: Simulation = Simulation(gui, urdf_path=urdf_path, foot_link_names=foot_link_names, terrain_height=terrain_height,
                                           field=field, robot=robot)
         self.sim_interface: ROSInterface = ROSInterface(self.sim, namespace="/" + self.namespace + '/', node=False)
 
@@ -103,8 +103,8 @@ class PybulletSim(AbstractSim):
     def reset_simulation(self):
         self.sim.reset_simulation()
 
-    def reset_robot_pose(self, pos, quat):
-        self.sim.reset_robot_pose(pos, quat)
+    def reset_robot_pose(self, pos, quat, reset_joints=False):
+        self.sim.reset_robot_pose(pos, quat, reset_joints=reset_joints)
 
     def set_robot_pose(self, pos, quat):
         self.sim.set_robot_pose(pos, quat)
@@ -160,10 +160,16 @@ class PybulletSim(AbstractSim):
     def get_joint_names(self):
         return self.sim.get_joint_names()
 
+    def set_self_collision(self, active):
+        rospy.logwarn_once("self collision in pybullet has to be set during loading of URDF")
+        return
+
+    def close(self):
+        return
 
 class WebotsSim(AbstractSim, ABC):
 
-    def __init__(self, namespace, gui, robot="wolfgang", ros_active=False, world="robot_supervisor"):
+    def __init__(self, namespace, gui, robot="wolfgang", ros_active=False, world="robot_supervisor", start_webots=True):
         # start webots
         super().__init__()
         rospack = rospkg.RosPack()
@@ -172,15 +178,15 @@ class WebotsSim(AbstractSim, ABC):
             self.true_odom_publisher = rospy.Publisher(namespace + "/true_odom", Odometry, queue_size=1)
         path = rospack.get_path("wolfgang_webots_sim")
 
-        arguments = ["webots",
-                     "--batch",
-                     path + "/worlds/" + world + ".wbt"]
-        if not gui:
-            arguments.append("--minimize")
-            arguments.append("--no-rendering")
-        self.sim_proc = subprocess.Popen(arguments, stdout=subprocess.PIPE)
-
-        os.environ["WEBOTS_PID"] = str(self.sim_proc.pid)
+        if start_webots:
+            arguments = ["webots",
+                         "--batch",
+                         path + "/worlds/" + world + ".wbt"]
+            if not gui:
+                arguments.append("--minimize")
+                arguments.append("--no-rendering")
+            self.sim_proc = subprocess.Popen(arguments, stdout=subprocess.PIPE)
+            os.environ["WEBOTS_PID"] = str(self.sim_proc.pid)
 
         if gui:
             mode = 'normal'
@@ -210,8 +216,8 @@ class WebotsSim(AbstractSim, ABC):
     def set_self_collision(self, active):
         self.robot_controller.set_self_collision(active)
 
-    def reset_robot_pose(self, pos, quat):
-        self.robot_controller.reset_robot_pose(pos, quat)
+    def reset_robot_pose(self, pos, quat, reset_joints=False):
+        self.robot_controller.reset_robot_pose(pos, quat, reset_joints)
 
     def set_robot_pose(self, pos, quat):
         self.robot_controller.set_robot_pose_quat(pos, quat)

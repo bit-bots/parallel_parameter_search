@@ -32,7 +32,7 @@ class EvaluateWalk(AbstractWalkOptimization):
     def evaluate_walk(self):
         Result = make_dataclass("Result",
                                 [("v_x", float), ("v_y", float), ("v_yaw", float), ("fall", bool), ("pose_obj", float),
-                                 ("v_x_multiplier", float), ("v_y_multiplier", float), ("v_yaw_multiplier", float)])
+                                 ("x_speed_multiplier", float), ("y_speed_multiplier", float), ("yaw_speed_multiplier", float)])
         maximal_speeds = []
         results = []
         self.reset()
@@ -46,23 +46,23 @@ class EvaluateWalk(AbstractWalkOptimization):
                 speed[2] += increase[2]
                 for i in range(self.repetitions):
                     self.reset_position()
-                    fall, didnt_move, pose_obj, orientation_obj, gyro_obj, end_poses = \
-                        self.evaluate_direction(*speed, 1, self.time_limit)
+                    fall, pose_obj, orientation_obj, gyro_obj, end_poses = \
+                        self.evaluate_direction(*speed, self.time_limit)
                     goal_end_pose = end_poses[0]
                     actual_end_pose = end_poses[1]
                     real_speed_multipliers = []
                     if goal_end_pose[0] == 0:
                         real_speed_multipliers.append(1)
                     else:
-                        real_speed_multipliers.append(actual_end_pose[0] / goal_end_pose[0])
+                        real_speed_multipliers.append(goal_end_pose[0] / actual_end_pose[0])
                     if goal_end_pose[1] == 0:
                         real_speed_multipliers.append(1)
                     else:
-                        real_speed_multipliers.append(actual_end_pose[1] / goal_end_pose[1])
+                        real_speed_multipliers.append(goal_end_pose[1] / actual_end_pose[1])
                     if goal_end_pose[2] == 0:
                         real_speed_multipliers.append(1)
                     else:
-                        real_speed_multipliers.append(actual_end_pose[2] / goal_end_pose[2])
+                        real_speed_multipliers.append(goal_end_pose[2] / actual_end_pose[2])
                     results.append(Result(*speed, fall, pose_obj, *real_speed_multipliers))
                     falls += fall
 
