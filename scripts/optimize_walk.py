@@ -11,7 +11,8 @@ from optuna.pruners import MedianPruner
 from optuna.samplers import TPESampler, CmaEsSampler, MOTPESampler, RandomSampler, NSGAIISampler
 import numpy as np
 
-import rospy
+import rclpy
+from rclpy.node import Node
 
 from parallel_parameter_search.walk_engine_optimization import OP2WalkEngine, WolfgangWalkEngine, OP3WalkEngine, \
     NaoWalkEngine

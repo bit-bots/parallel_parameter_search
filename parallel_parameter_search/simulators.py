@@ -5,7 +5,8 @@ import time
 from abc import ABC
 
 import rospkg
-import rospy
+import rclpy
+from rclpy.node import Node
 from geometry_msgs.msg import Point, Quaternion
 from nav_msgs.msg import Odometry
 from wolfgang_pybullet_sim.simulation import Simulation
@@ -17,20 +18,21 @@ from bitbots_msgs.msg import JointCommand, FootPressure
 try:
     from wolfgang_webots_sim.webots_robot_supervisor_controller import RobotSupervisorController
 except:
-    rospy.logerr("Could not load webots sim. If you want to use it, source the setenvs.sh")
+    print("Could not load webots sim. If you want to use it, source the setenvs.sh")
 
 
 class AbstractSim:
 
-    def __init__(self):
+    def __init__(self, node):
+        self.node = node
         pass
 
     def step_sim(self):
         raise NotImplementedError
 
     def run_simulation(self, duration, sleep):
-        start_time = rospy.get_time()
-        while not rospy.is_shutdown() and (duration is None or rospy.get_time() - start_time < duration):
+        start_time = float(self.node.get_clock().now().seconds_nanoseconds()[0] + self.node.get_clock().now().seconds_nanoseconds()[1]/1e9)
+        while rclpy.ok() and (duration is None or float(self.node.get_clock().now().seconds_nanoseconds()[0] + self.node.get_clock().now().seconds_nanoseconds()[1]/1e9) - start_time < duration):
             self.step_sim()
             time.sleep(sleep)
 
@@ -82,8 +84,8 @@ class AbstractSim:
 
 class PybulletSim(AbstractSim):
 
-    def __init__(self, namespace, gui, urdf_path=None, foot_link_names=[], terrain_height=0, field=False, robot="wolfgang"):
-        super(AbstractSim, self).__init__()
+    def __init__(self, node, namespace, gui, urdf_path=None, foot_link_names=[], terrain_height=0, field=False, robot="wolfgang"):
+        super(AbstractSim, self).__init__(node)
         self.namespace = namespace
         # load simuation params
         rospack = rospkg.RosPack()
@@ -92,7 +94,7 @@ class PybulletSim(AbstractSim):
         self.gui = gui
         self.sim: Simulation = Simulation(gui, urdf_path=urdf_path, foot_link_names=foot_link_names, terrain_height=terrain_height,
                                           field=field, robot=robot)
-        self.sim_interface: ROSInterface = ROSInterface(self.sim, namespace="/" + self.namespace + '/', node=False)
+        self.sim_interface: ROSInterface = ROSInterface(self.sim, namespace="/" + self.namespace + '/', node=self.node)
 
     def step_sim(self):
         self.sim_interface.step()
@@ -161,7 +163,7 @@ class PybulletSim(AbstractSim):
         return self.sim.get_joint_names()
 
     def set_self_collision(self, active):
-        rospy.logwarn_once("self collision in pybullet has to be set during loading of URDF")
+        self.node.get_logger().warn("self collision in pybullet has to be set during loading of URDF", once=True)
         return
 
     def close(self):
@@ -169,13 +171,13 @@ class PybulletSim(AbstractSim):
 
 class WebotsSim(AbstractSim, ABC):
 
-    def __init__(self, namespace, gui, robot="wolfgang", ros_active=False, world="robot_supervisor", start_webots=True):
+    def __init__(self, node, namespace, gui, robot="wolfgang", ros_active=False, world="robot_supervisor", start_webots=True):
         # start webots
-        super().__init__()
+        super().__init__(node)
         rospack = rospkg.RosPack()
         self.ros_active = ros_active
         if ros_active:
-            self.true_odom_publisher = rospy.Publisher(namespace + "/true_odom", Odometry, queue_size=1)
+            self.true_odom_publisher = self.node.create_publisher(Odometry, namespace + "/true_odom", 1)
         path = rospack.get_path("wolfgang_webots_sim")
 
         if start_webots:
@@ -254,11 +256,11 @@ class WebotsSim(AbstractSim, ABC):
         return self.robot_controller.timestep / 1000
 
     def get_pressure_left(self):
-        rospy.logwarn_once("pressure method not implemented")
+        self.node.get_logger().warn("pressure method not implemented", once=True)
         return FootPressure()
 
     def get_pressure_right(self):
-        rospy.logwarn_once("pressure method not implemented")
+        self.node.get_logger().warn("pressure method not implemented", once=True)
         return FootPressure()
 
     def get_link_pose(self, link_name):
@@ -282,7 +284,6 @@ class WebotsSim(AbstractSim, ABC):
         sys.exit(f"joint {name} not found")
 
     def close(self):
-        print("hi")
         self.sim_proc.terminate()
         self.sim_proc.wait()
         self.sim_proc.kill()

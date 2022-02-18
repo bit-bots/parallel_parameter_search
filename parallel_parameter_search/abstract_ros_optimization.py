@@ -1,18 +1,21 @@
 from time import sleep
 
-import rospy
+import rclpy
+from rclpy.node import Node
 import rosnode
 import roslaunch
 import threading
 
+from rclpy.time import Time
 from rosgraph_msgs.msg import Clock
 
 
-class AbstractRosOptimization:
+class AbstractRosOptimization(Node):
 
     def __init__(self, namespace):
+        super().__init__("optimizer")
         # make all nodes use simulation time via /clock topic
-        rospy.set_param('/use_sim_time', True)
+        self.set_parameters([rclpy.parameter.Parameter('/use_sim_time', rclpy.Parameter.Type.DOUBLE, True)])
         self.current_params = None
 
         self.launch = roslaunch.scriptapi.ROSLaunch()
@@ -27,7 +30,7 @@ class AbstractRosOptimization:
                 current_highest_number = max(current_highest_number, int(number))
         self.namespace = namespace + '_' + str(current_highest_number + 1)
         print(F"Will use namespace {self.namespace}")
-        rospy.set_param("/" + self.namespace + '/use_sim_time', True)
+        self.set_parameters([rclpy.parameter.Parameter("/" + self.namespace + '/use_sim_time', rclpy.Parameter.Type.DOUBLE, True)])
         # launch a dummy node to show other workers that this namespace is taken
         self.dummy_node = roslaunch.core.Node('parallel_parameter_search', 'dummy_node.py', name='dummy_node',
                                               namespace=self.namespace)
@@ -35,7 +38,6 @@ class AbstractRosOptimization:
 
         self.dynconf_client = None
         self.sim = None
-        rospy.init_node('optimizer', anonymous=True, argv=['clock:=/' + self.namespace + '/clock'])
 
     def set_params(self, param_dict, client, node_to_spin=None):
         self.current_params = param_dict
@@ -44,13 +46,14 @@ class AbstractRosOptimization:
         stop_clock = False
 
         def clock_thread():
-            pub = rospy.Publisher("/clock", Clock, queue_size=1)
+            pub = self.create_publisher(Clock, "/clock", 1)
             msg = Clock()
-            while not stop_clock or rospy.is_shutdown():
+            while not stop_clock or not rclpy.ok():
                 self.sim.step_sim()
                 # this magic sleep is necessary because of reasons
                 sleep(0.01)
-                msg.clock = rospy.Time.from_sec(self.sim.get_time())
+                sim_time = self.sim.get_time()
+                msg.clock = Time(seconds=int(sim_time), nanoseconds=sim_time % 1 * 1e9)
                 pub.publish(msg)
                 if node_to_spin:
                     node_to_spin.spin_ros()

@@ -1,16 +1,17 @@
 import math
 
 import numpy as np
-import rospy
+import rclpy
+from rclpy.node import Node
 from parallel_parameter_search.walk_optimization import AbstractWalkOptimization
 
 from parallel_parameter_search.simulators import PybulletSim, WebotsSim
 
 
 class AbstractWalkEngine(AbstractWalkOptimization):
-    def __init__(self, namespace, gui, robot, walk_as_node, sim_type='pybullet', foot_link_names=(), start_speeds=None,
+    def __init__(self, namespace, gui, robot, sim_type='pybullet', foot_link_names=(), start_speeds=None,
                  repetitions=1, multi_objective=False):
-        super(AbstractWalkEngine, self).__init__(namespace, robot, walk_as_node)
+        super(AbstractWalkEngine, self).__init__(namespace, robot)
         if sim_type == 'pybullet':
             urdf_path = self.rospack.get_path(robot + '_description') + '/urdf/robot.urdf'
             self.sim = PybulletSim(self.namespace, gui, urdf_path=urdf_path,

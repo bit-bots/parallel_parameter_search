@@ -1,4 +1,3 @@
-# THIS HAS TO BE IMPORTED FIRST!!! I don't know why
 from bitbots_msgs.msg import JointCommand
 from bitbots_quintic_walk import PyWalk
 
@@ -9,7 +8,8 @@ import dynamic_reconfigure.client
 import optuna
 import roslaunch
 import rospkg
-import rospy
+import rclpy
+from rclpy.node import Node
 import tf
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
@@ -22,8 +22,8 @@ from sensor_msgs.msg import Imu, JointState
 
 class AbstractWalkOptimization(AbstractRosOptimization):
 
-    def __init__(self, namespace, robot_name, walk_as_node, config_name="_optimization"):
-        super().__init__(namespace)
+    def __init__(self, node, namespace, robot_name, config_name="_optimization"):
+        super().__init__(node, namespace)
         self.rospack = rospkg.RosPack()
         # set robot urdf and srdf
         load_robot_param(self.namespace, self.rospack, robot_name)
@@ -33,21 +33,12 @@ class AbstractWalkOptimization(AbstractRosOptimization):
                                                   '/config/walking_' + robot_name + config_name + '.yaml',
                                                   self.rospack)
 
-        self.walk_as_node = walk_as_node
         self.current_speed = None
         self.last_time = 0
-        if self.walk_as_node:
-            self.walk_node = roslaunch.core.Node('bitbots_quintic_walk', 'WalkNode', 'walking',
-                                                 namespace=self.namespace)
-            self.walk_node.remap_args = [("walking_motor_goals", "DynamixelController/command"), ("/clock", "clock")]
-            self.launch.launch(self.walk_node)
-            self.dynconf_client = dynamic_reconfigure.client.Client(self.namespace + '/' + 'walking/engine', timeout=60)
-            self.cmd_vel_pub = rospy.Publisher(self.namespace + '/cmd_vel', Twist, queue_size=10)
-        else:
-            load_yaml_to_param("/robot_description_kinematics", robot_name + '_moveit_config',
-                               '/config/kinematics.yaml', self.rospack)
-            # create walk as python class to call it later
-            self.walk = PyWalk(self.namespace)
+        load_yaml_to_param(node, "/robot_description_kinematics", robot_name + '_moveit_config',
+                           '/config/kinematics.yaml', self.rospack)
+        # create walk as python class to call it later
+        self.walk = PyWalk(self.namespace)
 
         self.number_of_iterations = 100
         self.time_limit = 10
@@ -82,7 +73,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         summed_yaw = 0
 
         # wait till time for test is up or stopping condition has been reached
-        while not rospy.is_shutdown():
+        while rclpy.ok():
             # 2D pose
             pos, rpy = self.sim.get_robot_pose_rpy()
             # we need to sum the yaw manually to recognize complete turns
@@ -153,7 +144,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
 
     def run_walking(self, duration):
         start_time = self.sim.get_time()
-        while not rospy.is_shutdown() and (duration is None or self.sim.get_time() - start_time < duration):
+        while rclpy.ok() and (duration is None or self.sim.get_time() - start_time < duration):
             self.sim.step_sim()
             current_time = self.sim.get_time()
             joint_command = self.walk.step(current_time - self.last_time, self.current_speed, self.sim.get_imu_msg(),
@@ -166,7 +157,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         start_time = self.sim.get_time()
         for i in range(number_steps):
             # does a double step
-            while not rospy.is_shutdown():
+            while rclpy.ok():
                 current_time = self.sim.get_time()
                 joint_command = self.walk.step(current_time - self.last_time, self.current_speed,
                                                self.sim.get_imu_msg(),

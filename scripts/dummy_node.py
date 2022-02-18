@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
-import rospy
+import rclpy
+from rclpy.node import Node
 
 # this is just a small node which is used to reserve namespaces
-rospy.init_node('dummy_node', anonymous=False)
+rclpy.init(args=None)
 
-while not rospy.is_shutdown():
-    rospy.spin()
+while rclpy.ok():
+    rclpy.spin(self)spin()

@@ -1,17 +1,18 @@
 import math
 
 import yaml
-import rospy
+import rclpy
+from rclpy.node import Node
 
 
-def set_param_to_file(param, package, file, rospack):
+def set_param_to_file(node, param, package, file, rospack):
     path = rospack.get_path(package)
     with open(path + file, 'r') as file:
         file_content = file.read()
-    rospy.set_param(param, file_content)
+    node.set_parameters([rclpy.parameter.Parameter(param, rclpy.Parameter.Type.DOUBLE, file_content)])
 
 
-def load_yaml_to_param(namespace, package, file, rospack):
+def load_yaml_to_param(node, namespace, package, file, rospack):
     path = rospack.get_path(package)
     with open(path + file, 'r') as file:
         data = yaml.load(file, Loader=yaml.FullLoader)
@@ -19,19 +20,19 @@ def load_yaml_to_param(namespace, package, file, rospack):
         # sometimes first level contains another yaml dict of values
         if isinstance(value, dict):
             for key_2, value_2 in value.items():
-                rospy.set_param(namespace + '/' + key + '/' + key_2, value_2)
+                node.set_parameters([rclpy.parameter.Parameter(namespace + '/' + key + '/' + key_2, rclpy.Parameter.Type.DOUBLE, value_2)])
         else:
-            rospy.set_param(namespace + '/' + key, value)
+            node.set_parameters([rclpy.parameter.Parameter(namespace + '/' + key, rclpy.Parameter.Type.DOUBLE, value)])
     return data
 
-def load_robot_param(namespace, rospack, name):
-    rospy.set_param(namespace + '/robot_type_name', name)
-    set_param_to_file(namespace + "/robot_description", name + '_description', '/urdf/robot.urdf', rospack)
-    set_param_to_file(namespace + "/robot_description_semantic", name + '_moveit_config',
+def load_robot_param(node, namespace, rospack, name):
+    node.set_parameters([rclpy.parameter.Parameter(namespace + '/robot_type_name', rclpy.Parameter.Type.DOUBLE, name)])
+    set_param_to_file(node, namespace + "/robot_description", name + '_description', '/urdf/robot.urdf', rospack)
+    set_param_to_file(node, namespace + "/robot_description_semantic", name + '_moveit_config',
                       '/config/' + name + '.srdf', rospack)
-    load_yaml_to_param(namespace + "/robot_description_kinematics", name + '_moveit_config',
+    load_yaml_to_param(node, namespace + "/robot_description_kinematics", name + '_moveit_config',
                        '/config/kinematics.yaml', rospack)
-    load_yaml_to_param(namespace + "/robot_description_planning", name + '_moveit_config',
+    load_yaml_to_param(node, namespace + "/robot_description_planning", name + '_moveit_config',
                        '/config/joint_limits.yaml', rospack)
 
 

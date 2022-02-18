@@ -5,7 +5,8 @@ import dynamic_reconfigure.client
 import optuna
 import roslaunch
 import rospkg
-import rospy
+import rclpy
+from rclpy.node import Node
 import tf
 import transforms3d
 from actionlib_msgs.msg import GoalID
@@ -61,16 +62,16 @@ class AbstractMoveBaseOptimization(AbstractRosOptimization):
         # imu filter
         self.imu_node = roslaunch.core.Node('imu_complementary_filter', 'complementary_filter_node', 'complementary_filter_gain_node',
                                             namespace=self.namespace)
-        rospy.set_param(self.imu_node.name + "/do_bias_estimation", True)
-        rospy.set_param(self.imu_node.name + "/bias_alpha", 0.05)
-        rospy.set_param(self.imu_node.name + "/da_adaptive_gain", False)
-        rospy.set_param(self.imu_node.name + "/gain_acc", 0.04)
+        self.set_parameters([rclpy.parameter.Parameter(self.imu_node.name + "/do_bias_estimation", rclpy.Parameter.Type.DOUBLE, True)])
+        self.set_parameters([rclpy.parameter.Parameter(self.imu_node.name + "/bias_alpha", rclpy.Parameter.Type.DOUBLE, 0.05)])
+        self.set_parameters([rclpy.parameter.Parameter(self.imu_node.name + "/da_adaptive_gain", rclpy.Parameter.Type.DOUBLE, False)])
+        self.set_parameters([rclpy.parameter.Parameter(self.imu_node.name + "/gain_acc", rclpy.Parameter.Type.DOUBLE, 0.04)])
         self.imu_node.remap_args = [("/clock", "clock"), ("/tf", "tf"), ("/tf_static", "tf_static")]
         self.launch.launch(self.imu_node)
         # localization
         load_yaml_to_param(self.namespace + '/bitbots_localization', 'bitbots_localization', '/config/config.yaml', self.rospack)
         load_yaml_to_param(self.namespace + '/bitbots_localization', 'bitbots_localization', '/config/fields/webots/config.yaml', self.rospack)
-        rospy.set_param(self.namespace + '/bitbots_localization/fieldname', 'webots')
+        self.set_parameters([rclpy.parameter.Parameter(self.namespace + '/bitbots_localization/fieldname', rclpy.Parameter.Type.DOUBLE, 'webots')])
         self.localization_node = roslaunch.core.Node('bitbots_localization', 'localization', 'bitbots_localization',
                                                      namespace=self.namespace)
         self.localization_node.remap_args = [("/clock", "clock"), ("/tf", "tf"), ("/tf_static", "tf_static")]
@@ -89,7 +90,7 @@ class AbstractMoveBaseOptimization(AbstractRosOptimization):
         # start vision
         load_yaml_to_param(self.namespace + '/bitbots_vision', 'bitbots_vision', '/config/visionparams.yaml', self.rospack)
         load_yaml_to_param(self.namespace + '/bitbots_vision', 'bitbots_vision', '/config/simparams.yaml', self.rospack)
-        rospy.set_param(self.namespace + '/bitbots_vision/neural_network_type', 'dummy')
+        self.set_parameters([rclpy.parameter.Parameter(self.namespace + '/bitbots_vision/neural_network_type', rclpy.Parameter.Type.DOUBLE, 'dummy')])
         self.vision_node = roslaunch.core.Node('bitbots_vision', 'vision.py', 'bitbots_vision', namespace=self.namespace)
         self.vision_node.remap_args = [("/clock", "clock"), ("/tf", "tf"), ("/tf_static", "tf_static")]
         self.launch.launch(self.vision_node)
@@ -103,7 +104,7 @@ class AbstractMoveBaseOptimization(AbstractRosOptimization):
         self.launch.launch(self.transformer_node)
         # start head behavior
         load_yaml_to_param(self.namespace, 'bitbots_head_behavior', '/config/head_config.yaml', self.rospack)
-        rospy.set_param(self.namespace + '/behavior/head/defaults/head_mode', 3)  # field features
+        self.set_parameters([rclpy.parameter.Parameter(self.namespace + '/behavior/head/defaults/head_mode', rclpy.Parameter.Type.DOUBLE, 3)])  # field features
         self.head_behavior_node = roslaunch.core.Node('bitbots_head_behavior', 'head_node.py', 'head_behavior',
                                                       namespace=self.namespace)
         self.head_behavior_node.remap_args = [("/clock", "clock"), ("/tf", "tf"), ("/tf_static", "tf_static"),
@@ -144,7 +145,7 @@ class AbstractMoveBaseOptimization(AbstractRosOptimization):
         self.launch.launch(self.walk_node)
 
         # Let nodes start, otherwise the dynreconf client will timeout
-        while not rospy.is_shutdown():
+        while rclpy.ok():
             try:
                 self.move_base_dynconf_client = dynamic_reconfigure.client.Client(self.namespace + '/move_base/DWAPlannerROS',
                                                                                   timeout=0)
@@ -152,7 +153,7 @@ class AbstractMoveBaseOptimization(AbstractRosOptimization):
             except:
                 # wait some more till the service is up
                 self.sim.run_simulation(0.5, 0.1)
-        while not rospy.is_shutdown():
+        while rclpy.ok():
             try:
                 self.localization_dynconf_client = dynamic_reconfigure.client.Client(self.namespace + '/bitbots_localization',
                                                                                      timeout=0)
@@ -162,7 +163,7 @@ class AbstractMoveBaseOptimization(AbstractRosOptimization):
                 self.sim.run_simulation(0.5, 0.1)
         print('Waiting for localization reset service... ', end='')
         rospy.wait_for_service(self.namespace + '/reset_localization')
-        self.localization_reset_service = rospy.ServiceProxy(self.namespace + '/reset_localization', ResetFilter)
+        self.localization_reset_service = self.create_client(ResetFilter, self.namespace + '/reset_localization')
         print('done')
 
         self.move_base_result = None
@@ -283,7 +284,7 @@ class AbstractMoveBaseOptimization(AbstractRosOptimization):
         self.goal_publisher.publish(goal)
         start_time = self.sim.get_time()
         # wait till time for test is up or stopping condition has been reached
-        while not rospy.is_shutdown():
+        while rclpy.ok():
             passed_time = self.sim.get_time() - start_time
             # test timeout
             if passed_time > self.time_limit:
@@ -376,7 +377,7 @@ class AbstractMoveBaseOptimization(AbstractRosOptimization):
 
 
 def create_goal_msg(x, y, yaw):
-    time = rospy.Time.now()
+    time = self.get_clock().now()
     msg = MoveBaseActionGoal()
     msg.header.stamp = time
     msg.header.frame_id = "base_foot_print"
