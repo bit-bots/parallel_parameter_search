@@ -6,14 +6,15 @@ from abc import ABC
 
 import rospkg
 import rclpy
+from ament_index_python import get_package_share_directory
 from rclpy.node import Node
 from geometry_msgs.msg import Point, Quaternion
 from nav_msgs.msg import Odometry
 from wolfgang_pybullet_sim.simulation import Simulation
 from wolfgang_pybullet_sim.ros_interface import ROSInterface
-from parallel_parameter_search.utils import set_param_to_file, load_yaml_to_param
 
 from bitbots_msgs.msg import JointCommand, FootPressure
+from ros2param.api import load_parameter_file
 
 try:
     from wolfgang_webots_sim.webots_robot_supervisor_controller import RobotSupervisorController
@@ -84,17 +85,16 @@ class AbstractSim:
 
 class PybulletSim(AbstractSim):
 
-    def __init__(self, node, namespace, gui, urdf_path=None, foot_link_names=[], terrain_height=0, field=False, robot="wolfgang"):
-        super(AbstractSim, self).__init__(node)
-        self.namespace = namespace
+    def __init__(self, node:Node, gui, urdf_path=None, foot_link_names=[], terrain_height=0, field=False, robot="wolfgang"):
+        super().__init__(node)
         # load simuation params
         rospack = rospkg.RosPack()
         # print(self.namespace)
-        load_yaml_to_param("/" + self.namespace, 'wolfgang_pybullet_sim', '/config/config.yaml', rospack)
+        load_parameter_file(node=node, node_name=self.node.get_name(), parameter_file=get_package_share_directory('wolfgang_pybullet_sim')+'/config/config.yaml', use_wildcard=True)
         self.gui = gui
         self.sim: Simulation = Simulation(gui, urdf_path=urdf_path, foot_link_names=foot_link_names, terrain_height=terrain_height,
                                           field=field, robot=robot)
-        self.sim_interface: ROSInterface = ROSInterface(self.sim, namespace="/" + self.namespace + '/', node=self.node)
+        self.sim_interface: ROSInterface = ROSInterface(self.node, self.sim, declare_parameters=False)
 
     def step_sim(self):
         self.sim_interface.step()

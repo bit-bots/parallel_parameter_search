@@ -3,17 +3,18 @@ import math
 import yaml
 import rclpy
 from rclpy.node import Node
+from ament_index_python import get_package_share_directory
 
 
-def set_param_to_file(node, param, package, file, rospack):
-    path = rospack.get_path(package)
+def set_param_to_file(node, param, package, file):
+    path = get_package_share_directory(package)
     with open(path + file, 'r') as file:
         file_content = file.read()
     node.set_parameters([rclpy.parameter.Parameter(param, rclpy.Parameter.Type.DOUBLE, file_content)])
 
 
-def load_yaml_to_param(node, namespace, package, file, rospack):
-    path = rospack.get_path(package)
+def load_yaml_to_param(node, namespace, package, file):
+    path = get_package_share_directory(package)
     with open(path + file, 'r') as file:
         data = yaml.load(file, Loader=yaml.FullLoader)
     for key, value in data.items():
@@ -25,15 +26,15 @@ def load_yaml_to_param(node, namespace, package, file, rospack):
             node.set_parameters([rclpy.parameter.Parameter(namespace + '/' + key, rclpy.Parameter.Type.DOUBLE, value)])
     return data
 
-def load_robot_param(node, namespace, rospack, name):
+def load_robot_param(node, namespace, name):
     node.set_parameters([rclpy.parameter.Parameter(namespace + '/robot_type_name', rclpy.Parameter.Type.DOUBLE, name)])
-    set_param_to_file(node, namespace + "/robot_description", name + '_description', '/urdf/robot.urdf', rospack)
+    set_param_to_file(node, namespace + "/robot_description", name + '_description', '/urdf/robot.urdf')
     set_param_to_file(node, namespace + "/robot_description_semantic", name + '_moveit_config',
-                      '/config/' + name + '.srdf', rospack)
+                      '/config/' + name + '.srdf')
     load_yaml_to_param(node, namespace + "/robot_description_kinematics", name + '_moveit_config',
-                       '/config/kinematics.yaml', rospack)
+                       '/config/kinematics.yaml')
     load_yaml_to_param(node, namespace + "/robot_description_planning", name + '_moveit_config',
-                       '/config/joint_limits.yaml', rospack)
+                       '/config/joint_limits.yaml')
 
 
 def fused_from_quat(q):

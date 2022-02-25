@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-# this has to be first import, otherwise there will be an error
-from bitbots_quintic_walk import PyWalk
 import argparse
 import importlib
 import time
@@ -11,8 +9,6 @@ from optuna.pruners import MedianPruner
 from optuna.samplers import TPESampler, CmaEsSampler, MOTPESampler, RandomSampler, NSGAIISampler
 import numpy as np
 
-import rclpy
-from rclpy.node import Node
 
 from parallel_parameter_search.walk_engine_optimization import OP2WalkEngine, WolfgangWalkEngine, OP3WalkEngine, \
     NaoWalkEngine
@@ -28,7 +24,6 @@ parser.add_argument('--robot', help='Robot model that should be used {wolfgang, 
 parser.add_argument('--sim', help='Simulator type that should be used {pybullet, webots} ', default=None, type=str,
                     required=True)
 parser.add_argument('--gui', help="Activate gui", action='store_true')
-parser.add_argument('--node', help="Run walking as extra node", action='store_true')
 parser.add_argument('--type', help='Optimization type that should be used {engine, stabilization} ', default=None,
                     type=str, required=True)
 parser.add_argument('--startup', help='Startup trials', default=-1,
@@ -45,7 +40,7 @@ args = parser.parse_args()
 seed = np.random.randint(2 ** 32 - 1)
 n_startup_trials = args.startup
 
-num_variables = 4
+num_variables = 8
 
 multi_objective = False
 if args.sampler == "TPE":
@@ -63,7 +58,7 @@ elif args.sampler == "Random":
     sampler = RandomSampler(seed=seed)
     multi_objective = True
 else:
-    print("sampler not correctly specified")
+    print("sampler not correctly specified. Should be one of {TPE, CMAES, MOTPE, NSGA2, Random}")
     exit(1)
 
 if multi_objective:
@@ -80,22 +75,22 @@ study.set_user_attr("repetitions", args.repetitions)
 
 if args.type == "engine":
     if args.robot == "op2":
-        objective = OP2WalkEngine('worker', gui=args.gui, walk_as_node=args.node, sim_type=args.sim,
+        objective = OP2WalkEngine(gui=args.gui, sim_type=args.sim,
                                   repetitions=args.repetitions, multi_objective=multi_objective)
     elif args.robot == "wolfgang":
-        objective = WolfgangWalkEngine('worker', gui=args.gui, walk_as_node=args.node, sim_type=args.sim,
+        objective = WolfgangWalkEngine(gui=args.gui, sim_type=args.sim,
                                        repetitions=args.repetitions, multi_objective=multi_objective)
     elif args.robot == "op3":
-        objective = OP3WalkEngine('worker', gui=args.gui, walk_as_node=args.node, sim_type=args.sim,
+        objective = OP3WalkEngine(gui=args.gui, sim_type=args.sim,
                                   repetitions=args.repetitions, multi_objective=multi_objective)
     elif args.robot == "nao":
-        objective = NaoWalkEngine('worker', gui=args.gui, walk_as_node=args.node, sim_type=args.sim,
+        objective = NaoWalkEngine(gui=args.gui, sim_type=args.sim,
                                   repetitions=args.repetitions, multi_objective=multi_objective)
     else:
         print(f"robot type \"{args.robot}\" not known.")
 elif args.type == "stabilization":
     if args.robot == "wolfgang":
-        objective = WolfgangWalkStabilization('worker', gui=args.gui, walk_as_node=args.node, sim_type=args.sim,
+        objective = WolfgangWalkStabilization(gui=args.gui, sim_type=args.sim,
                                               repetitions=args.repetitions, multi_objective=multi_objective)
     else:
         print(f"robot type \"{args.robot}\" not known.")

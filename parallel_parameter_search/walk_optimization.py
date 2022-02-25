@@ -1,55 +1,47 @@
+from ament_index_python import get_package_share_directory
+
 from bitbots_msgs.msg import JointCommand
-from bitbots_quintic_walk import PyWalk
+from bitbots_quintic_walk_py.py_walk import PyWalk
 
 import math
-import time
 import numpy as np
-import dynamic_reconfigure.client
 import optuna
-import roslaunch
-import rospkg
 import rclpy
-from rclpy.node import Node
-import tf
 from geometry_msgs.msg import Twist
-from nav_msgs.msg import Odometry
+import tf_transformations
 
 from parallel_parameter_search.abstract_ros_optimization import AbstractRosOptimization
-from parallel_parameter_search.utils import set_param_to_file, load_yaml_to_param, load_robot_param
-from parallel_parameter_search.simulators import PybulletSim, WebotsSim
-from sensor_msgs.msg import Imu, JointState
+from parallel_parameter_search.simulators import WebotsSim
+
+from bitbots_bringup.utils import load_moveit_parameter, get_parameters_from_ros_yaml
 
 
 class AbstractWalkOptimization(AbstractRosOptimization):
 
-    def __init__(self, node, namespace, robot_name, config_name="_optimization"):
-        super().__init__(node, namespace)
-        self.rospack = rospkg.RosPack()
-        # set robot urdf and srdf
-        load_robot_param(self.namespace, self.rospack, robot_name)
-
-        # load walk params
-        self.param_yaml_data = load_yaml_to_param(self.namespace, 'bitbots_quintic_walk',
-                                                  '/config/walking_' + robot_name + config_name + '.yaml',
-                                                  self.rospack)
-
+    def __init__(self, robot_name):
+        super().__init__(robot_name)
         self.current_speed = None
         self.last_time = 0
-        load_yaml_to_param(node, "/robot_description_kinematics", robot_name + '_moveit_config',
-                           '/config/kinematics.yaml', self.rospack)
-        # create walk as python class to call it later
-        self.walk = PyWalk(self.namespace)
-
         self.number_of_iterations = 100
         self.time_limit = 10
-
         # needs to be specified by subclasses
         self.directions = None
         self.reset_height_offset = None
         self.reset_rpy_offset = [0, 0, 0]
+        self.last_yaw = 0
+        self.summed_yaw = 0
 
-    def objective(self, trial):
-        raise NotImplementedError
+        # load moveit config values
+        moveit_parameters = load_moveit_parameter(self.robot_name)
+
+        # load walk params
+        walk_parameters = get_parameters_from_ros_yaml("walking",
+                                                       f"{get_package_share_directory('bitbots_quintic_walk')}"
+                                                       f"/config/walking_{self.robot_name}_optimization.yaml",
+                                                       use_wildcard=True)
+
+        # create walk as python class to call it later
+        self.walk = PyWalk("", moveit_parameters + walk_parameters)
 
     def suggest_walk_params(self, trial):
         raise NotImplementedError
@@ -57,101 +49,97 @@ class AbstractWalkOptimization(AbstractRosOptimization):
     def correct_pitch(self, x, y, yaw):
         return self.trunk_pitch + self.trunk_pitch_p_coef_forward * x + self.trunk_pitch_p_coef_turn * yaw
 
-    def evaluate_direction(self, x, y, yaw, time_limit, start_speed=True):
-        if time_limit == 0:
-            time_limit = 1
-        if start_speed:
-            # start robot slowly
-            self.set_cmd_vel(x / 4, y / 4, yaw / 4)
-        else:
+    def has_robot_fallen(self):
+        pos, rpy = self.sim.get_robot_pose_rpy()
+        return abs(rpy[0]) > math.radians(45) or abs(rpy[1]) > math.radians(45) or pos[2] < self.trunk_height / 2
+
+    def modulate_speed(self, x, y, yaw, passed_time, time_limit):
+        # change speed first increasing and then decreasing
+        if passed_time > 2:
             self.set_cmd_vel(x, y, yaw)
+        elif passed_time > 1:
+            self.set_cmd_vel(x / 2, y / 2, yaw / 2)
+        elif passed_time > time_limit - 2:
+            # decelerate
+            self.set_cmd_vel(x / 2, y / 2, yaw / 2)
+        elif passed_time > time_limit - 1:
+            # decelerate
+            self.set_cmd_vel(x / 4, y / 4, yaw / 4)
+        elif passed_time > time_limit:
+            # reached time limit, stop robot
+            self.set_cmd_vel(0, 0, 0, stop=True)
+
+    def track_pose(self, pos, rpy):
+        # we need to sum the yaw manually to recognize complete turns
+        current_yaw = rpy[2]
+        if self.last_yaw > math.tau / 4 and current_yaw < 0:
+            # counterclockwise turn
+            self.last_yaw = -math.tau / 2 - (math.tau / 2 - self.last_yaw)
+        elif self.last_yaw < -math.tau / 4 and current_yaw > 0:
+            # clockwise turn
+            self.last_yaw = math.tau / 2 + (math.tau / 2 + self.last_yaw)
+        self.summed_yaw += current_yaw - self.last_yaw
+        self.last_yaw = current_yaw
+        return [pos[0], pos[1], self.summed_yaw]
+
+    def evaluate_direction(self, x, y, yaw, time_limit):
+        if time_limit == 0:
+            raise AssertionError("Time limit must be greater than 0")  # todo when is this happening?
         print(F'cmd: {round(x, 2)} {round(y, 2)} {round(yaw, 2)}')
         start_time = self.sim.get_time()
         orientation_diff = 0.0
         angular_vel_diff = 0.0
-        last_yaw = 0
-        summed_yaw = 0
+        self.last_yaw = 0
+        self.summed_yaw = 0
 
         # wait till time for test is up or stopping condition has been reached
         while rclpy.ok():
-            # 2D pose
-            pos, rpy = self.sim.get_robot_pose_rpy()
-            # we need to sum the yaw manually to recognize complete turns
-            current_yaw = rpy[2]
-            if last_yaw > math.tau / 4 and current_yaw < 0:
-                # counter clockwise turn
-                last_yaw = -math.tau / 2 - (math.tau / 2 - last_yaw)
-            elif last_yaw < -math.tau / 4 and current_yaw > 0:
-                # clockwise turn
-                last_yaw = math.tau / 2 + (math.tau / 2 + last_yaw)
-            summed_yaw += current_yaw - last_yaw
-            current_pose = [pos[0], pos[1], summed_yaw]
-            last_yaw = current_yaw
-
+            # track time
             passed_time = self.sim.get_time() - start_time
             passed_timesteps = passed_time / self.sim.get_timestep()
             if passed_timesteps == 0:
                 # edge case with division by zero
                 passed_timesteps = 1
-            if start_speed:
-                if passed_time > 2:
-                    # use real speed
-                    self.set_cmd_vel(x, y, yaw)
-                elif passed_time > 1:
-                    self.set_cmd_vel(x / 2, y / 2, yaw / 2)
-            if passed_time > time_limit - 1:
-                # decelerate
-                self.set_cmd_vel(x / 2, y / 2, yaw / 2)
 
-            if passed_time > time_limit:
-                # reached time limit, stop robot
-                self.set_cmd_vel(0, 0, 0, stop=True)
+            # manage speed for slow increase and decrease at start and end
+            self.modulate_speed(x, y, yaw, passed_time, time_limit)
 
-            if passed_time > time_limit + 2:
-                # robot should have stopped now, evaluate the fitness
-                pose_cost, poses = self.compute_cost(x, y, yaw, current_pose)
-                return False, pose_cost, orientation_diff / passed_timesteps, \
-                       angular_vel_diff / passed_timesteps, poses
-
-            # test if the robot has fallen down
+            # track pose to count full turns of the robot
             pos, rpy = self.sim.get_robot_pose_rpy()
+            current_pose = self.track_pose(pos, rpy)
+
             # get orientation diff scaled to 0-1
             orientation_diff += min(1, (abs(rpy[0]) + abs(rpy[1] - self.correct_pitch(x, y, yaw))) * 0.5)
             imu_msg = self.sim.get_imu_msg()
             # get angular_vel diff scaled to 0-1. dont take yaw, since we might actually turn around it
             angular_vel_diff += min(1, (abs(imu_msg.angular_velocity.x) + abs(imu_msg.angular_velocity.y)) / 60)
-            if abs(rpy[0]) > math.radians(45) or abs(rpy[1]) > math.radians(45) or pos[2] < self.trunk_height / 2:
-                pose_cost, poses = self.compute_cost(x, y, yaw, current_pose)
-                return True, pose_cost, orientation_diff / passed_timesteps, \
-                       angular_vel_diff / passed_timesteps, poses
 
-            if self.walk_as_node:
-                # give time to other algorithms to compute their responses
-                # use wall time, as ros time is standing still
-                time.sleep(0.01)  # todo would be better to just wait till a command from walking arrived, like in dynup
-            else:
-                current_time = self.sim.get_time()
-                joint_command = self.walk.step(current_time - self.last_time, self.current_speed,
-                                               imu_msg,
-                                               self.sim.get_joint_state_msg(),
-                                               self.sim.get_pressure_left(), self.sim.get_pressure_right())
-                self.sim.set_joints(joint_command)
-                self.last_time = current_time
+            if passed_time > time_limit + 2:
+                # robot should have stopped now, evaluate the fitness
+                pose_cost, poses = self.compute_cost(x, y, yaw, current_pose)
+                return False, pose_cost, orientation_diff / passed_timesteps, angular_vel_diff / passed_timesteps, poses
+
+            # test if the robot has fallen down
+            if self.has_robot_fallen():
+                pose_cost, poses = self.compute_cost(x, y, yaw, current_pose)
+                return True, pose_cost, orientation_diff / passed_timesteps, angular_vel_diff / passed_timesteps, poses
+
+            # set commands to simulation and step
+            current_time = self.sim.get_time()
+            joint_command = self.walk.step(current_time - self.last_time, self.current_speed,
+                                           imu_msg,
+                                           self.sim.get_joint_state_msg(),
+                                           self.sim.get_pressure_left(), self.sim.get_pressure_right())
+            self.sim.set_joints(joint_command)
+            self.last_time = current_time
             self.sim.step_sim()
+
+            # spine py+cpp nodes just to allow introspection from terminal and create debug messages if necessary
+            rclpy.spin_once(self.node)
+            self.walk.spin_ros()
 
         # was stopped before finishing
         raise optuna.exceptions.OptunaError()
-
-    def run_walking(self, duration):
-        start_time = self.sim.get_time()
-        while rclpy.ok() and (duration is None or self.sim.get_time() - start_time < duration):
-            self.sim.step_sim()
-            current_time = self.sim.get_time()
-            joint_command = self.walk.step(current_time - self.last_time, self.current_speed, self.sim.get_imu_msg(),
-                                           self.sim.get_joint_state_msg(), self.sim.get_pressure_left(),
-                                           self.sim.get_pressure_right())
-            self.sim.set_joints(joint_command)
-            self.last_time = current_time
 
     def complete_walking_step(self, number_steps=1, fake=False):
         start_time = self.sim.get_time()
@@ -234,7 +222,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
     def reset_position(self):
         height = self.trunk_height + self.reset_height_offset
         pitch = self.trunk_pitch
-        (x, y, z, w) = tf.transformations.quaternion_from_euler(self.reset_rpy_offset[0],
+        (x, y, z, w) = tf_transformations.quaternion_from_euler(self.reset_rpy_offset[0],
                                                                 self.reset_rpy_offset[1] + pitch,
                                                                 self.reset_rpy_offset[2])
 
@@ -256,28 +244,19 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         joint_command_msg.positions = [math.radians(35.86), math.radians(-36.10), math.radians(75.27),
                                        math.radians(-75.58)]
         self.sim.set_joints(joint_command_msg)
-        if self.walk_as_node:
-            self.sim.run_simulation(duration=4, sleep=0.01)
-        else:
-            self.complete_walking_step()
+        self.complete_walking_step()
         self.set_cmd_vel(0, 0, 0, stop=True)
-        if self.walk_as_node:
-            self.sim.run_simulation(duration=4, sleep=0.01)
-        else:
-            self.complete_walking_step()
+        self.complete_walking_step()
         self.sim.set_gravity(True)
-        # self.sim.set_self_collision(True)
+        # self.sim.set_self_collision(True) #todo why is this deactivated?
         self.reset_position()
 
-    def set_cmd_vel(self, x, y, yaw, stop=False):
+    def set_cmd_vel(self, x:float, y:float, yaw:float, stop=False):
         msg = Twist()
-        msg.linear.x = x
-        msg.linear.y = y
-        msg.linear.z = 0
-        msg.angular.z = yaw
+        msg.linear.x = float(x)
+        msg.linear.y = float(y)
+        msg.linear.z = 0.0
+        msg.angular.z = float(yaw)
         if stop:
-            msg.angular.x = -1
-        if self.walk_as_node:
-            self.cmd_vel_pub.publish(msg)
-        else:
-            self.current_speed = msg
+            msg.angular.x = -1.0
+        self.current_speed = msg

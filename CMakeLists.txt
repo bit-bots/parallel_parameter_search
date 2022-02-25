@@ -19,4 +19,11 @@ ament_export_include_directories(${INCLUDE_DIRS})
 
 ament_python_install_package(${PROJECT_NAME})
 
+install(PROGRAMS
+    scripts/evaluate_walk.py
+    scripts/multi_optim.py
+    scripts/optimize_dynup.py
+    scripts/optimize_walk.py
+  DESTINATION lib/${PROJECT_NAME})
+
 ament_package()
