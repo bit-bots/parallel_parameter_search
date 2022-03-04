@@ -106,7 +106,7 @@ class AbstractWalkEngine(AbstractWalkOptimization):
         param_dict = {}
 
         def add(name, min_value, max_value):
-            param_dict[name] = float(trial.suggest_uniform(name, min_value, max_value))
+            param_dict[name] = float(trial.suggest_float(name, min_value, max_value))
 
         def fix(name, value):
             param_dict[name] = float(value)
