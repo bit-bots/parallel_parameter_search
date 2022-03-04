@@ -41,7 +41,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
                                                        use_wildcard=True)
 
         # create walk as python class to call it later
-        self.walk = PyWalk("", moveit_parameters + walk_parameters)
+        self.walk = PyWalk("", walk_parameters + moveit_parameters)
 
     def suggest_walk_params(self, trial):
         raise NotImplementedError
@@ -244,17 +244,16 @@ class AbstractWalkOptimization(AbstractRosOptimization):
             # fix for strange webots physic errors
             self.sim.reset_robot_init()
         self.sim.reset_robot_pose((0, 0, 1), (0, 0, 0, 1), reset_joints=True)
-        self.set_cmd_vel(0.1, 0, 0)
         # set arms correctly
         joint_command_msg = JointCommand()
         joint_command_msg.joint_names = ["LElbow", "RElbow", "LShoulderPitch", "RShoulderPitch"]
         joint_command_msg.positions = [math.radians(35.86), math.radians(-36.10), math.radians(75.27),
                                        math.radians(-75.58)]
         self.sim.set_joints(joint_command_msg)
+        self.set_cmd_vel(0.1, 0, 0)
         self.complete_walking_step()
         self.set_cmd_vel(0, 0, 0, stop=True)
         self.complete_walking_step()
-        #self.walk.special_reset("IDLE", 0.0, self.current_speed, True)
         self.sim.set_gravity(True)
         # self.sim.set_self_collision(True) #todo why is this deactivated?
         self.reset_position()
@@ -267,5 +266,4 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         msg.angular.z = float(yaw)
         if stop:
             msg.angular.x = -1.0
-        print(f"set_cmd_vel: x {x} y {y} yaw {yaw}")
         self.current_speed = msg
