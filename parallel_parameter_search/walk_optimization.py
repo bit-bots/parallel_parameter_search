@@ -13,7 +13,7 @@ import tf_transformations
 from parallel_parameter_search.abstract_ros_optimization import AbstractRosOptimization
 from parallel_parameter_search.simulators import WebotsSim
 
-from bitbots_bringup.utils import load_moveit_parameter, get_parameters_from_ros_yaml
+from bitbots_utils.utils import load_moveit_parameter, get_parameters_from_ros_yaml
 
 
 class AbstractWalkOptimization(AbstractRosOptimization):
@@ -53,21 +53,24 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         pos, rpy = self.sim.get_robot_pose_rpy()
         return abs(rpy[0]) > math.radians(45) or abs(rpy[1]) > math.radians(45) or pos[2] < self.trunk_height / 2
 
-    def modulate_speed(self, x, y, yaw, passed_time, time_limit):
+    def modulate_speed(self, x, y, yaw, passed_time, time_limit, standing):
         # change speed first increasing and then decreasing
-        if passed_time > 2:
-            self.set_cmd_vel(x, y, yaw)
-        elif passed_time > 1:
-            self.set_cmd_vel(x / 2, y / 2, yaw / 2)
-        elif passed_time > time_limit - 2:
-            # decelerate
-            self.set_cmd_vel(x / 2, y / 2, yaw / 2)
-        elif passed_time > time_limit - 1:
-            # decelerate
-            self.set_cmd_vel(x / 4, y / 4, yaw / 4)
+        if passed_time < 1:
+            self.set_cmd_vel(x / 4.0, y / 4.0, yaw / 4.0, stop=standing)
+        elif passed_time < 2:
+            self.set_cmd_vel(x / 2.0, y / 2.0, yaw / 2.0, stop=standing)
         elif passed_time > time_limit:
             # reached time limit, stop robot
             self.set_cmd_vel(0, 0, 0, stop=True)
+        elif passed_time > time_limit - 1:
+            # decelerate
+            self.set_cmd_vel(x / 4.0, y / 4.0, yaw / 4.0, stop=standing)
+        elif passed_time > time_limit - 2:
+            # decelerate
+            self.set_cmd_vel(x / 2.0, y / 2.0, yaw / 2.0, stop=standing)
+        else:
+            # set normal speed in the middle
+            self.set_cmd_vel(x, y, yaw, stop=standing)
 
     def track_pose(self, pos, rpy):
         # we need to sum the yaw manually to recognize complete turns
@@ -82,7 +85,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         self.last_yaw = current_yaw
         return [pos[0], pos[1], self.summed_yaw]
 
-    def evaluate_direction(self, x, y, yaw, time_limit):
+    def evaluate_direction(self, x, y, yaw, time_limit, standing=False):
         if time_limit == 0:
             raise AssertionError("Time limit must be greater than 0")  # todo when is this happening?
         print(F'cmd: {round(x, 2)} {round(y, 2)} {round(yaw, 2)}')
@@ -102,7 +105,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
                 passed_timesteps = 1
 
             # manage speed for slow increase and decrease at start and end
-            self.modulate_speed(x, y, yaw, passed_time, time_limit)
+            self.modulate_speed(x, y, yaw, passed_time, time_limit, standing)
 
             # track pose to count full turns of the robot
             pos, rpy = self.sim.get_robot_pose_rpy()
@@ -134,8 +137,12 @@ class AbstractWalkOptimization(AbstractRosOptimization):
             self.last_time = current_time
             self.sim.step_sim()
 
+            self.walk.publish_debug()
             # spine py+cpp nodes just to allow introspection from terminal and create debug messages if necessary
-            rclpy.spin_once(self.node)
+            # there is no spin_some method in python, just try to do it a couple of times
+            # TODO this could be done in a better way if rclpy had a spin_some method
+            for i in range(5):
+                rclpy.spin_once(self.node, timeout_sec=0)
             self.walk.spin_ros()
 
         # was stopped before finishing
@@ -247,11 +254,12 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         self.complete_walking_step()
         self.set_cmd_vel(0, 0, 0, stop=True)
         self.complete_walking_step()
+        #self.walk.special_reset("IDLE", 0.0, self.current_speed, True)
         self.sim.set_gravity(True)
         # self.sim.set_self_collision(True) #todo why is this deactivated?
         self.reset_position()
 
-    def set_cmd_vel(self, x:float, y:float, yaw:float, stop=False):
+    def set_cmd_vel(self, x: float, y: float, yaw: float, stop=False):
         msg = Twist()
         msg.linear.x = float(x)
         msg.linear.y = float(y)
@@ -259,4 +267,5 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         msg.angular.z = float(yaw)
         if stop:
             msg.angular.x = -1.0
+        print(f"set_cmd_vel: x {x} y {y} yaw {yaw}")
         self.current_speed = msg

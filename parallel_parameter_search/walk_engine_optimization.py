@@ -40,7 +40,7 @@ class AbstractWalkEngine(AbstractWalkOptimization):
         max_speeds = [0] * len(self.directions)
         max_wrong_speeds = [0] * len(self.directions)
         # standing as first test, is not in loop as it will only be done once
-        fallen, pose_obj, orientation_obj, gyro_obj, end_poses = self.evaluate_direction(0, 0, 0, 1)
+        fallen, pose_obj, orientation_obj, gyro_obj, end_poses = self.evaluate_direction(0, 0, 0, 1, standing=True)
         if fallen:
             trial.set_user_attr('early_termination_at', (0, 0, 0))
             # give lower score as 0 for each direction as we did not even stand
@@ -151,7 +151,10 @@ class AbstractWalkEngine(AbstractWalkOptimization):
         fix('engine.foot_put_down_phase', 1.0)
         fix('engine.trunk_pause', 0.0)
 
-        node_param_dict = {}
+        fix('engine.foot_put_down_z_offset', 0.0)
+        fix('engine.trunk_x_offset_p_coef_forward', 0.0)
+        fix('engine.trunk_x_offset_p_coef_turn', 0.0)
+
         # walk engine should update at same speed as simulation
         param_dict["node.engine_freq"] = 1 / self.sim.get_timestep()
         # don't use loop closure when optimizing parameter

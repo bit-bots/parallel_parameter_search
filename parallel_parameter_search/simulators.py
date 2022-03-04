@@ -4,7 +4,6 @@ import sys
 import time
 from abc import ABC
 
-import rospkg
 import rclpy
 from ament_index_python import get_package_share_directory
 from rclpy.node import Node
@@ -32,8 +31,12 @@ class AbstractSim:
         raise NotImplementedError
 
     def run_simulation(self, duration, sleep):
-        start_time = float(self.node.get_clock().now().seconds_nanoseconds()[0] + self.node.get_clock().now().seconds_nanoseconds()[1]/1e9)
-        while rclpy.ok() and (duration is None or float(self.node.get_clock().now().seconds_nanoseconds()[0] + self.node.get_clock().now().seconds_nanoseconds()[1]/1e9) - start_time < duration):
+        start_time = float(
+            self.node.get_clock().now().seconds_nanoseconds()[0] + self.node.get_clock().now().seconds_nanoseconds()[
+                1] / 1e9)
+        while rclpy.ok() and (duration is None or float(self.node.get_clock().now().seconds_nanoseconds()[0] +
+                                                        self.node.get_clock().now().seconds_nanoseconds()[
+                                                            1] / 1e9) - start_time < duration):
             self.step_sim()
             time.sleep(sleep)
 
@@ -83,16 +86,19 @@ class AbstractSim:
     def close(self):
         raise NotImplementedError
 
+
 class PybulletSim(AbstractSim):
 
-    def __init__(self, node:Node, gui, urdf_path=None, foot_link_names=[], terrain_height=0, field=False, robot="wolfgang"):
+    def __init__(self, node: Node, gui, urdf_path=None, foot_link_names=[], terrain_height=0, field=False,
+                 robot="wolfgang"):
         super().__init__(node)
         # load simuation params
-        rospack = rospkg.RosPack()
-        # print(self.namespace)
-        load_parameter_file(node=node, node_name=self.node.get_name(), parameter_file=get_package_share_directory('wolfgang_pybullet_sim')+'/config/config.yaml', use_wildcard=True)
+        load_parameter_file(node=node, node_name=self.node.get_name(),
+                            parameter_file=get_package_share_directory('wolfgang_pybullet_sim') + '/config/config.yaml',
+                            use_wildcard=True)
         self.gui = gui
-        self.sim: Simulation = Simulation(gui, urdf_path=urdf_path, foot_link_names=foot_link_names, terrain_height=terrain_height,
+        self.sim: Simulation = Simulation(gui, urdf_path=urdf_path, foot_link_names=foot_link_names,
+                                          terrain_height=terrain_height,
                                           field=field, robot=robot)
         self.sim_interface: ROSInterface = ROSInterface(self.node, self.sim, declare_parameters=False)
 
@@ -169,16 +175,16 @@ class PybulletSim(AbstractSim):
     def close(self):
         return
 
+
 class WebotsSim(AbstractSim, ABC):
 
-    def __init__(self, node, namespace, gui, robot="wolfgang", ros_active=False, world="robot_supervisor", start_webots=True):
+    def __init__(self, node, gui, robot="wolfgang", ros_active=False, world="robot_supervisor", start_webots=True):
         # start webots
         super().__init__(node)
-        rospack = rospkg.RosPack()
         self.ros_active = ros_active
         if ros_active:
-            self.true_odom_publisher = self.node.create_publisher(Odometry, namespace + "/true_odom", 1)
-        path = rospack.get_path("wolfgang_webots_sim")
+            self.true_odom_publisher = self.node.create_publisher(Odometry, "/true_odom", 1)
+        path = get_package_share_directory("wolfgang_webots_sim")
 
         if start_webots:
             arguments = ["webots",
@@ -195,7 +201,7 @@ class WebotsSim(AbstractSim, ABC):
         else:
             mode = 'fast'
 
-        self.robot_controller = RobotSupervisorController(ros_active, mode, robot, base_ns=namespace + '/',
+        self.robot_controller = RobotSupervisorController(node, ros_active, mode, robot, base_ns='',
                                                           model_states_active=False, camera_active=False)
 
     def step_sim(self):

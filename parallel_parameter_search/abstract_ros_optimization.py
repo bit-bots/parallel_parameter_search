@@ -12,7 +12,8 @@ class AbstractRosOptimization:
         initRos()
         self.node: Node = Node("optimizer", allow_undeclared_parameters=True)
         # make all nodes use simulation time via /clock topic
-        self.node.set_parameters([rclpy.parameter.Parameter('use_sim_time', rclpy.Parameter.Type.BOOL, True)])
+        # actually not since we use direct python interfaces and the simulation runs in the same thread
+        # self.node.set_parameters([rclpy.parameter.Parameter('use_sim_time', rclpy.Parameter.Type.BOOL, True)])
         self.current_params = None
         self.sim = None
 

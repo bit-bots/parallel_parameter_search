@@ -97,20 +97,21 @@ elif args.type == "stabilization":
 else:
     print(f"Optimization type {args.type} not known.")
 
-if False:
+if True:
     if len(study.get_trials()) == 0:
         # old params
-        for i in range(1):
+        print("USING GIVEN PARAMETERS")
+        for i in range(100):
             study.enqueue_trial(
-                {"double_support_ratio": 0.187041787093062, "first_step_swing_factor": 0.988265815486162,
-                 "foot_distance": 0.191986968311401, "foot_rise": 0.0805917174531535, "freq": 2.81068228309542,
-                 "trunk_height": 0.364281403417376, "trunk_phase": -0.19951206583248, "trunk_pitch": 0.338845862625267,
-                 "trunk_pitch_p_coef_forward": -1.36707568402799, "trunk_pitch_p_coef_turn": -0.621298812652778,
-                 "trunk_swing": 0.342345300382608, "trunk_x_offset": -0.0178414805249525,
-                 "trunk_y_offset": 0.000997552190718013, "trunk_z_movement": 0.0318583647276103,
-                 "early_termination_at": [0.0, 0.0, 35.0], "first_step_trunk_phase": -0.5, "foot_apex_phase": 0.5,
-                 "foot_overshoot_phase": 1.0, "foot_overshoot_ratio": 0.0, "foot_put_down_phase": 1.0,
-                 "foot_z_pause": 0.0, "trunk_pause": 0.0})
+                {"engine.double_support_ratio": 0.187041787093062, "engine.first_step_swing_factor": 0.988265815486162,
+                 "engine.foot_distance": 0.191986968311401, "engine.foot_rise": 0.0805917174531535, "engine.freq": 2.81068228309542,
+                 "engine.trunk_height": 0.364281403417376, "engine.trunk_phase": -0.19951206583248, "engine.trunk_pitch": 0.338845862625267,
+                 "engine.trunk_pitch_p_coef_forward": -1.36707568402799, "engine.trunk_pitch_p_coef_turn": -0.621298812652778,
+                 "engine.trunk_swing": 0.342345300382608, "engine.trunk_x_offset": -0.0178414805249525,
+                 "engine.trunk_y_offset": 0.000997552190718013, "engine.trunk_z_movement": 0.0318583647276103,
+                 "engine.early_termination_at": [0.0, 0.0, 35.0], "engine.first_step_trunk_phase": -0.5, "engine.foot_apex_phase": 0.5,
+                 "engine.foot_overshoot_phase": 1.0, "engine.foot_overshoot_ratio": 0.0, "engine.foot_put_down_phase": 1.0,
+                 "engine.foot_z_pause": 0.0, "engine.trunk_pause": 0.0})
 
 study.optimize(objective.objective, n_trials=args.trials, show_progress_bar=True)
 
