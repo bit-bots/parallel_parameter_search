@@ -41,7 +41,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
                                                        use_wildcard=True)
 
         # create walk as python class to call it later
-        self.walk = PyWalk("", walk_parameters + moveit_parameters)
+        self.walk = PyWalk(self.namespace, walk_parameters + moveit_parameters)
 
     def suggest_walk_params(self, trial):
         raise NotImplementedError

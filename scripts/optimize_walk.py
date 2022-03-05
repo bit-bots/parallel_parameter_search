@@ -34,6 +34,7 @@ parser.add_argument('--sampler', help='Which sampler {MOTPE, TPE, CMAES, NSGA2, 
                     type=str, required=True)
 parser.add_argument('--repetitions', help='How often each trial is repeated while beeing evaluated', default=1,
                     type=int, required=False)
+parser.add_argument('--suggest', help='Suggest a working solution', action='store_true')
 
 args = parser.parse_args()
 
@@ -117,7 +118,7 @@ wandbc = WeightsAndBiasesCallback(
     metric_name=["objective.forward", "objective.error_forward"],
     wandb_kwargs=wandb_kwargs)
 
-if True:
+if args.suggest:
     if len(study.get_trials()) == 0:
         # old params
         print("#############\nUSING GIVEN PARAMETERS\n#############")
