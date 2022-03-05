@@ -41,38 +41,9 @@ args = parser.parse_args()
 seed = np.random.randint(2 ** 32 - 1)
 n_startup_trials = args.startup
 
-num_variables = 2
 
-multi_objective = False
-if args.sampler == "TPE":
-    sampler = TPESampler(n_startup_trials=n_startup_trials, seed=seed, multivariate=False, constant_liar=True)
-elif args.sampler == "CMAES":
-    sampler = CmaEsSampler(n_startup_trials=n_startup_trials, seed=seed)
-elif args.sampler == "MOTPE":
-    if n_startup_trials == -1:
-        n_startup_trials = num_variables * 11 - 1
-    sampler = TPESampler(n_startup_trials=n_startup_trials, seed=seed, multivariate=False, constant_liar=True)
-    multi_objective = True
-elif args.sampler == "NSGA2":
-    sampler = NSGAIISampler(seed=seed)
-elif args.sampler == "Random":
-    sampler = RandomSampler(seed=seed)
-    multi_objective = True
-else:
-    print("sampler not correctly specified. Should be one of {TPE, CMAES, MOTPE, NSGA2, Random}")
-    exit(1)
+multi_objective = args.sampler in ['MOTPE', 'Random']
 
-if multi_objective:
-    study = optuna.create_study(study_name=args.name, storage=args.storage, directions=["maximize"] * num_variables,
-                                sampler=sampler, load_if_exists=True)
-else:
-    study = optuna.create_study(study_name=args.name, storage=args.storage, direction="maximize",
-                                sampler=sampler, load_if_exists=True)
-
-study.set_user_attr("sampler", args.sampler)
-study.set_user_attr("robot", args.robot)
-study.set_user_attr("type", args.type)
-study.set_user_attr("repetitions", args.repetitions)
 
 if args.type == "engine":
     if args.robot == "op2":
@@ -103,6 +74,37 @@ elif args.type == "stabilization":
         print(f"robot type \"{args.robot}\" not known.")
 else:
     print(f"Optimization type {args.type} not known.")
+
+num_variables = len(objective.directions)
+
+
+if args.sampler == "TPE":
+    sampler = TPESampler(n_startup_trials=n_startup_trials, seed=seed, multivariate=False, constant_liar=True)
+elif args.sampler == "CMAES":
+    sampler = CmaEsSampler(n_startup_trials=n_startup_trials, seed=seed)
+elif args.sampler == "MOTPE":
+    if n_startup_trials == -1:
+        n_startup_trials = num_variables * 11 - 1
+    sampler = TPESampler(n_startup_trials=n_startup_trials, seed=seed, multivariate=False, constant_liar=True)
+elif args.sampler == "NSGA2":
+    sampler = NSGAIISampler(seed=seed)
+elif args.sampler == "Random":
+    sampler = RandomSampler(seed=seed)
+else:
+    print("sampler not correctly specified. Should be one of {TPE, CMAES, MOTPE, NSGA2, Random}")
+    exit(1)
+
+if multi_objective:
+    study = optuna.create_study(study_name=args.name, storage=args.storage, directions=["maximize"] * num_variables + ["minimize"] * num_variables,
+                                sampler=sampler, load_if_exists=True)
+else:
+    study = optuna.create_study(study_name=args.name, storage=args.storage, direction="maximize",
+                                sampler=sampler, load_if_exists=True)
+
+study.set_user_attr("sampler", args.sampler)
+study.set_user_attr("robot", args.robot)
+study.set_user_attr("type", args.type)
+study.set_user_attr("repetitions", args.repetitions)
 
 wandb_kwargs = {
     "project": f"optuna-walk-{args.type}",
