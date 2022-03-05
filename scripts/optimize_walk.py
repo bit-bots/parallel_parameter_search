@@ -106,7 +106,6 @@ else:
 
 wandb_kwargs = {
     "project": f"optuna-walk-{args.type}",
-    "name": args.name,
     "tags": [args.sampler, args.robot, args.sim],
     "resume": "never",
     "group": args.name,  # use group so that we can run multiple studies in parallel
