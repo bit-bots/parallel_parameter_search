@@ -10,7 +10,6 @@ from optuna.samplers import TPESampler, CmaEsSampler, MOTPESampler, RandomSample
 from optuna.integration import WeightsAndBiasesCallback
 import numpy as np
 
-
 from parallel_parameter_search.walk_engine_optimization import OP2WalkEngine, WolfgangWalkEngine, OP3WalkEngine, \
     NaoWalkEngine
 
@@ -41,7 +40,7 @@ args = parser.parse_args()
 seed = np.random.randint(2 ** 32 - 1)
 n_startup_trials = args.startup
 
-num_variables = 8
+num_variables = 2
 
 multi_objective = False
 if args.sampler == "TPE":
@@ -93,19 +92,36 @@ elif args.type == "stabilization":
     if args.robot == "wolfgang":
         objective = WolfgangWalkStabilization(gui=args.gui, sim_type=args.sim,
                                               repetitions=args.repetitions, multi_objective=multi_objective)
+        # add one trial without stabilitation at the beginning to provide a baseline
+        study.enqueue_trial(
+            {"pitch.p": 0.0, "pitch.i": 0.0, "pitch.d": 0.0, "pitch.i_clamp_min": 0.0, "pitch.i_clamp_max": 0.0,
+             "roll.p": 0.0, "roll.i": 0.0, "roll.d": 0.0, "roll.i_clamp_min": 0.0, "roll.i_clamp_max": 0.0,
+             "pause_duration": 0.0, "imu_pitch_threshold": 0.0, "imu_roll_threshold": 0.0,
+             "imu_pitch_vel_threshold": 0.0, "imu_roll_vel_threshold": 0.0})
     else:
         print(f"robot type \"{args.robot}\" not known.")
 else:
     print(f"Optimization type {args.type} not known.")
 
-wandbc = WeightsAndBiasesCallback(
-    metric_name=["forward", "backward", "left", "turn", "error_forward", "error_backward", "error_left", "error_turn"])
+wandb_kwargs = {
+    "project": f"optuna-walk-{args.type}",
+    "name": args.name,
+    "tags": [args.sampler, args.robot, args.sim],
+    "resume": "never",
+    "group": args.name,  # use group so that we can run multiple studies in parallel
+}
 
-if False:
+wandbc = WeightsAndBiasesCallback(
+    #metric_name=["objective.forward", "objective.backward", "objective.left", "objective.turn",
+    #             "objective.error_forward", "objective.error_backward", "objective.error_left", "objective.error_turn"],
+    metric_name=["objective.forward", "objective.error_forward"],
+    wandb_kwargs=wandb_kwargs)
+
+if True:
     if len(study.get_trials()) == 0:
         # old params
-        print("USING GIVEN PARAMETERS")
-        for i in range(100):
+        print("#############\nUSING GIVEN PARAMETERS\n#############")
+        for i in range(1):
             study.enqueue_trial(
                 {"engine.double_support_ratio": 0.187041787093062, "engine.first_step_swing_factor": 0.988265815486162,
                  "engine.foot_distance": 0.191986968311401, "engine.foot_rise": 0.0805917174531535,
