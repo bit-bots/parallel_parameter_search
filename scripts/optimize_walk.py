@@ -41,9 +41,7 @@ args = parser.parse_args()
 seed = np.random.randint(2 ** 32 - 1)
 n_startup_trials = args.startup
 
-
 multi_objective = args.sampler in ['MOTPE', 'Random']
-
 
 if args.type == "engine":
     if args.robot == "op2":
@@ -77,7 +75,6 @@ else:
 
 num_variables = len(objective.directions)
 
-
 if args.sampler == "TPE":
     sampler = TPESampler(n_startup_trials=n_startup_trials, seed=seed, multivariate=False, constant_liar=True)
 elif args.sampler == "CMAES":
@@ -95,7 +92,8 @@ else:
     exit(1)
 
 if multi_objective:
-    study = optuna.create_study(study_name=args.name, storage=args.storage, directions=["maximize"] * num_variables + ["minimize"] * num_variables,
+    study = optuna.create_study(study_name=args.name, storage=args.storage,
+                                directions=["maximize"] * num_variables + ["minimize"] * num_variables,
                                 sampler=sampler, load_if_exists=True)
 else:
     study = optuna.create_study(study_name=args.name, storage=args.storage, direction="maximize",
@@ -114,9 +112,8 @@ wandb_kwargs = {
 }
 
 wandbc = WeightsAndBiasesCallback(
-    #metric_name=["objective.forward", "objective.backward", "objective.left", "objective.turn",
-    #             "objective.error_forward", "objective.error_backward", "objective.error_left", "objective.error_turn"],
-    metric_name=["objective.forward", "objective.error_forward"],
+     metric_name=["objective.forward", "objective.backward", "objective.left", "objective.turn",
+                 "objective.error_forward", "objective.error_backward", "objective.error_left", "objective.error_turn"],
     wandb_kwargs=wandb_kwargs)
 
 if args.suggest:

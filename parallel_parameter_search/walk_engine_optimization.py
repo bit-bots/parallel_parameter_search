@@ -22,9 +22,9 @@ class AbstractWalkEngine(AbstractWalkOptimization):
             exit(1)
         self.start_speeds = start_speeds
         self.directions = [np.array([1, 0, 0]),
-                           # np.array([-1, 0, 0]),
-                           # np.array([0, 1, 0]),
-                           # np.array([0, 0, 1]),
+                           np.array([-1, 0, 0]),
+                           np.array([0, 1, 0]),
+                           np.array([0, 0, 1]),
 
                            # np.array([1, -1, 0]),
                            # np.array([-1, 1, 0]),
