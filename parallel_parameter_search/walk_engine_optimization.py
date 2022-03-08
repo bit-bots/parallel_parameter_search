@@ -75,7 +75,7 @@ class AbstractWalkEngine(AbstractWalkOptimization):
                         distance_travelled_in_correct_direction = np.linalg.norm(direction * np.array(end_pose))
                         mean_speed += distance_travelled_in_correct_direction / self.time_limit
                         distance_travelled_in_wrong_direction = np.linalg.norm(wrong_direction * np.array(end_pose))
-                        print(f"distance in wrong speed {distance_travelled_in_wrong_direction}")
+                        #print(f"distance in wrong speed {distance_travelled_in_wrong_direction}")
                         mean_wrong_speed += distance_travelled_in_wrong_direction / self.time_limit
 
                     if fallen:
@@ -103,8 +103,8 @@ class AbstractWalkEngine(AbstractWalkOptimization):
         else:
             if len(self.directions) == 4:
                 # use different weighting factors for the different directions
-                return max_speeds[0] + max_speeds[1] + 2 * max_speeds[2] + 0.2 * max_speeds[3]
-                # - max_wrong_speeds[0] - max_wrong_speeds[1] - 2 * max_wrong_speeds[2] - 0.2 * max_wrong_speeds[3]
+                return max_speeds[0] + max_speeds[1] + max_speeds[2] + max_speeds[3]
+                # - max_wrong_speeds[0] - max_wrong_speeds[1] - max_wrong_speeds[2] - max_wrong_speeds[3]
             else:
                 print("scalarization not implemented")
 
