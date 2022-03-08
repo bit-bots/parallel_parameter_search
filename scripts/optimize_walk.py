@@ -93,7 +93,7 @@ else:
 
 if multi_objective:
     study = optuna.create_study(study_name=args.name, storage=args.storage,
-                                directions=["maximize"] * num_variables + ["minimize"] * num_variables,
+                                directions=["maximize"] * num_variables,# + ["minimize"] * num_variables,
                                 sampler=sampler, load_if_exists=True)
 else:
     study = optuna.create_study(study_name=args.name, storage=args.storage, direction="maximize",
@@ -112,28 +112,31 @@ wandb_kwargs = {
 }
 
 wandbc = WeightsAndBiasesCallback(
-     metric_name=["objective.forward", "objective.backward", "objective.left", "objective.turn",
-                 "objective.error_forward", "objective.error_backward", "objective.error_left", "objective.error_turn"],
+    metric_name=["objective.forward", "objective.backward", "objective.left", "objective.turn"],
+                 #"objective.error_forward", "objective.error_backward", "objective.error_left", "objective.error_turn"],
     wandb_kwargs=wandb_kwargs)
 
 if args.suggest:
-    if len(study.get_trials()) == 0:
-        # old params
-        print("#############\nUSING GIVEN PARAMETERS\n#############")
-        for i in range(1):
-            study.enqueue_trial(
-                {"engine.double_support_ratio": 0.187041787093062, "engine.first_step_swing_factor": 0.988265815486162,
-                 "engine.foot_distance": 0.191986968311401, "engine.foot_rise": 0.0805917174531535,
-                 "engine.freq": 2.81068228309542, "engine.trunk_height": 0.364281403417376,
-                 "engine.trunk_phase": -0.19951206583248, "engine.trunk_pitch": 0.338845862625267,
-                 "engine.trunk_pitch_p_coef_forward": -1.36707568402799,
-                 "engine.trunk_pitch_p_coef_turn": -0.621298812652778, "engine.trunk_swing": 0.342345300382608,
-                 "engine.trunk_x_offset": -0.0178414805249525, "engine.trunk_y_offset": 0.000997552190718013,
-                 "engine.trunk_z_movement": 0.0318583647276103, "engine.early_termination_at": [0.0, 0.0, 35.0],
-                 "engine.first_step_trunk_phase": -0.5, "engine.foot_apex_phase": 0.5,
-                 "engine.foot_overshoot_phase": 1.0, "engine.foot_overshoot_ratio": 0.0,
-                 "engine.foot_put_down_phase": 1.0, "engine.foot_z_pause": 0.0, "engine.trunk_pause": 0.0})
-
+    if args.type == "engine":
+        if len(study.get_trials()) == 0:
+            # old params
+            print("#############\nUSING GIVEN PARAMETERS\n#############")
+            for i in range(1):
+                study.enqueue_trial(
+                    {"engine.double_support_ratio": 0.187041787093062,
+                     "engine.first_step_swing_factor": 0.988265815486162,
+                     "engine.foot_distance": 0.191986968311401, "engine.foot_rise": 0.0805917174531535,
+                     "engine.freq": 2.81068228309542, "engine.trunk_height": 0.364281403417376,
+                     "engine.trunk_phase": -0.19951206583248, "engine.trunk_pitch": 0.338845862625267,
+                     "engine.trunk_pitch_p_coef_forward": -1.36707568402799,
+                     "engine.trunk_pitch_p_coef_turn": -0.621298812652778, "engine.trunk_swing": 0.342345300382608,
+                     "engine.trunk_x_offset": -0.0178414805249525, "engine.trunk_y_offset": 0.000997552190718013,
+                     "engine.trunk_z_movement": 0.0318583647276103, "engine.early_termination_at": [0.0, 0.0, 35.0],
+                     "engine.first_step_trunk_phase": -0.5, "engine.foot_apex_phase": 0.5,
+                     "engine.foot_overshoot_phase": 1.0, "engine.foot_overshoot_ratio": 0.0,
+                     "engine.foot_put_down_phase": 1.0, "engine.foot_z_pause": 0.0, "engine.trunk_pause": 0.0})
+    else:
+        print("no suggestion specified for this type")
 study.optimize(objective.objective, n_trials=args.trials, show_progress_bar=True, callbacks=[wandbc])
 
 # close simulator window

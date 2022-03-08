@@ -99,9 +99,14 @@ class AbstractWalkEngine(AbstractWalkOptimization):
                         max_wrong_speeds[d] = mean_wrong_speed
                 d += 1
         if self.multi_objective:
-            return max_speeds + max_wrong_speeds
+            return max_speeds  # + max_wrong_speeds
         else:
-            return np.min(max_speeds) - np.max(max_wrong_speeds)
+            if len(self.directions) == 4:
+                # use different weighting factors for the different directions
+                return max_speeds[0] + max_speeds[1] + 2 * max_speeds[2] + 0.2 * max_speeds[3]
+                # - max_wrong_speeds[0] - max_wrong_speeds[1] - 2 * max_wrong_speeds[2] - 0.2 * max_wrong_speeds[3]
+            else:
+                print("scalarization not implemented")
 
     def _suggest_walk_params(self, trial, trunk_height, foot_distance, foot_rise, trunk_x, z_movement):
         param_dict = {}

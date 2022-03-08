@@ -5,41 +5,40 @@ from parallel_parameter_search.simulators import PybulletSim
 
 
 class AbstractWalkStabilization(AbstractWalkOptimization):
-    def __init__(self, gui, walk_as_node, robot_name, sim_type='pybullet', foot_link_names=(),
-                 start_terrain_height=0.01):
-        super(AbstractWalkStabilization, self).__init__(robot_name)
+    def __init__(self, gui, robot_name, sim_type='pybullet', repetitions=1, multi_objective=False, foot_link_names=(),
+                 start_terrain_height=0.0):
+        super().__init__(robot_name)
         self.start_terrain_height = start_terrain_height
 
         if sim_type == 'pybullet':
-            urdf_path = get_package_share_directory(f"{self.robot_name}_description") + "/urdf/robot.urdf"
-            self.sim = PybulletSim(self.node, "", gui, urdf_path=urdf_path,
-                                   foot_link_names=foot_link_names, terrain_height=1.02)
+            urdf_path = get_package_share_directory(f"{robot_name}_description") + "/urdf/robot.urdf"
+            self.sim = PybulletSim(self.node, gui, urdf_path=urdf_path, foot_link_names=foot_link_names,
+                                   terrain_height=self.start_terrain_height)
         elif sim_type == 'webots':
             print("Webots currently does not support stabilization optimization")
         else:
             print(f'sim type {sim_type} not known')
 
         # needed to reset robot pose correctly
-        self.trunk_height = self.node.get_parameter("/walking/engine/trunk_height")
-        self.trunk_pitch = self.node.get_parameter("/walking/engine/trunk_pitch")
-        self.trunk_pitch_p_coef_forward = self.node.get_parameter("/walking/engine/trunk_pitch_p_coef_forward")
-        self.trunk_pitch_p_coef_turn = self.node.get_parameter("/walking/engine/trunk_pitch_p_coef_turn")
+        self.trunk_height = self.node.get_parameter("engine.trunk_height")
+        self.trunk_pitch = self.node.get_parameter("engine.trunk_pitch")
+        self.trunk_pitch_p_coef_forward = self.node.get_parameter("engine.trunk_pitch_p_coef_forward")
+        self.trunk_pitch_p_coef_turn = self.node.get_parameter("engine.trunk_pitch_p_coef_turn")
 
-        # self.walk.spin_ros()
-        self.foot_x_client = self.node.get_parameter('walking/pid_foot_pos_x/')
-        self.foot_y_client = self.node.get_parameter('walking/pid_foot_pos_y/')
-        self.hip_pitch_client = self.node.get_parameter('walking/pid_hip_pitch/')
-        self.hip_roll_client = self.node.get_parameter('walking/pid_hip_roll/')
-        self.ankle_pitch_client_left = self.node.get_parameter('walking/pid_ankle_left_pitch/')
-        self.ankle_roll_client_left = self.node.get_parameter('walking/pid_ankle_left_roll/')
-        self.ankle_pitch_client_right = self.node.get_parameter('walking/pid_ankle_right_pitch/')
-        self.ankle_roll_client_right = self.node.get_parameter('walking/pid_ankle_right_roll/')
-        self.trunk_pitch_client = self.node.get_parameter('walking/pid_trunk_pitch/')
-        self.trunk_roll_client = self.node.get_parameter('walking/pid_trunk_roll/')
-        self.trunk_fused_pitch_client = self.node.get_parameter('walking/pid_trunk_fused_pitch/')
-        self.trunk_fused_roll_client = self.node.get_parameter('walking/pid_trunk_fused_roll/')
-        self.gyro_pitch_client = self.node.get_parameter('walking/pid_trunk_pitch/')
-        self.gyro_roll_client = self.node.get_parameter('walking/pid_trunk_roll/')
+        self.foot_x_client = self.node.get_parameter('pid_foot_pos_x')
+        self.foot_y_client = self.node.get_parameter('pid_foot_pos_y')
+        self.hip_pitch_client = self.node.get_parameter('pid_hip_pitch')
+        self.hip_roll_client = self.node.get_parameter('pid_hip_roll')
+        self.ankle_pitch_client_left = self.node.get_parameter('pid_ankle_left_pitch')
+        self.ankle_roll_client_left = self.node.get_parameter('pid_ankle_left_roll')
+        self.ankle_pitch_client_right = self.node.get_parameter('pid_ankle_right_pitch')
+        self.ankle_roll_client_right = self.node.get_parameter('pid_ankle_right_roll')
+        self.trunk_pitch_client = self.node.get_parameter('pid_trunk_pitch')
+        self.trunk_roll_client = self.node.get_parameter('pid_trunk_roll')
+        self.trunk_fused_pitch_client = self.node.get_parameter('pid_trunk_fused_pitch')
+        self.trunk_fused_roll_client = self.node.get_parameter('pid_trunk_fused_roll')
+        self.gyro_pitch_client = self.node.get_parameter('pid_trunk_pitch')
+        self.gyro_roll_client = self.node.get_parameter('pid_trunk_roll')
 
     def objective(self, trial):
         # get parameter to evaluate from optuna
@@ -152,10 +151,10 @@ class AbstractWalkStabilization(AbstractWalkOptimization):
 
 
 class WolfgangWalkStabilization(AbstractWalkStabilization):
-    def __init__(self, namespace, gui, walk_as_node, sim_type='pybullet'):
-        super(WolfgangWalkStabilization, self).__init__(namespace, gui, walk_as_node, "wolfgang", sim_type)
+    def __init__(self, gui, sim_type='pybullet'):
+        super(WolfgangWalkStabilization, self).__init__(gui, "wolfgang", sim_type, repetitions=1, multi_objective=False,
+                                                        start_terrain_height=0.0)
         self.reset_height_offset = 0.005
-        self.start_terrain_height = 0.015
         self.height_per_iteration = 0.0025
         start_speeds = (0.4, 0.2, 0.25)
         self.directions = [[start_speeds[0], 0, 0],
