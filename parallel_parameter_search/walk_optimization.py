@@ -245,10 +245,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
             self.sim.reset_robot_init()
         self.sim.reset_robot_pose((0, 0, 1), (0, 0, 0, 1), reset_joints=True)
         # set arms correctly
-        joint_command_msg = JointCommand()
-        joint_command_msg.joint_names = ["LElbow", "RElbow", "LShoulderPitch", "RShoulderPitch"]
-        joint_command_msg.positions = [math.radians(35.86), math.radians(-36.10), math.radians(75.27),
-                                       math.radians(-75.58)]
+        joint_command_msg = self.get_arm_pose()
         self.sim.set_joints(joint_command_msg)
         self.set_cmd_vel(0.1, 0, 0)
         self.complete_walking_step()

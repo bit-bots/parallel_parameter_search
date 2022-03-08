@@ -1,5 +1,9 @@
+import math
+
 import numpy as np
 from ament_index_python import get_package_share_directory
+from bitbots_msgs.msg import JointCommand
+
 from parallel_parameter_search.walk_optimization import AbstractWalkOptimization
 
 from parallel_parameter_search.simulators import PybulletSim, WebotsSim
@@ -75,7 +79,7 @@ class AbstractWalkEngine(AbstractWalkOptimization):
                         distance_travelled_in_correct_direction = np.linalg.norm(direction * np.array(end_pose))
                         mean_speed += distance_travelled_in_correct_direction / self.time_limit
                         distance_travelled_in_wrong_direction = np.linalg.norm(wrong_direction * np.array(end_pose))
-                        #print(f"distance in wrong speed {distance_travelled_in_wrong_direction}")
+                        # print(f"distance in wrong speed {distance_travelled_in_wrong_direction}")
                         mean_wrong_speed += distance_travelled_in_wrong_direction / self.time_limit
 
                     if fallen:
@@ -197,6 +201,13 @@ class WolfgangWalkEngine(AbstractWalkEngine):
         self._suggest_walk_params(trial, trunk_height=(0.39, 0.43), foot_distance=(0.15, 0.25), foot_rise=(0.05, 0.15),
                                   trunk_x=0.1, z_movement=0.1)
 
+    def get_arm_pose(self):
+        joint_command_msg = JointCommand()
+        joint_command_msg.joint_names = ["LElbow", "RElbow", "LShoulderPitch", "RShoulderPitch"]
+        joint_command_msg.positions = [math.radians(35.86), math.radians(-36.10), math.radians(75.27),
+                                       math.radians(-75.58)]
+        return joint_command_msg
+
 
 class OP2WalkEngine(AbstractWalkEngine):
     def __init__(self, gui, sim_type='webots', repetitions=1, multi_objective=False):
@@ -208,6 +219,13 @@ class OP2WalkEngine(AbstractWalkEngine):
     def suggest_walk_params(self, trial):
         self._suggest_walk_params(trial, (0.15, 0.25), (0.08, 0.16), (0.01, 0.15), 0.03, 0.05)
 
+    def get_arm_pose(self):
+        joint_command_msg = JointCommand()
+        joint_command_msg.joint_names = ["LElbow", "RElbow", "LShoulderPitch", "RShoulderPitch"]
+        joint_command_msg.positions = [math.radians(35.86), math.radians(-36.10), math.radians(75.27),
+                                       math.radians(-75.58)]
+        return joint_command_msg
+
 
 class OP3WalkEngine(AbstractWalkEngine):
     def __init__(self, gui, sim_type='webots', repetitions=1, multi_objective=False):
@@ -218,6 +236,13 @@ class OP3WalkEngine(AbstractWalkEngine):
 
     def suggest_walk_params(self, trial):
         self._suggest_walk_params(trial, (0.15, 0.25), (0.08, 0.16), (0.01, 0.15), 0.03, 0.05)
+
+    def get_arm_pose(self):
+        joint_command_msg = JointCommand()
+        joint_command_msg.joint_names = ["l_el", "r_el", "l_sho_pitch", "r_sho_pitch", "l_sho_roll", "r_sho_roll"]
+        joint_command_msg.positions = [math.radians(-140), math.radians(140), math.radians(-135),
+                                       math.radians(135), math.radians(-90), math.radians(90)]
+        return joint_command_msg
 
 
 class NaoWalkEngine(AbstractWalkEngine):
