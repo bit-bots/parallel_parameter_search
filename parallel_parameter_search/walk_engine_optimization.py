@@ -257,3 +257,22 @@ class NaoWalkEngine(AbstractWalkEngine):
 
     def suggest_walk_params(self, trial):
         self._suggest_walk_params(trial, (0.25, 0.35), (0.1, 0.2), (0.01, 0.15), 0.03, 0.05)
+
+
+class RFCWalkEngine(AbstractWalkEngine):
+    def __init__(self, gui, sim_type='pybullet', repetitions=1, multi_objective=False):
+        super().__init__(gui, 'rfc', sim_type, start_speeds=[0.05, 0.025, 0.1], repetitions=repetitions,
+                         multi_objective=multi_objective)
+        self.reset_height_offset = 0.012
+
+    def suggest_walk_params(self, trial):
+        self._suggest_walk_params(trial, trunk_height=(0.39, 0.43), foot_distance=(0.15, 0.25), foot_rise=(0.05, 0.15),
+                                  trunk_x=0.1, z_movement=0.1)
+
+    def get_arm_pose(self):
+        joint_command_msg = JointCommand()
+        joint_command_msg.joint_names = ["LeftElbow", "RightElbow", "LeftShoulderPitch [shoulder]",
+                                         "RightShoulderPitch [shoulder]"]
+        joint_command_msg.positions = [math.radians(-180.0), math.radians(180.0), math.radians(45.0),
+                                       math.radians(-45.0)]
+        return joint_command_msg
