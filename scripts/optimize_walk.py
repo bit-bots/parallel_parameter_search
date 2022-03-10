@@ -11,7 +11,7 @@ from optuna.integration import WeightsAndBiasesCallback
 import numpy as np
 
 from parallel_parameter_search.walk_engine_optimization import OP2WalkEngine, WolfgangWalkEngine, OP3WalkEngine, \
-    NaoWalkEngine, RFCWalkEngine
+    NaoWalkEngine, RFCWalkEngine, ITAndroidsWalkEngine
 
 from parallel_parameter_search.walk_stabilization import WolfgangWalkStabilization
 
@@ -19,7 +19,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--storage', help='Database SQLAlchemy string, e.g. postgresql://USER:PASS@SERVER/DB_NAME',
                     default=None, type=str, required=False)
 parser.add_argument('--name', help='Name of the study', default=None, type=str, required=True)
-parser.add_argument('--robot', help='Robot model that should be used {wolfgang, op2, op3, nao, rfc} ',
+parser.add_argument('--robot', help='Robot model that should be used {wolfgang, op2, op3, nao, rfc, itandroids} ',
                     default=None, type=str, required=True)
 parser.add_argument('--sim', help='Simulator type that should be used {pybullet, webots} ', default=None, type=str,
                     required=True)
@@ -58,6 +58,9 @@ if args.type == "engine":
                                   repetitions=args.repetitions, multi_objective=multi_objective)
     elif args.robot == "rfc":
         objective = RFCWalkEngine(gui=args.gui, sim_type=args.sim,
+                                  repetitions=args.repetitions, multi_objective=multi_objective)
+    elif args.robot == "itandroids":
+        objective = ITAndroidsWalkEngine(gui=args.gui, sim_type=args.sim,
                                   repetitions=args.repetitions, multi_objective=multi_objective)
     else:
         print(f"robot type \"{args.robot}\" not known.")

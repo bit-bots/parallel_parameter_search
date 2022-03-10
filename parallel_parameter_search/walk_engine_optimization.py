@@ -276,3 +276,22 @@ class RFCWalkEngine(AbstractWalkEngine):
         joint_command_msg.positions = [math.radians(-180.0), math.radians(180.0), math.radians(45.0),
                                        math.radians(-45.0)]
         return joint_command_msg
+
+class ITAndroidsWalkEngine(AbstractWalkEngine):
+    def __init__(self, gui, sim_type='webots', repetitions=1, multi_objective=False):
+        super().__init__(gui, 'itandroids', sim_type, foot_link_names=['l_sole', 'r_sole'],
+                         start_speeds=[0.05, 0.025, 0.25], repetitions=repetitions,
+                         multi_objective=multi_objective)
+        self.reset_height_offset = 0.15
+
+    def suggest_walk_params(self, trial):
+        self._suggest_walk_params(trial, (0.15, 0.25), (0.08, 0.16), (0.01, 0.15), 0.03, 0.05)
+
+    def get_arm_pose(self):
+        joint_command_msg = JointCommand()
+        joint_command_msg.joint_names = ["leftElbowYaw", "rightElbowYaw", "leftShoulderPitch[shoulder]",
+                                         "rightShoulderPitch[shoulder]"]
+        joint_command_msg.positions = [math.radians(-35.86), math.radians(36.10), math.radians(75.27),
+                                       math.radians(75.58)]
+        return joint_command_msg
+
