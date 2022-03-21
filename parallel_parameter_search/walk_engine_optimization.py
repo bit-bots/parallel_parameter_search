@@ -17,7 +17,7 @@ class AbstractWalkEngine(AbstractWalkOptimization):
             urdf_path = get_package_share_directory(f"{robot_name}_description") + "/urdf/robot.urdf"
             self.sim = PybulletSim(self.node, gui, urdf_path=urdf_path, foot_link_names=foot_link_names)
         elif sim_type == 'webots':
-            self.sim = WebotsSim(self.node, gui, robot_name, world="walk_optim_" + robot_name, ros_active=False)
+            self.sim = WebotsSim(self.node, gui, robot_name, world="optimization_" + robot_name, ros_active=False)
         else:
             print(f'sim type {sim_type} not known')
 
@@ -222,8 +222,8 @@ class OP2WalkEngine(AbstractWalkEngine):
     def get_arm_pose(self):
         joint_command_msg = JointCommand()
         joint_command_msg.joint_names = ["LElbow", "RElbow", "LShoulderPitch", "RShoulderPitch"]
-        joint_command_msg.positions = [math.radians(35.86), math.radians(-36.10), math.radians(75.27),
-                                       math.radians(-75.58)]
+        joint_command_msg.positions = [math.radians(-60), math.radians(60), math.radians(120.0),
+                                       math.radians(-120.0)]
         return joint_command_msg
 
 
@@ -258,40 +258,125 @@ class NaoWalkEngine(AbstractWalkEngine):
     def suggest_walk_params(self, trial):
         self._suggest_walk_params(trial, (0.25, 0.35), (0.1, 0.2), (0.01, 0.15), 0.03, 0.05)
 
+    def get_arm_pose(self):
+        joint_command_msg = JointCommand()
+        joint_command_msg.joint_names = ["LElbowYaw", "RElbowYaw", "LShoulderPitch",
+                                         "RShoulderPitch"]
+        joint_command_msg.positions = [math.radians(-90.0), math.radians(90.0), math.radians(45.0),
+                                       math.radians(-45.0)]
+        return joint_command_msg
+
 
 class RFCWalkEngine(AbstractWalkEngine):
     def __init__(self, gui, sim_type='pybullet', repetitions=1, multi_objective=False):
         super().__init__(gui, 'rfc', sim_type, start_speeds=[0.05, 0.025, 0.1], repetitions=repetitions,
                          multi_objective=multi_objective)
-        self.reset_height_offset = 0.012
+        self.reset_height_offset = 0.011
 
     def suggest_walk_params(self, trial):
-        self._suggest_walk_params(trial, trunk_height=(0.39, 0.43), foot_distance=(0.15, 0.25), foot_rise=(0.05, 0.15),
+        self._suggest_walk_params(trial, trunk_height=(0.3, 0.42), foot_distance=(0.15, 0.25), foot_rise=(0.05, 0.15),
                                   trunk_x=0.1, z_movement=0.1)
 
     def get_arm_pose(self):
         joint_command_msg = JointCommand()
         joint_command_msg.joint_names = ["LeftElbow", "RightElbow", "LeftShoulderPitch [shoulder]",
                                          "RightShoulderPitch [shoulder]"]
-        joint_command_msg.positions = [math.radians(-180.0), math.radians(180.0), math.radians(45.0),
+        joint_command_msg.positions = [math.radians(-90.0), math.radians(90.0), math.radians(45.0),
                                        math.radians(-45.0)]
         return joint_command_msg
 
-class ITAndroidsWalkEngine(AbstractWalkEngine):
+
+class ChapeWalkEngine(AbstractWalkEngine):
     def __init__(self, gui, sim_type='webots', repetitions=1, multi_objective=False):
-        super().__init__(gui, 'itandroids', sim_type, foot_link_names=['l_sole', 'r_sole'],
+        super().__init__(gui, 'chape', sim_type, foot_link_names=['l_sole', 'r_sole'],
                          start_speeds=[0.05, 0.025, 0.25], repetitions=repetitions,
                          multi_objective=multi_objective)
         self.reset_height_offset = 0.15
 
     def suggest_walk_params(self, trial):
-        self._suggest_walk_params(trial, (0.15, 0.25), (0.08, 0.16), (0.01, 0.15), 0.03, 0.05)
+        self._suggest_walk_params(trial, (0.22, 0.30), (0.08, 0.16), (0.01, 0.15), 0.03, 0.05)
 
     def get_arm_pose(self):
         joint_command_msg = JointCommand()
         joint_command_msg.joint_names = ["leftElbowYaw", "rightElbowYaw", "leftShoulderPitch[shoulder]",
-                                         "rightShoulderPitch[shoulder]"]
-        joint_command_msg.positions = [math.radians(-35.86), math.radians(36.10), math.radians(75.27),
-                                       math.radians(75.58)]
+                                         "rightShoulderPitch[shoulder]", "leftShoulderYaw", "rightShoulderYaw"]
+        joint_command_msg.positions = [math.radians(-160), math.radians(160), math.radians(75.27),
+                                       math.radians(75.58), math.radians(-75.58), math.radians(75.58)]
         return joint_command_msg
 
+
+class MRLHSLWalkEngine(AbstractWalkEngine):
+    def __init__(self, gui, sim_type='pybullet', repetitions=1, multi_objective=False):
+        super().__init__(gui, 'mrl_hsl', sim_type, start_speeds=[0.05, 0.025, 0.1], repetitions=repetitions,
+                         multi_objective=multi_objective)
+        self.reset_height_offset = 0.24
+
+    def suggest_walk_params(self, trial):
+        self._suggest_walk_params(trial, trunk_height=(0.25, 0.35), foot_distance=(0.15, 0.25), foot_rise=(0.05, 0.15),
+                                  trunk_x=0.1, z_movement=0.1)
+
+    def get_arm_pose(self):
+        joint_command_msg = JointCommand()
+        joint_command_msg.joint_names = ["Shoulder-L [shoulder]", "Shoulder-R [shoulder]", "UpperArm-L",
+                                         "UpperArm-R", "LowerArm-L", "LowerArm-R"]
+        joint_command_msg.positions = [math.radians(60.0), math.radians(-60.0), math.radians(10.0),
+                                       math.radians(-10.0), math.radians(-135.0), math.radians(135.0)]
+        return joint_command_msg
+
+
+class NugusWalkEngine(AbstractWalkEngine):
+    def __init__(self, gui, sim_type='pybullet', repetitions=1, multi_objective=False):
+        super().__init__(gui, 'nugus', sim_type, start_speeds=[0.05, 0.025, 0.1], repetitions=repetitions,
+                         multi_objective=multi_objective)
+        self.reset_height_offset = 0.012
+
+    def suggest_walk_params(self, trial):
+        self._suggest_walk_params(trial, trunk_height=(0.39, 0.45), foot_distance=(0.15, 0.25), foot_rise=(0.05, 0.15),
+                                  trunk_x=0.1, z_movement=0.1)
+
+    def get_arm_pose(self):
+        joint_command_msg = JointCommand()
+        joint_command_msg.joint_names = ["left_elbow_pitch", "right_elbow_pitch", "left_shoulder_pitch [shoulder]",
+                                         "right_shoulder_pitch [shoulder]", "left_shoulder_roll", "right_shoulder_roll"]
+        joint_command_msg.positions = [math.radians(-120), math.radians(-120), math.radians(120),
+                                       math.radians(120), math.radians(20), math.radians(-20)]
+        return joint_command_msg
+
+
+class SAHRV74WalkEngine(AbstractWalkEngine):
+    def __init__(self, gui, sim_type='pybullet', repetitions=1, multi_objective=False):
+        super().__init__(gui, 'sahrv74', sim_type, start_speeds=[0.05, 0.025, 0.1], repetitions=repetitions,
+                         multi_objective=multi_objective)
+        self.reset_height_offset = 0.01
+
+    def suggest_walk_params(self, trial):
+        self._suggest_walk_params(trial, trunk_height=(0.25, 0.35), foot_distance=(0.15, 0.25), foot_rise=(0.05, 0.15),
+                                  trunk_x=0.1, z_movement=0.1)
+
+    def get_arm_pose(self):
+        joint_command_msg = JointCommand()
+        joint_command_msg.joint_names = ["left_shoulder_pitch [shoulder]", "right_shoulder_pitch [shoulder]",
+                                         "left_shoulder_roll",
+                                         "right_shoulder_roll", "left_elbow", "right_elbow"]
+        joint_command_msg.positions = [math.radians(60.0), math.radians(60.0), math.radians(10.0),
+                                       math.radians(10.0), math.radians(-135.0), math.radians(-135.0)]
+        return joint_command_msg
+
+
+class BezWalkEngine(AbstractWalkEngine):
+    def __init__(self, gui, sim_type='webots', repetitions=1, multi_objective=False):
+        super().__init__(gui, 'bez', sim_type, foot_link_names=['l_sole', 'r_sole'],
+                         start_speeds=[0.05, 0.025, 0.25], repetitions=repetitions,
+                         multi_objective=multi_objective)
+        self.reset_height_offset = 0.15
+
+    def suggest_walk_params(self, trial):
+        self._suggest_walk_params(trial, trunk_height=(0.12, 0.22), foot_distance=(0.08, 0.16), foot_rise=(0.01, 0.15), trunk_x=0.03, z_movement=0.05)
+
+    def get_arm_pose(self):
+        joint_command_msg = JointCommand()
+        joint_command_msg.joint_names = ["left_arm_motor_0 [shoulder]",
+                                         "right_arm_motor_0 [shoulder]", "left_arm_motor_1", "right_arm_motor_1"]
+        joint_command_msg.positions = [math.radians(0),
+                                       math.radians(0), math.radians(170), math.radians(170)]
+        return joint_command_msg
