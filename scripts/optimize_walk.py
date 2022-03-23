@@ -35,7 +35,7 @@ parser.add_argument('--sampler', help='Which sampler {MOTPE, TPE, CMAES, NSGA2, 
 parser.add_argument('--repetitions', help='How often each trial is repeated while beeing evaluated', default=1,
                     type=int, required=False)
 parser.add_argument('--suggest', help='Suggest a working solution', action='store_true')
-
+parser.add_argument('--wandb', help='Use wandb', action='store_true')
 args = parser.parse_args()
 
 seed = np.random.randint(2 ** 32 - 1)
@@ -61,19 +61,19 @@ if args.type == "engine":
                                   repetitions=args.repetitions, multi_objective=multi_objective)
     elif args.robot == "chape":
         objective = ChapeWalkEngine(gui=args.gui, sim_type=args.sim,
-                                  repetitions=args.repetitions, multi_objective=multi_objective)
+                                    repetitions=args.repetitions, multi_objective=multi_objective)
     elif args.robot == "mrl_hsl":
         objective = MRLHSLWalkEngine(gui=args.gui, sim_type=args.sim,
-                                  repetitions=args.repetitions, multi_objective=multi_objective)
+                                     repetitions=args.repetitions, multi_objective=multi_objective)
     elif args.robot == "nugus":
         objective = NugusWalkEngine(gui=args.gui, sim_type=args.sim,
-                                  repetitions=args.repetitions, multi_objective=multi_objective)
+                                    repetitions=args.repetitions, multi_objective=multi_objective)
     elif args.robot == "sahrv74":
         objective = SAHRV74WalkEngine(gui=args.gui, sim_type=args.sim,
-                                    repetitions=args.repetitions, multi_objective=multi_objective)
+                                      repetitions=args.repetitions, multi_objective=multi_objective)
     elif args.robot == "bez":
         objective = BezWalkEngine(gui=args.gui, sim_type=args.sim,
-                                    repetitions=args.repetitions, multi_objective=multi_objective)
+                                  repetitions=args.repetitions, multi_objective=multi_objective)
     else:
         print(f"robot type \"{args.robot}\" not known.")
         exit()
@@ -112,7 +112,7 @@ else:
 
 if multi_objective:
     study = optuna.create_study(study_name=args.name, storage=args.storage,
-                                directions=["maximize"] * num_variables,# + ["minimize"] * num_variables,
+                                directions=["maximize"] * num_variables,  # + ["minimize"] * num_variables,
                                 sampler=sampler, load_if_exists=True)
 else:
     study = optuna.create_study(study_name=args.name, storage=args.storage, direction="maximize",
@@ -122,18 +122,6 @@ study.set_user_attr("sampler", args.sampler)
 study.set_user_attr("robot", args.robot)
 study.set_user_attr("type", args.type)
 study.set_user_attr("repetitions", args.repetitions)
-
-wandb_kwargs = {
-    "project": f"optuna-walk-{args.type}",
-    "tags": [args.sampler, args.robot, args.sim],
-    "resume": "never",
-    "group": args.name,  # use group so that we can run multiple studies in parallel
-}
-
-wandbc = WeightsAndBiasesCallback(
-    metric_name=["objective.forward", "objective.backward", "objective.left", "objective.turn"],
-                 #"objective.error_forward", "objective.error_backward", "objective.error_left", "objective.error_turn"],
-    wandb_kwargs=wandb_kwargs)
 
 if args.suggest:
     if args.type == "engine":
@@ -156,7 +144,24 @@ if args.suggest:
                      "engine.foot_put_down_phase": 1.0, "engine.foot_z_pause": 0.0, "engine.trunk_pause": 0.0})
     else:
         print("no suggestion specified for this type")
-study.optimize(objective.objective, n_trials=args.trials, show_progress_bar=True, callbacks=[wandbc])
+
+# only use wandb callback if name provided
+if args.wandb:
+    wandb_kwargs = {
+        "project": f"optuna-walk-{args.type}",
+        "tags": [args.sampler, args.robot, args.sim],
+        "resume": "never",
+        "group": args.name,  # use group so that we can run multiple studies in parallel
+    }
+
+    wandbc = WeightsAndBiasesCallback(
+        metric_name=["objective.forward", "objective.backward", "objective.left", "objective.turn"],
+        # "objective.error_forward", "objective.error_backward", "objective.error_left", "objective.error_turn"],
+        wandb_kwargs=wandb_kwargs)
+    callbacks = [wandbc]
+else:
+    callbacks = []
+study.optimize(objective.objective, n_trials=args.trials, show_progress_bar=True, callbacks=callbacks)
 
 # close simulator window
 objective.sim.close()
