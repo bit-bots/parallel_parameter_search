@@ -36,6 +36,7 @@ parser.add_argument('--repetitions', help='How often each trial is repeated whil
                     type=int, required=False)
 parser.add_argument('--suggest', help='Suggest a working solution', action='store_true')
 parser.add_argument('--wandb', help='Use wandb', action='store_true')
+parser.add_argument('--forward', help='Only optimize forward direction', action='store_true')
 args = parser.parse_args()
 
 seed = np.random.randint(2 ** 32 - 1)
@@ -46,34 +47,44 @@ multi_objective = args.sampler in ['MOTPE', 'Random']
 if args.type == "engine":
     if args.robot == "op2":
         objective = OP2WalkEngine(gui=args.gui, sim_type=args.sim,
-                                  repetitions=args.repetitions, multi_objective=multi_objective)
+                                  repetitions=args.repetitions, multi_objective=multi_objective,
+                                  only_forward=args.forward, wandb=args.wandb)
     elif args.robot == "wolfgang":
         objective = WolfgangWalkEngine(gui=args.gui, sim_type=args.sim,
-                                       repetitions=args.repetitions, multi_objective=multi_objective)
+                                       repetitions=args.repetitions, multi_objective=multi_objective,
+                                       only_forward=args.forward, wandb=args.wandb)
     elif args.robot == "op3":
         objective = OP3WalkEngine(gui=args.gui, sim_type=args.sim,
-                                  repetitions=args.repetitions, multi_objective=multi_objective)
+                                  repetitions=args.repetitions, multi_objective=multi_objective,
+                                  only_forward=args.forward, wandb=args.wandb)
     elif args.robot == "nao":
         objective = NaoWalkEngine(gui=args.gui, sim_type=args.sim,
-                                  repetitions=args.repetitions, multi_objective=multi_objective)
+                                  repetitions=args.repetitions, multi_objective=multi_objective,
+                                  only_forward=args.forward, wandb=args.wandb)
     elif args.robot == "rfc":
         objective = RFCWalkEngine(gui=args.gui, sim_type=args.sim,
-                                  repetitions=args.repetitions, multi_objective=multi_objective)
+                                  repetitions=args.repetitions, multi_objective=multi_objective,
+                                  only_forward=args.forward, wandb=args.wandb)
     elif args.robot == "chape":
         objective = ChapeWalkEngine(gui=args.gui, sim_type=args.sim,
-                                    repetitions=args.repetitions, multi_objective=multi_objective)
+                                    repetitions=args.repetitions, multi_objective=multi_objective,
+                                    only_forward=args.forward, wandb=args.wandb)
     elif args.robot == "mrl_hsl":
         objective = MRLHSLWalkEngine(gui=args.gui, sim_type=args.sim,
-                                     repetitions=args.repetitions, multi_objective=multi_objective)
+                                     repetitions=args.repetitions, multi_objective=multi_objective,
+                                     only_forward=args.forward, wandb=args.wandb)
     elif args.robot == "nugus":
         objective = NugusWalkEngine(gui=args.gui, sim_type=args.sim,
-                                    repetitions=args.repetitions, multi_objective=multi_objective)
+                                    repetitions=args.repetitions, multi_objective=multi_objective,
+                                    only_forward=args.forward, wandb=args.wandb)
     elif args.robot == "sahrv74":
         objective = SAHRV74WalkEngine(gui=args.gui, sim_type=args.sim,
-                                      repetitions=args.repetitions, multi_objective=multi_objective)
+                                      repetitions=args.repetitions, multi_objective=multi_objective,
+                                      only_forward=args.forward, wandb=args.wandb)
     elif args.robot == "bez":
         objective = BezWalkEngine(gui=args.gui, sim_type=args.sim,
-                                  repetitions=args.repetitions, multi_objective=multi_objective)
+                                  repetitions=args.repetitions, multi_objective=multi_objective,
+                                  only_forward=args.forward, wandb=args.wandb)
     else:
         print(f"robot type \"{args.robot}\" not known.")
         exit()
@@ -119,6 +130,7 @@ else:
                                 sampler=sampler, load_if_exists=True)
 
 study.set_user_attr("sampler", args.sampler)
+study.set_user_attr("sim", args.sim)
 study.set_user_attr("robot", args.robot)
 study.set_user_attr("type", args.type)
 study.set_user_attr("repetitions", args.repetitions)
@@ -129,19 +141,26 @@ if args.suggest:
             # old params
             print("#############\nUSING GIVEN PARAMETERS\n#############")
             for i in range(1):
-                study.enqueue_trial(
-                    {"engine.double_support_ratio": 0.187041787093062,
-                     "engine.first_step_swing_factor": 0.988265815486162,
-                     "engine.foot_distance": 0.191986968311401, "engine.foot_rise": 0.0805917174531535,
-                     "engine.freq": 2.81068228309542, "engine.trunk_height": 0.364281403417376,
-                     "engine.trunk_phase": -0.19951206583248, "engine.trunk_pitch": 0.338845862625267,
-                     "engine.trunk_pitch_p_coef_forward": -1.36707568402799,
-                     "engine.trunk_pitch_p_coef_turn": -0.621298812652778, "engine.trunk_swing": 0.342345300382608,
-                     "engine.trunk_x_offset": -0.0178414805249525, "engine.trunk_y_offset": 0.000997552190718013,
-                     "engine.trunk_z_movement": 0.0318583647276103, "engine.early_termination_at": [0.0, 0.0, 35.0],
-                     "engine.first_step_trunk_phase": -0.5, "engine.foot_apex_phase": 0.5,
-                     "engine.foot_overshoot_phase": 1.0, "engine.foot_overshoot_ratio": 0.0,
-                     "engine.foot_put_down_phase": 1.0, "engine.foot_z_pause": 0.0, "engine.trunk_pause": 0.0})
+                study.enqueue_trial({"engine.double_support_ratio": 0.10246360950147287,
+                                     "engine.first_step_swing_factor": 1.3542306836884608,
+                                     "engine.foot_distance": 0.24159033680013292,
+                                     "engine.foot_rise": 0.06647276146591795, "engine.freq": 3.75200764873075,
+                                     "engine.trunk_height": 0.3938513764844497,
+                                     "engine.trunk_phase": -0.44363523018380013,
+                                     "engine.trunk_pitch": -0.2971888909461389,
+                                     "engine.trunk_pitch_p_coef_forward": 3.6763906350936737,
+                                     "engine.trunk_pitch_p_coef_turn": 0.3958766542666028,
+                                     "engine.trunk_swing": 0.6600848248785338,
+                                     "engine.trunk_x_offset": 0.020639397629499356,
+                                     "engine.trunk_y_offset": 0.04769546671517156,
+                                     "engine.trunk_z_movement": 0.02350066715548973,
+                                     "engine.first_step_trunk_phase": -0.5, "engine.foot_apex_phase": 0.5,
+                                     "engine.foot_overshoot_phase": 1.0, "engine.foot_overshoot_ratio": 0.0,
+                                     "engine.foot_put_down_phase": 1.0, "engine.foot_put_down_z_offset": 0.0,
+                                     "engine.foot_z_pause": 0.0, "engine.trunk_pause": 0.0,
+                                     "engine.trunk_x_offset_p_coef_forward": 0.0,
+                                     "engine.trunk_x_offset_p_coef_turn": 0.0})
+
     else:
         print("no suggestion specified for this type")
 
@@ -154,14 +173,21 @@ if args.wandb:
         "group": args.name,  # use group so that we can run multiple studies in parallel
     }
 
+    if multi_objective:
+        if args.forward:
+            metric_name = ["objective.forward"]
+        else:
+            metric_name = ["objective.forward", "objective.backward", "objective.left", "objective.turn"],
+            # "objective.error_forward", "objective.error_backward", "objective.error_left", "objective.error_turn"],
+    else:
+        metric_name = ["objective"]
     wandbc = WeightsAndBiasesCallback(
-        metric_name=["objective.forward", "objective.backward", "objective.left", "objective.turn"],
-        # "objective.error_forward", "objective.error_backward", "objective.error_left", "objective.error_turn"],
+        metric_name=metric_name,
         wandb_kwargs=wandb_kwargs)
     callbacks = [wandbc]
 else:
     callbacks = []
-study.optimize(objective.objective, n_trials=args.trials, show_progress_bar=True, callbacks=callbacks)
+study.optimize(objective.objective, n_trials=args.trials, show_progress_bar=False, callbacks=callbacks)
 
 # close simulator window
 objective.sim.close()

@@ -7,8 +7,9 @@ import os
 
 class AbstractRosOptimization:
 
-    def __init__(self, robot_name):
+    def __init__(self, robot_name, wandb=False):
         self.robot_name = robot_name
+        self.wandb = wandb
         # need to init ROS for python and c++ code
         rclpy.init()
         initRos()

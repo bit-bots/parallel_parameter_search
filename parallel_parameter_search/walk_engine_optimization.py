@@ -1,6 +1,8 @@
 import math
+import time
 
 import numpy as np
+import wandb
 from ament_index_python import get_package_share_directory
 from bitbots_msgs.msg import JointCommand
 
@@ -11,8 +13,8 @@ from parallel_parameter_search.simulators import PybulletSim, WebotsSim
 
 class AbstractWalkEngine(AbstractWalkOptimization):
     def __init__(self, gui, robot_name, sim_type='pybullet', foot_link_names=(), start_speeds=None,
-                 repetitions=1, multi_objective=False):
-        super().__init__(robot_name)
+                 repetitions=1, multi_objective=False, only_forward=False, wandb=False):
+        super().__init__(robot_name, wandb=wandb)
         if sim_type == 'pybullet':
             urdf_path = get_package_share_directory(f"{robot_name}_description") + "/urdf/robot.urdf"
             self.sim = PybulletSim(self.node, gui, urdf_path=urdf_path, foot_link_names=foot_link_names)
@@ -28,16 +30,18 @@ class AbstractWalkEngine(AbstractWalkOptimization):
         self.directions = [np.array([1, 0, 0]),
                            np.array([-1, 0, 0]),
                            np.array([0, 1, 0]),
-                           np.array([0, 0, 1]),
-
-                           # np.array([1, -1, 0]),
-                           # np.array([-1, 1, 0]),
-                           # np.array([1, 0, -1])
-                           ]
+                           np.array([0, 0, 1])]
+        if only_forward:
+            self.directions = [np.array([1, 0, 0])]
         self.repetitions = repetitions
         self.multi_objective = multi_objective
 
     def objective(self, trial):
+        # log trial number, for wandb. this can be used to plot trial number over time and see if
+        # time per trial increases
+        if self.wandb:
+            wandb.log({"trial_number": trial.number}, step=trial.number)
+        start_time = time.time()
         # get parameter to evaluate from optuna
         self.suggest_walk_params(trial)
         self.reset()
@@ -47,7 +51,7 @@ class AbstractWalkEngine(AbstractWalkOptimization):
         # standing as first test, is not in loop as it will only be done once
         fallen, pose_obj, orientation_obj, gyro_obj, end_poses = self.evaluate_direction(0, 0, 0, 1, standing=True)
         if fallen:
-            trial.set_user_attr('early_termination_at', (0, 0, 0))
+            trial.set_user_attr('termination_reason', "not standing")
             # give lower score as 0 for each direction as we did not even stand
             max_speeds = [-1] * len(self.directions)
         else:
@@ -76,32 +80,44 @@ class AbstractWalkEngine(AbstractWalkOptimization):
                             break
 
                         # get the relevant part of the end pose with this cmd_vel
-                        distance_travelled_in_correct_direction = np.linalg.norm(direction * np.array(end_pose))
+                        distance_travelled_in_correct_direction = np.dot(direction, np.array(end_pose))
                         mean_speed += distance_travelled_in_correct_direction / self.time_limit
                         distance_travelled_in_wrong_direction = np.linalg.norm(wrong_direction * np.array(end_pose))
-                        # print(f"distance in wrong speed {distance_travelled_in_wrong_direction}")
                         mean_wrong_speed += distance_travelled_in_wrong_direction / self.time_limit
 
                     if fallen:
-                        # add extra information to trial
-                        trial.set_user_attr('early_termination_at',
-                                            (float(direction[0]) * iteration, float(direction[1]) * iteration,
-                                             float(direction[2]) * iteration))
+                        trial.set_user_attr('termination_reason', f"falling at {cmd_vel}")
                         print("break fall")
                         self.reset()
                         break
 
                     mean_speed /= self.repetitions
                     mean_wrong_speed /= self.repetitions
-                    if mean_speed > max_speeds[d]:
-                        max_speeds[d] = mean_speed
-                    else:
+                    print(f"mean speed {mean_speed}")
+                    print(f"mean wrong speed {mean_wrong_speed}")
+
+                    if mean_wrong_speed > mean_speed:
+                        # we move more into the wrong direction than into the correct one.
+                        # These parameters are not good, but we need to check this manually.
+                        # The speed in correct direction might still increase slightly and the robot may not fall
+                        trial.set_user_attr('termination_reason', f"movement in wrong direction at {cmd_vel}")
+                        print("break wrong direction")
+                        break
+
+                    if mean_speed < max_speeds[d]:
                         # we did not manage to go further
+                        trial.set_user_attr('termination_reason', f"no speed increase at {cmd_vel}")
                         print("break speed")
                         break
+                    else:
+                        max_speeds[d] = mean_speed
                     if mean_wrong_speed > max_wrong_speeds[d]:
                         max_wrong_speeds[d] = mean_wrong_speed
                 d += 1
+        if self.wandb:
+            # log wall time of the trial
+            wandb.log({"trial_wall_duration": time.time() - start_time}, step=trial.number)
+
         if self.multi_objective:
             return max_speeds  # + max_wrong_speeds
         else:
@@ -192,9 +208,9 @@ class AbstractWalkEngine(AbstractWalkOptimization):
 
 
 class WolfgangWalkEngine(AbstractWalkEngine):
-    def __init__(self, gui, sim_type='pybullet', repetitions=1, multi_objective=False):
+    def __init__(self, gui, sim_type='pybullet', repetitions=1, multi_objective=False, only_forward=False, wandb=False):
         super().__init__(gui, 'wolfgang', sim_type, start_speeds=[0.05, 0.025, 0.1], repetitions=repetitions,
-                         multi_objective=multi_objective)
+                         multi_objective=multi_objective, only_forward=only_forward, wandb=wandb)
         self.reset_height_offset = 0.012
 
     def suggest_walk_params(self, trial):
@@ -210,10 +226,10 @@ class WolfgangWalkEngine(AbstractWalkEngine):
 
 
 class OP2WalkEngine(AbstractWalkEngine):
-    def __init__(self, gui, sim_type='webots', repetitions=1, multi_objective=False):
+    def __init__(self, gui, sim_type='webots', repetitions=1, multi_objective=False, only_forward=False, wandb=False):
         super().__init__(gui, 'robotis_op2', sim_type, foot_link_names=['l_sole', 'r_sole'],
                          start_speeds=[0.05, 0.025, 0.25], repetitions=repetitions,
-                         multi_objective=multi_objective)
+                         multi_objective=multi_objective, only_forward=only_forward, wandb=wandb)
         self.reset_height_offset = 0.09
 
     def suggest_walk_params(self, trial):
@@ -228,10 +244,10 @@ class OP2WalkEngine(AbstractWalkEngine):
 
 
 class OP3WalkEngine(AbstractWalkEngine):
-    def __init__(self, gui, sim_type='webots', repetitions=1, multi_objective=False):
+    def __init__(self, gui, sim_type='webots', repetitions=1, multi_objective=False, only_forward=False, wandb=False):
         super().__init__(gui, 'op3', sim_type, foot_link_names=['r_ank_roll_link', 'l_ank_roll_link'],
                          start_speeds=[0.05, 0.025, 0.25], repetitions=repetitions,
-                         multi_objective=multi_objective)
+                         multi_objective=multi_objective, only_forward=only_forward, wandb=wandb)
         self.reset_height_offset = 0.01
 
     def suggest_walk_params(self, trial):
@@ -246,9 +262,9 @@ class OP3WalkEngine(AbstractWalkEngine):
 
 
 class NaoWalkEngine(AbstractWalkEngine):
-    def __init__(self, gui, sim_type='webots', repetitions=1, multi_objective=False):
+    def __init__(self, gui, sim_type='webots', repetitions=1, multi_objective=False, only_forward=False, wandb=False):
         super().__init__(gui, 'nao', sim_type, foot_link_names=['l_ankle', 'r_ankle'], start_speeds=[0.05, 0.025, 0.25],
-                         repetitions=repetitions, multi_objective=multi_objective)
+                         repetitions=repetitions, multi_objective=multi_objective, only_forward=only_forward, wandb=wandb)
         self.reset_height_offset = 0.01
 
         if sim_type == 'pybullet':
@@ -268,9 +284,9 @@ class NaoWalkEngine(AbstractWalkEngine):
 
 
 class RFCWalkEngine(AbstractWalkEngine):
-    def __init__(self, gui, sim_type='pybullet', repetitions=1, multi_objective=False):
+    def __init__(self, gui, sim_type='pybullet', repetitions=1, multi_objective=False, only_forward=False, wandb=False):
         super().__init__(gui, 'rfc', sim_type, start_speeds=[0.05, 0.025, 0.1], repetitions=repetitions,
-                         multi_objective=multi_objective)
+                         multi_objective=multi_objective, only_forward=only_forward, wandb=wandb)
         self.reset_height_offset = 0.011
 
     def suggest_walk_params(self, trial):
@@ -287,10 +303,10 @@ class RFCWalkEngine(AbstractWalkEngine):
 
 
 class ChapeWalkEngine(AbstractWalkEngine):
-    def __init__(self, gui, sim_type='webots', repetitions=1, multi_objective=False):
+    def __init__(self, gui, sim_type='webots', repetitions=1, multi_objective=False, only_forward=False, wandb=False):
         super().__init__(gui, 'chape', sim_type, foot_link_names=['l_sole', 'r_sole'],
                          start_speeds=[0.05, 0.025, 0.25], repetitions=repetitions,
-                         multi_objective=multi_objective)
+                         multi_objective=multi_objective, only_forward=only_forward, wandb=wandb)
         self.reset_height_offset = 0.15
 
     def suggest_walk_params(self, trial):
@@ -306,9 +322,9 @@ class ChapeWalkEngine(AbstractWalkEngine):
 
 
 class MRLHSLWalkEngine(AbstractWalkEngine):
-    def __init__(self, gui, sim_type='pybullet', repetitions=1, multi_objective=False):
+    def __init__(self, gui, sim_type='pybullet', repetitions=1, multi_objective=False, only_forward=False, wandb=False):
         super().__init__(gui, 'mrl_hsl', sim_type, start_speeds=[0.05, 0.025, 0.1], repetitions=repetitions,
-                         multi_objective=multi_objective)
+                         multi_objective=multi_objective, only_forward=only_forward, wandb=wandb)
         self.reset_height_offset = 0.24
 
     def suggest_walk_params(self, trial):
@@ -325,9 +341,9 @@ class MRLHSLWalkEngine(AbstractWalkEngine):
 
 
 class NugusWalkEngine(AbstractWalkEngine):
-    def __init__(self, gui, sim_type='pybullet', repetitions=1, multi_objective=False):
+    def __init__(self, gui, sim_type='pybullet', repetitions=1, multi_objective=False, only_forward=False, wandb=False):
         super().__init__(gui, 'nugus', sim_type, start_speeds=[0.05, 0.025, 0.1], repetitions=repetitions,
-                         multi_objective=multi_objective)
+                         multi_objective=multi_objective, only_forward=only_forward, wandb=wandb)
         self.reset_height_offset = 0.012
 
     def suggest_walk_params(self, trial):
@@ -344,9 +360,9 @@ class NugusWalkEngine(AbstractWalkEngine):
 
 
 class SAHRV74WalkEngine(AbstractWalkEngine):
-    def __init__(self, gui, sim_type='pybullet', repetitions=1, multi_objective=False):
+    def __init__(self, gui, sim_type='pybullet', repetitions=1, multi_objective=False, only_forward=False, wandb=False):
         super().__init__(gui, 'sahrv74', sim_type, start_speeds=[0.05, 0.025, 0.1], repetitions=repetitions,
-                         multi_objective=multi_objective)
+                         multi_objective=multi_objective, only_forward=only_forward, wandb=wandb)
         self.reset_height_offset = 0.01
 
     def suggest_walk_params(self, trial):
@@ -364,14 +380,15 @@ class SAHRV74WalkEngine(AbstractWalkEngine):
 
 
 class BezWalkEngine(AbstractWalkEngine):
-    def __init__(self, gui, sim_type='webots', repetitions=1, multi_objective=False):
+    def __init__(self, gui, sim_type='webots', repetitions=1, multi_objective=False, only_forward=False, wandb=False):
         super().__init__(gui, 'bez', sim_type, foot_link_names=['l_sole', 'r_sole'],
                          start_speeds=[0.05, 0.025, 0.25], repetitions=repetitions,
-                         multi_objective=multi_objective)
+                         multi_objective=multi_objective, only_forward=only_forward, wandb=wandb)
         self.reset_height_offset = 0.15
 
     def suggest_walk_params(self, trial):
-        self._suggest_walk_params(trial, trunk_height=(0.12, 0.22), foot_distance=(0.08, 0.16), foot_rise=(0.01, 0.15), trunk_x=0.03, z_movement=0.05)
+        self._suggest_walk_params(trial, trunk_height=(0.12, 0.22), foot_distance=(0.08, 0.16), foot_rise=(0.01, 0.15),
+                                  trunk_x=0.03, z_movement=0.05)
 
     def get_arm_pose(self):
         joint_command_msg = JointCommand()

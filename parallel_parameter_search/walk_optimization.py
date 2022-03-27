@@ -18,8 +18,8 @@ from bitbots_utils.utils import load_moveit_parameter, get_parameters_from_ros_y
 
 class AbstractWalkOptimization(AbstractRosOptimization):
 
-    def __init__(self, robot_name):
-        super().__init__(robot_name)
+    def __init__(self, robot_name, wandb=False):
+        super().__init__(robot_name, wandb=wandb)
         self.current_speed = None
         self.last_time = 0
         self.number_of_iterations = 100
