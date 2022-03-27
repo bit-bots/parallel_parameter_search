@@ -51,6 +51,7 @@ class AbstractWalkEngine(AbstractWalkOptimization):
         # standing as first test, is not in loop as it will only be done once
         fallen, pose_obj, orientation_obj, gyro_obj, end_poses = self.evaluate_direction(0, 0, 0, 1, standing=True)
         if fallen:
+            print("not standing")
             trial.set_user_attr('termination_reason', "not standing")
             # give lower score as 0 for each direction as we did not even stand
             max_speeds = [-1] * len(self.directions)
