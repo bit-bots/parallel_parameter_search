@@ -54,7 +54,8 @@ class AbstractWalkEngine(AbstractWalkOptimization):
             print("not standing")
             trial.set_user_attr('termination_reason', "not standing")
             # give lower score as 0 for each direction as we did not even stand
-            max_speeds = [-1] * len(self.directions)
+            # or not since this confuses TPE
+            #max_speeds = [-1] * len(self.directions)
         else:
             # iterate over the directions
             d = 0
@@ -97,13 +98,14 @@ class AbstractWalkEngine(AbstractWalkOptimization):
                     print(f"mean speed {mean_speed}")
                     print(f"mean wrong speed {mean_wrong_speed}")
 
-                    if mean_wrong_speed > mean_speed:
-                        # we move more into the wrong direction than into the correct one.
-                        # These parameters are not good, but we need to check this manually.
-                        # The speed in correct direction might still increase slightly and the robot may not fall
-                        trial.set_user_attr('termination_reason', f"movement in wrong direction at {cmd_vel}")
-                        print("break wrong direction")
-                        break
+                    #if mean_wrong_speed - 0.01 > mean_speed:
+                    #    # we move more into the wrong direction than into the correct one.
+                    #    # These parameters are not good, but we need to check this manually.
+                    #    # The speed in correct direction might still increase slightly and the robot may not fall
+                    #    # substract a bit wrong speed as it will otherwise be true to often for small velocities
+                    #    trial.set_user_attr('termination_reason', f"movement in wrong direction at {cmd_vel}")
+                    #    print("break wrong direction")
+                    #    break
 
                     if mean_speed < max_speeds[d]:
                         # we did not manage to go further
@@ -124,8 +126,10 @@ class AbstractWalkEngine(AbstractWalkOptimization):
         else:
             if len(self.directions) == 4:
                 # use different weighting factors for the different directions
-                return max_speeds[0] + max_speeds[1] + max_speeds[2] + max_speeds[3]
+                return max_speeds[0] + max_speeds[1] + 2* max_speeds[2] + 0.2 * max_speeds[3]
                 # - max_wrong_speeds[0] - max_wrong_speeds[1] - max_wrong_speeds[2] - max_wrong_speeds[3]
+            elif len(self.directions) == 1:
+                return max_speeds[0]
             else:
                 print("scalarization not implemented")
 
@@ -160,8 +164,8 @@ class AbstractWalkEngine(AbstractWalkOptimization):
         add('engine.foot_rise', foot_rise[0], foot_rise[1])
         # fix('foot_rise', foot_rise)
 
-        add('engine.first_step_swing_factor', 0.0, 2)
-        # fix('first_step_swing_factor', 1)
+        # add('engine.first_step_swing_factor', 0.0, 2)
+        fix('engine.first_step_swing_factor', 1)
         fix('engine.first_step_trunk_phase', -0.5)
 
         # add('foot_overshoot_phase', 0.0, 1.0)
