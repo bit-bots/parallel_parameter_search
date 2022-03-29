@@ -37,7 +37,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         # load walk params
         walk_parameters = get_parameters_from_ros_yaml("walking",
                                                        f"{get_package_share_directory('bitbots_quintic_walk')}"
-                                                       f"/config/walking_{self.robot_name}_optimization.yaml",
+                                                       f"/config/optimization.yaml",
                                                        use_wildcard=True)
 
         # create walk as python class to call it later
