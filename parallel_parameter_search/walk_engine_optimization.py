@@ -126,7 +126,7 @@ class AbstractWalkEngine(AbstractWalkOptimization):
         else:
             if len(self.directions) == 4:
                 # use different weighting factors for the different directions
-                return max_speeds[0] + max_speeds[1] + 2* max_speeds[2] + 0.2 * max_speeds[3]
+                return max_speeds[0] + max_speeds[1] + 2 * max_speeds[2] + 0.2 * max_speeds[3]
                 # - max_wrong_speeds[0] - max_wrong_speeds[1] - max_wrong_speeds[2] - max_wrong_speeds[3]
             elif len(self.directions) == 1:
                 return max_speeds[0]

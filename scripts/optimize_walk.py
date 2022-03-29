@@ -140,26 +140,24 @@ if args.suggest:
         if len(study.get_trials()) == 0:
             # old params
             print("#############\nUSING GIVEN PARAMETERS\n#############")
-            for i in range(1):
-                study.enqueue_trial({"engine.double_support_ratio": 0.10246360950147287,
-                                     "engine.first_step_swing_factor": 1.3542306836884608,
-                                     "engine.foot_distance": 0.24159033680013292,
-                                     "engine.foot_rise": 0.06647276146591795, "engine.freq": 3.75200764873075,
-                                     "engine.trunk_height": 0.3938513764844497,
-                                     "engine.trunk_phase": -0.44363523018380013,
-                                     "engine.trunk_pitch": -0.2971888909461389,
-                                     "engine.trunk_pitch_p_coef_forward": 3.6763906350936737,
-                                     "engine.trunk_pitch_p_coef_turn": 0.3958766542666028,
-                                     "engine.trunk_swing": 0.6600848248785338,
-                                     "engine.trunk_x_offset": 0.020639397629499356,
-                                     "engine.trunk_y_offset": 0.04769546671517156,
-                                     "engine.trunk_z_movement": 0.02350066715548973,
+            for i in range(100):
+                study.enqueue_trial({"engine.double_support_ratio": 0.034796570144596736,
+                                     "engine.first_step_swing_factor": 1.7800595066924876,
+                                     "engine.foot_distance": 0.19881438707505314,
+                                     "engine.foot_rise": 0.12280877798916165, "engine.freq": 1.8959162718292013,
+                                     "engine.trunk_height": 0.39804158587045746,
+                                     "engine.trunk_phase": -0.08475246510986148,
+                                     "engine.trunk_pitch": -0.16357469075949516,
+                                     "engine.trunk_pitch_p_coef_forward": 2.5292669379106547,
+                                     "engine.trunk_pitch_p_coef_turn": 1.260229361058871,
+                                     "engine.trunk_swing": 0.37717262866576556,
+                                     "engine.trunk_x_offset": 0.006565605317052644,
+                                     "engine.trunk_y_offset": 0.0016112522476573361,
+                                     "engine.trunk_z_movement": 0.008505190203257816,
                                      "engine.first_step_trunk_phase": -0.5, "engine.foot_apex_phase": 0.5,
-                                     "engine.foot_overshoot_phase": 1.0, "engine.foot_overshoot_ratio": 0.0,
-                                     "engine.foot_put_down_phase": 1.0, "engine.foot_put_down_z_offset": 0.0,
-                                     "engine.foot_z_pause": 0.0, "engine.trunk_pause": 0.0,
-                                     "engine.trunk_x_offset_p_coef_forward": 0.0,
-                                     "engine.trunk_x_offset_p_coef_turn": 0.0})
+                                     "engine.foot_overshoot_phase": 1, "engine.foot_overshoot_ratio": 0.0,
+                                     "engine.foot_put_down_phase": 1, "engine.foot_z_pause": 0,
+                                     "engine.trunk_pause": 0})
 
     else:
         print("no suggestion specified for this type")
@@ -177,7 +175,7 @@ if args.wandb:
         if args.forward:
             metric_name = ["objective.forward"]
         else:
-            metric_name = ["objective.forward", "objective.backward", "objective.left", "objective.turn"],
+            metric_name = ["objective.forward", "objective.backward", "objective.left", "objective.turn"]
             # "objective.error_forward", "objective.error_backward", "objective.error_left", "objective.error_turn"],
     else:
         metric_name = ["objective"]
