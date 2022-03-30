@@ -9,6 +9,7 @@ import optuna
 import rclpy
 from geometry_msgs.msg import Twist
 import tf_transformations
+from rcl_interfaces.msg import Parameter, ParameterValue
 
 from parallel_parameter_search.abstract_ros_optimization import AbstractRosOptimization
 from parallel_parameter_search.simulators import WebotsSim
@@ -39,6 +40,8 @@ class AbstractWalkOptimization(AbstractRosOptimization):
                                                        f"{get_package_share_directory('bitbots_quintic_walk')}"
                                                        f"/config/optimization.yaml",
                                                        use_wildcard=True)
+        # activate IK reset only for wolfgang
+        walk_parameters.append(Parameter(name="node.ik_reset", value=ParameterValue(bool_value=self.robot_name == "wolfgang")))
 
         # create walk as python class to call it later
         self.walk = PyWalk(self.namespace, walk_parameters + moveit_parameters)
