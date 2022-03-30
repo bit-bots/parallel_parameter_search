@@ -144,7 +144,7 @@ class AbstractWalkEngine(AbstractWalkOptimization):
             trial.set_user_attr(name, value)
 
         add('engine.double_support_ratio', 0.0, 0.5)
-        add('engine.freq', 1, 5)
+        add('engine.freq', 1, 3)
 
         add('engine.foot_distance', foot_distance[0], foot_distance[1])
         add('engine.trunk_height', trunk_height[0], trunk_height[1])
@@ -220,7 +220,7 @@ class WolfgangWalkEngine(AbstractWalkEngine):
 
     def suggest_walk_params(self, trial):
         self._suggest_walk_params(trial, trunk_height=(0.39, 0.43), foot_distance=(0.15, 0.25), foot_rise=(0.05, 0.15),
-                                  trunk_x=0.1, z_movement=0.1)
+                                  trunk_x=0.05, z_movement=0.05)
 
     def get_arm_pose(self):
         joint_command_msg = JointCommand()
@@ -238,7 +238,8 @@ class OP2WalkEngine(AbstractWalkEngine):
         self.reset_height_offset = 0.09
 
     def suggest_walk_params(self, trial):
-        self._suggest_walk_params(trial, (0.15, 0.25), (0.08, 0.16), (0.01, 0.15), 0.03, 0.05)
+        self._suggest_walk_params(trial, trunk_height=(0.17, 0.24), foot_distance=(0.08, 0.12), foot_rise=(0.05, 0.15),
+                                  trunk_x=0.03, z_movement=0.03)
 
     def get_arm_pose(self):
         joint_command_msg = JointCommand()
@@ -256,7 +257,8 @@ class OP3WalkEngine(AbstractWalkEngine):
         self.reset_height_offset = 0.01
 
     def suggest_walk_params(self, trial):
-        self._suggest_walk_params(trial, (0.15, 0.25), (0.08, 0.16), (0.01, 0.15), 0.03, 0.05)
+        self._suggest_walk_params(trial, trunk_height=(0.15, 0.25), foot_distance=(0.08, 0.12), foot_rise=(0.05, 0.15),
+                                  trunk_x=0.03, z_movement=0.03)
 
     def get_arm_pose(self):
         joint_command_msg = JointCommand()
@@ -277,7 +279,8 @@ class NaoWalkEngine(AbstractWalkEngine):
                 {"LShoulderPitch": 1.57, "RShoulderPitch": 1.57, 'LShoulderRoll': 0.3, 'RShoulderRoll': -0.3})
 
     def suggest_walk_params(self, trial):
-        self._suggest_walk_params(trial, (0.25, 0.35), (0.1, 0.2), (0.01, 0.15), 0.03, 0.05)
+        self._suggest_walk_params(trial, trunk_height=(0.25, 0.35), foot_distance=(0.1, 0.2), foot_rise=(0.01, 0.15),
+                                  trunk_x=0.03, z_movement=0.05)
 
     def get_arm_pose(self):
         joint_command_msg = JointCommand()
@@ -295,8 +298,8 @@ class RFCWalkEngine(AbstractWalkEngine):
         self.reset_height_offset = 0.011
 
     def suggest_walk_params(self, trial):
-        self._suggest_walk_params(trial, trunk_height=(0.3, 0.42), foot_distance=(0.15, 0.25), foot_rise=(0.05, 0.15),
-                                  trunk_x=0.1, z_movement=0.1)
+        self._suggest_walk_params(trial, trunk_height=(0.3, 0.4), foot_distance=(0.15, 0.22), foot_rise=(0.05, 0.15),
+                                  trunk_x=0.05, z_movement=0.05)
 
     def get_arm_pose(self):
         joint_command_msg = JointCommand()
@@ -315,7 +318,8 @@ class ChapeWalkEngine(AbstractWalkEngine):
         self.reset_height_offset = 0.15
 
     def suggest_walk_params(self, trial):
-        self._suggest_walk_params(trial, (0.22, 0.30), (0.08, 0.16), (0.01, 0.15), 0.03, 0.05)
+        self._suggest_walk_params(trial, trunk_height=(0.22, 0.27), foot_distance=(0.08, 0.12), foot_rise=(0.01, 0.15),
+                                  trunk_x=0.03, z_movement=0.03)
 
     def get_arm_pose(self):
         joint_command_msg = JointCommand()
@@ -333,8 +337,8 @@ class MRLHSLWalkEngine(AbstractWalkEngine):
         self.reset_height_offset = 0.24
 
     def suggest_walk_params(self, trial):
-        self._suggest_walk_params(trial, trunk_height=(0.25, 0.35), foot_distance=(0.15, 0.25), foot_rise=(0.05, 0.15),
-                                  trunk_x=0.1, z_movement=0.1)
+        self._suggest_walk_params(trial, trunk_height=(0.25, 0.32), foot_distance=(0.15, 0.22), foot_rise=(0.05, 0.15),
+                                  trunk_x=0.05, z_movement=0.05)
 
     def get_arm_pose(self):
         joint_command_msg = JointCommand()
@@ -352,8 +356,8 @@ class NugusWalkEngine(AbstractWalkEngine):
         self.reset_height_offset = 0.012
 
     def suggest_walk_params(self, trial):
-        self._suggest_walk_params(trial, trunk_height=(0.39, 0.45), foot_distance=(0.15, 0.25), foot_rise=(0.05, 0.15),
-                                  trunk_x=0.1, z_movement=0.1)
+        self._suggest_walk_params(trial, trunk_height=(0.4, 0.5), foot_distance=(0.15, 0.25), foot_rise=(0.05, 0.15),
+                                  trunk_x=0.05, z_movement=0.05)
 
     def get_arm_pose(self):
         joint_command_msg = JointCommand()
@@ -371,8 +375,8 @@ class SAHRV74WalkEngine(AbstractWalkEngine):
         self.reset_height_offset = 0.01
 
     def suggest_walk_params(self, trial):
-        self._suggest_walk_params(trial, trunk_height=(0.25, 0.35), foot_distance=(0.15, 0.25), foot_rise=(0.05, 0.15),
-                                  trunk_x=0.1, z_movement=0.1)
+        self._suggest_walk_params(trial, trunk_height=(0.3, 0.38), foot_distance=(0.15, 0.22), foot_rise=(0.05, 0.15),
+                                  trunk_x=0.05, z_movement=0.05)
 
     def get_arm_pose(self):
         joint_command_msg = JointCommand()
@@ -392,7 +396,7 @@ class BezWalkEngine(AbstractWalkEngine):
         self.reset_height_offset = 0.15
 
     def suggest_walk_params(self, trial):
-        self._suggest_walk_params(trial, trunk_height=(0.12, 0.22), foot_distance=(0.08, 0.16), foot_rise=(0.01, 0.15),
+        self._suggest_walk_params(trial, trunk_height=(0.14, 0.2), foot_distance=(0.07, 0.14), foot_rise=(0.03, 0.8),
                                   trunk_x=0.03, z_movement=0.05)
 
     def get_arm_pose(self):
