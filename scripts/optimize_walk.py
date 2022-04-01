@@ -19,7 +19,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--storage', help='Database SQLAlchemy string, e.g. postgresql://USER:PASS@SERVER/DB_NAME',
                     default=None, type=str, required=False)
 parser.add_argument('--name', help='Name of the study', default=None, type=str, required=True)
-parser.add_argument('--robot', help='Robot model that should be used {wolfgang, op2, op3, nao, rfc, chape, mrl_hsl} ',
+parser.add_argument('--robot', help='Robot model that should be used {wolfgang, op2, op3, nao, rfc, chape, mrl_hsl, nugus, bez, sahrv74} ',
                     default=None, type=str, required=True)
 parser.add_argument('--sim', help='Simulator type that should be used {pybullet, webots} ', default=None, type=str,
                     required=True)
@@ -37,6 +37,7 @@ parser.add_argument('--repetitions', help='How often each trial is repeated whil
 parser.add_argument('--suggest', help='Suggest a working solution', action='store_true')
 parser.add_argument('--wandb', help='Use wandb', action='store_true')
 parser.add_argument('--forward', help='Only optimize forward direction', action='store_true')
+parser.add_argument('--multivariate', help='Activate multivariate feature of TPE', action='store_true')
 args = parser.parse_args()
 
 seed = np.random.randint(2 ** 32 - 1)
@@ -106,13 +107,13 @@ else:
 num_variables = len(objective.directions)
 
 if args.sampler == "TPE":
-    sampler = TPESampler(n_startup_trials=n_startup_trials, seed=seed, multivariate=False, constant_liar=True)
+    sampler = TPESampler(n_startup_trials=n_startup_trials, seed=seed, multivariate=args.multivariate, constant_liar=True)
 elif args.sampler == "CMAES":
     sampler = CmaEsSampler(n_startup_trials=n_startup_trials, seed=seed)
 elif args.sampler == "MOTPE":
     if n_startup_trials == -1:
         n_startup_trials = num_variables * 11 - 1
-    sampler = TPESampler(n_startup_trials=n_startup_trials, seed=seed, multivariate=False, constant_liar=True)
+    sampler = TPESampler(n_startup_trials=n_startup_trials, seed=seed, multivariate=args.multivariate, constant_liar=True)
 elif args.sampler == "NSGA2":
     sampler = NSGAIISampler(seed=seed)
 elif args.sampler == "Random":
@@ -130,10 +131,12 @@ else:
                                 sampler=sampler, load_if_exists=True)
 
 study.set_user_attr("sampler", args.sampler)
+study.set_user_attr("multivariate", args.multivariate)
 study.set_user_attr("sim", args.sim)
 study.set_user_attr("robot", args.robot)
 study.set_user_attr("type", args.type)
 study.set_user_attr("repetitions", args.repetitions)
+
 
 if args.suggest:
     if args.type == "engine":
@@ -170,6 +173,8 @@ if args.wandb:
         "resume": "never",
         "group": args.name,  # use group so that we can run multiple studies in parallel
     }
+    if args.multivariate:
+        wandb_kwargs["tags"].append("multivariate")
 
     if multi_objective:
         if args.forward:
@@ -189,3 +194,5 @@ study.optimize(objective.objective, n_trials=args.trials, show_progress_bar=Fals
 
 # close simulator window
 objective.sim.close()
+
+exit(0)

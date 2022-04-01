@@ -156,8 +156,8 @@ class AbstractWalkEngine(AbstractWalkOptimization):
         add('engine.trunk_x_offset', -trunk_x, trunk_x)
         add('engine.trunk_y_offset', -trunk_x, trunk_x)
 
-        add('engine.trunk_pitch_p_coef_forward', -5, 5)
-        add('engine.trunk_pitch_p_coef_turn', -5, 5)
+        add('engine.trunk_pitch_p_coef_forward', -2, 2)
+        add('engine.trunk_pitch_p_coef_turn', -0.5, 0.5)
 
         add('engine.trunk_pitch', -0.5, 0.5)
         # fix('trunk_pitch', 0.0)
@@ -214,7 +214,7 @@ class AbstractWalkEngine(AbstractWalkOptimization):
 
 class WolfgangWalkEngine(AbstractWalkEngine):
     def __init__(self, gui, sim_type='pybullet', repetitions=1, multi_objective=False, only_forward=False, wandb=False):
-        super().__init__(gui, 'wolfgang', sim_type, start_speeds=[0.05, 0.025, 0.1], repetitions=repetitions,
+        super().__init__(gui, 'wolfgang', sim_type, start_speeds=[0.05, 0.025, 0.25], repetitions=repetitions,
                          multi_objective=multi_objective, only_forward=only_forward, wandb=wandb)
         self.reset_height_offset = 0.012
 
@@ -293,7 +293,7 @@ class NaoWalkEngine(AbstractWalkEngine):
 
 class RFCWalkEngine(AbstractWalkEngine):
     def __init__(self, gui, sim_type='pybullet', repetitions=1, multi_objective=False, only_forward=False, wandb=False):
-        super().__init__(gui, 'rfc', sim_type, start_speeds=[0.05, 0.025, 0.1], repetitions=repetitions,
+        super().__init__(gui, 'rfc', sim_type, start_speeds=[0.05, 0.025, 0.25], repetitions=repetitions,
                          multi_objective=multi_objective, only_forward=only_forward, wandb=wandb)
         self.reset_height_offset = 0.011
 
@@ -332,7 +332,7 @@ class ChapeWalkEngine(AbstractWalkEngine):
 
 class MRLHSLWalkEngine(AbstractWalkEngine):
     def __init__(self, gui, sim_type='pybullet', repetitions=1, multi_objective=False, only_forward=False, wandb=False):
-        super().__init__(gui, 'mrl_hsl', sim_type, start_speeds=[0.05, 0.025, 0.1], repetitions=repetitions,
+        super().__init__(gui, 'mrl_hsl', sim_type, start_speeds=[0.05, 0.025, 0.25], repetitions=repetitions,
                          multi_objective=multi_objective, only_forward=only_forward, wandb=wandb)
         self.reset_height_offset = 0.24
 
@@ -351,7 +351,7 @@ class MRLHSLWalkEngine(AbstractWalkEngine):
 
 class NugusWalkEngine(AbstractWalkEngine):
     def __init__(self, gui, sim_type='pybullet', repetitions=1, multi_objective=False, only_forward=False, wandb=False):
-        super().__init__(gui, 'nugus', sim_type, start_speeds=[0.05, 0.025, 0.1], repetitions=repetitions,
+        super().__init__(gui, 'nugus', sim_type, start_speeds=[0.05, 0.025, 0.25], repetitions=repetitions,
                          multi_objective=multi_objective, only_forward=only_forward, wandb=wandb)
         self.reset_height_offset = 0.012
 
@@ -370,7 +370,7 @@ class NugusWalkEngine(AbstractWalkEngine):
 
 class SAHRV74WalkEngine(AbstractWalkEngine):
     def __init__(self, gui, sim_type='pybullet', repetitions=1, multi_objective=False, only_forward=False, wandb=False):
-        super().__init__(gui, 'sahrv74', sim_type, start_speeds=[0.05, 0.025, 0.1], repetitions=repetitions,
+        super().__init__(gui, 'sahrv74', sim_type, start_speeds=[0.05, 0.025, 0.25], repetitions=repetitions,
                          multi_objective=multi_objective, only_forward=only_forward, wandb=wandb)
         self.reset_height_offset = 0.01
 
