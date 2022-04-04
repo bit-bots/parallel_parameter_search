@@ -396,7 +396,7 @@ class BezWalkEngine(AbstractWalkEngine):
         self.reset_height_offset = 0.15
 
     def suggest_walk_params(self, trial):
-        self._suggest_walk_params(trial, trunk_height=(0.14, 0.2), foot_distance=(0.07, 0.14), foot_rise=(0.03, 0.8),
+        self._suggest_walk_params(trial, trunk_height=(0.14, 0.2), foot_distance=(0.07, 0.14), foot_rise=(0.03, 0.08),
                                   trunk_x=0.03, z_movement=0.05)
 
     def get_arm_pose(self):
