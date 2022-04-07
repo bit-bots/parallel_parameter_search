@@ -279,15 +279,13 @@ class NaoWalkEngine(AbstractWalkEngine):
                 {"LShoulderPitch": 1.57, "RShoulderPitch": 1.57, 'LShoulderRoll': 0.3, 'RShoulderRoll': -0.3})
 
     def suggest_walk_params(self, trial):
-        self._suggest_walk_params(trial, trunk_height=(0.25, 0.35), foot_distance=(0.1, 0.2), foot_rise=(0.01, 0.15),
-                                  trunk_x=0.03, z_movement=0.05)
+        self._suggest_walk_params(trial, trunk_height=(0.28, 0.34), foot_distance=(0.08, 0.16), foot_rise=(0.05, 0.1),
+                                  trunk_x=0.05, z_movement=0.025)
 
     def get_arm_pose(self):
         joint_command_msg = JointCommand()
-        joint_command_msg.joint_names = ["LElbowYaw", "RElbowYaw", "LShoulderPitch",
-                                         "RShoulderPitch"]
-        joint_command_msg.positions = [math.radians(-90.0), math.radians(90.0), math.radians(45.0),
-                                       math.radians(-45.0)]
+        joint_command_msg.joint_names = ["LShoulderPitch", "RShoulderPitch", 'LShoulderRoll', 'RShoulderRoll']
+        joint_command_msg.positions = [1.57, 1.57, 0.3, -0.3]
         return joint_command_msg
 
 
