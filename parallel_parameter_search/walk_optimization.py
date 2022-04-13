@@ -19,7 +19,7 @@ from bitbots_utils.utils import load_moveit_parameter, get_parameters_from_ros_y
 
 class AbstractWalkOptimization(AbstractRosOptimization):
 
-    def __init__(self, robot_name, wandb=False):
+    def __init__(self, robot_name, wandb=False, config_name="optimization"):
         super().__init__(robot_name, wandb=wandb)
         self.current_speed = None
         self.last_time = 0
@@ -36,15 +36,15 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         moveit_parameters = load_moveit_parameter(self.robot_name)
 
         # load walk params
-        walk_parameters = get_parameters_from_ros_yaml("walking",
+        self.walk_parameters = get_parameters_from_ros_yaml("walking",
                                                        f"{get_package_share_directory('bitbots_quintic_walk')}"
-                                                       f"/config/optimization.yaml",
+                                                       f"/config/{config_name}.yaml",
                                                        use_wildcard=True)
         # activate IK reset only for wolfgang
-        walk_parameters.append(Parameter(name="node.ik_reset", value=ParameterValue(bool_value=self.robot_name == "wolfgang")))
+        self.walk_parameters.append(Parameter(name="node.ik_reset", value=ParameterValue(bool_value=self.robot_name == "wolfgang")))
 
         # create walk as python class to call it later
-        self.walk = PyWalk(self.namespace, walk_parameters + moveit_parameters)
+        self.walk = PyWalk(self.namespace, self.walk_parameters + moveit_parameters)
 
     def suggest_walk_params(self, trial):
         raise NotImplementedError
@@ -255,7 +255,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         self.set_cmd_vel(0, 0, 0, stop=True)
         self.complete_walking_step()
         self.sim.set_gravity(True)
-        # self.sim.set_self_collision(True) #todo why is this deactivated?
+        self.sim.set_self_collision(True)
         self.reset_position()
 
     def set_cmd_vel(self, x: float, y: float, yaw: float, stop=False):
