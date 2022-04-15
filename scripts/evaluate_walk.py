@@ -36,13 +36,14 @@ class EvaluateWalk(AbstractWalkOptimization):
                 self.trunk_pitch_p_coef_forward is None:
             print("Parameters not set correctly")
             exit()
-        self.reset_height_offset = 0.012
+        self.reset_height_offset = 0.24
 
     def get_arm_pose(self):
         joint_command_msg = JointCommand()
-        joint_command_msg.joint_names = ["LElbow", "RElbow", "LShoulderPitch", "RShoulderPitch"]
-        joint_command_msg.positions = [math.radians(35.86), math.radians(-36.10), math.radians(75.27),
-                                       math.radians(-75.58)]
+        joint_command_msg.joint_names = ["Shoulder-L [shoulder]", "Shoulder-R [shoulder]", "UpperArm-L",
+                                         "UpperArm-R", "LowerArm-L", "LowerArm-R"]
+        joint_command_msg.positions = [math.radians(60.0), math.radians(-60.0), math.radians(10.0),
+                                       math.radians(-10.0), math.radians(-135.0), math.radians(135.0)]
         return joint_command_msg
 
     def evaluate_walk(self):
@@ -71,35 +72,35 @@ class EvaluateWalk(AbstractWalkOptimization):
 
                     distance_travelled_in_correct_direction = np.dot(direction, np.array(actual_end_pose))
                     # need to use factor as we have acceleration and deccaleration phases
-                    print(f"end pose {actual_end_pose}")
-                    print(f"correct disctance {distance_travelled_in_correct_direction}")
-                    print(f"speed {distance_travelled_in_correct_direction / 7.5}")
+                    actual_speed = distance_travelled_in_correct_direction / 7.5
+                    print(f"speed {actual_speed}")
 
                     real_speed_multipliers = []
-                    if goal_end_pose[0] == 0:
-                        real_speed_multipliers.append(1)
-                    else:
-                        real_speed_multipliers.append(goal_end_pose[0] / actual_end_pose[0])
-                    if goal_end_pose[1] == 0:
-                        real_speed_multipliers.append(1)
-                    else:
-                        real_speed_multipliers.append(goal_end_pose[1] / actual_end_pose[1])
-                    if goal_end_pose[2] == 0:
-                        real_speed_multipliers.append(1)
-                    else:
-                        real_speed_multipliers.append(goal_end_pose[2] / actual_end_pose[2])
-                    results.append(Result(*speed, fall, pose_obj, *real_speed_multipliers))
+                    #if goal_end_pose[0] == 0:
+                    #    real_speed_multipliers.append(1)
+                    #else:
+                    #    real_speed_multipliers.append(goal_end_pose[0] / actual_end_pose[0])
+                    #if goal_end_pose[1] == 0:
+                    #    real_speed_multipliers.append(1)
+                    #else:
+                    #    real_speed_multipliers.append(goal_end_pose[1] / actual_end_pose[1])
+                    #if goal_end_pose[2] == 0:
+                    #    real_speed_multipliers.append(1)
+                    #else:
+                    #    real_speed_multipliers.append(goal_end_pose[2] / actual_end_pose[2])
+                    #results.append(Result(*speed, fall, pose_obj, *real_speed_multipliers))
                     falls += fall
 
                 if falls == self.repetitions:
                     print(f"Fall at {speed}")
+                    print("")
                     maximal_speeds.append(speed)
                     break
 
-        test_speed([0, 0, 0], [0.05, 0, 0], [1,0,0])
-        test_speed([0, 0, 0], [-0.05, 0, 0], [-1,0,0])
-        test_speed([0, 0, 0], [0, 0.025, 0], [0,1,0])
-        test_speed([0, 0, 0], [0, 0, 0.25], [0,0,1])
+        #test_speed([0.1, 0, 0], [0.05, 0, 0], [1,0,0])
+        #test_speed([-0.1, 0, 0], [-0.05, 0, 0], [-1,0,0])
+        #test_speed([0, 0.05, 0], [0, 0.025, 0], [0,1,0])
+        test_speed([0, 0, 1], [0, 0, 0.25], [0,0,1])
 
         #test_speed([0, 0, 0], [0.05, 0.05, 0])
 
@@ -109,7 +110,7 @@ class EvaluateWalk(AbstractWalkOptimization):
         results_df.to_pickle(f"./walk_evaluation_{self.robot}.pkl")
 
 
-walk_evaluation = EvaluateWalk("worker", True, "wolfgang")
+walk_evaluation = EvaluateWalk("worker", True, "mrl_hsl")
 walk_evaluation.evaluate_walk()
 
 walk_evaluation.sim.close()

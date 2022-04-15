@@ -255,7 +255,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         self.set_cmd_vel(0, 0, 0, stop=True)
         self.complete_walking_step()
         self.sim.set_gravity(True)
-        self.sim.set_self_collision(True)
+        #self.sim.set_self_collision(True)
         self.reset_position()
 
     def set_cmd_vel(self, x: float, y: float, yaw: float, stop=False):
