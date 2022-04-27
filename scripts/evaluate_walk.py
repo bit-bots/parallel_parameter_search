@@ -36,14 +36,14 @@ class EvaluateWalk(AbstractWalkOptimization):
                 self.trunk_pitch_p_coef_forward is None:
             print("Parameters not set correctly")
             exit()
-        self.reset_height_offset = 0.24
+        self.reset_height_offset = 0.012
 
     def get_arm_pose(self):
         joint_command_msg = JointCommand()
-        joint_command_msg.joint_names = ["Shoulder-L [shoulder]", "Shoulder-R [shoulder]", "UpperArm-L",
-                                         "UpperArm-R", "LowerArm-L", "LowerArm-R"]
-        joint_command_msg.positions = [math.radians(60.0), math.radians(-60.0), math.radians(10.0),
-                                       math.radians(-10.0), math.radians(-135.0), math.radians(135.0)]
+        joint_command_msg.joint_names = ["left_elbow_pitch", "right_elbow_pitch", "left_shoulder_pitch [shoulder]",
+                                         "right_shoulder_pitch [shoulder]", "left_shoulder_roll", "right_shoulder_roll"]
+        joint_command_msg.positions = [math.radians(-120), math.radians(-120), math.radians(120),
+                                       math.radians(120), math.radians(20), math.radians(-20)]
         return joint_command_msg
 
     def evaluate_walk(self):
@@ -97,12 +97,35 @@ class EvaluateWalk(AbstractWalkOptimization):
                     maximal_speeds.append(speed)
                     break
 
-        #test_speed([0.1, 0, 0], [0.05, 0, 0], [1,0,0])
-        #test_speed([-0.1, 0, 0], [-0.05, 0, 0], [-1,0,0])
-        #test_speed([0, 0.05, 0], [0, 0.025, 0], [0,1,0])
-        test_speed([0, 0, 1], [0, 0, 0.25], [0,0,1])
+        test_speed([0.0, 0, 0], [0.05, 0, 0], [1,0,0])
+        test_speed([-0.0, 0, 0], [-0.05, 0, 0], [-1,0,0])
+        test_speed([0, 0.0, 0], [0, 0.025, 0], [0,1,0])
+        test_speed([0, 0, 0], [0, 0, 0.25], [0,0,1])
 
-        #test_speed([0, 0, 0], [0.05, 0.05, 0])
+        # viewpoints
+        # forward 2.5 6.2 2.5 | 0 -0.56 -0.82 3.1443
+        # backward -2.5 6.2 2.5 | 0 -0.56 -0.82 3.1443
+        # sideward -3 1 0.8 | 0.5 -0.5 -0.7 1.93
+        # turn -2.5 0 1 | 0.5 -0.5 -0.7 1.93
+        # on field -2.3 1.5 1 | -0.28 0.56 0.77 -2.42
+
+
+        # MRL 0.75 -0.8 0.25 3.75
+        # Wolfgang 0.55 -0.55 0.275 1.75
+        # op2 0.45 -0.45 0.2 5.0
+        # op3 0.8 -1.2 0.8 4.5
+        # nao 0.75 -1.05 0.55 1.5
+        # rfc 0.55 -0.55 0.4 2.5
+        # chape 0.6 -0.7 0.425 4.0
+        # nugus 0.5 -0.7 0.375 2.5
+        # bez 0.35 -0.1 0.2 3.25
+
+        while True:
+            #test_speed([0.35, 0, 0], [0, 0, 0], [1,0,0])
+            #test_speed([-0.1, 0, 0], [0, 0, 0], [-1,0,0])
+            #test_speed([0, 0.2, 0], [0, 0, 0], [0,1,0])
+            #test_speed([0, 0, 2.25], [0, 0, 0], [0,0,1])
+            pass
 
         print(maximal_speeds)
         results_df = pd.DataFrame(results)
@@ -110,7 +133,7 @@ class EvaluateWalk(AbstractWalkOptimization):
         results_df.to_pickle(f"./walk_evaluation_{self.robot}.pkl")
 
 
-walk_evaluation = EvaluateWalk("worker", True, "mrl_hsl")
+walk_evaluation = EvaluateWalk("worker", True, "nugus")
 walk_evaluation.evaluate_walk()
 
 walk_evaluation.sim.close()
