@@ -12,7 +12,8 @@ from optuna.pruners import MedianPruner
 from optuna.samplers import TPESampler, CmaEsSampler
 import numpy as np
 
-import rospy
+import rclpy
+from rclpy.node import Node
 
 from parallel_parameter_search.simulators import PybulletSim, WebotsSim
 
@@ -25,7 +26,7 @@ parser.add_argument('--gui', help="Activate gui", action='store_true')
 
 args = parser.parse_args()
 
-rospy.init_node("sim_test")
+rclpy.init(args=None)
 rospack = rospkg.RosPack()
 urdf_path = rospack.get_path(f'{args.robot}_description') + '/urdf/robot.urdf'
 
@@ -42,6 +43,6 @@ elif args.sim == 'webots':
 else:
     print(f'sim type {args.sim} not known')
 
-while not rospy.is_shutdown():
+while rclpy.ok():
     sim.step_sim()
 

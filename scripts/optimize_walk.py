@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-# this has to be first import, otherwise there will be an error
-from bitbots_quintic_walk import PyWalk
 import argparse
 import importlib
 import time
@@ -9,12 +7,11 @@ import time
 import optuna
 from optuna.pruners import MedianPruner
 from optuna.samplers import TPESampler, CmaEsSampler, MOTPESampler, RandomSampler, NSGAIISampler
+from optuna.integration import WeightsAndBiasesCallback
 import numpy as np
 
-import rospy
-
 from parallel_parameter_search.walk_engine_optimization import OP2WalkEngine, WolfgangWalkEngine, OP3WalkEngine, \
-    NaoWalkEngine
+    NaoWalkEngine, RFCWalkEngine, ChapeWalkEngine, MRLHSLWalkEngine, NugusWalkEngine, SAHRV74WalkEngine, BezWalkEngine
 
 from parallel_parameter_search.walk_stabilization import WolfgangWalkStabilization
 
@@ -22,12 +19,11 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--storage', help='Database SQLAlchemy string, e.g. postgresql://USER:PASS@SERVER/DB_NAME',
                     default=None, type=str, required=False)
 parser.add_argument('--name', help='Name of the study', default=None, type=str, required=True)
-parser.add_argument('--robot', help='Robot model that should be used {wolfgang, op2, op3, nao} ',
+parser.add_argument('--robot', help='Robot model that should be used {wolfgang, op2, op3, nao, rfc, chape, mrl_hsl, nugus, bez, sahrv74} ',
                     default=None, type=str, required=True)
 parser.add_argument('--sim', help='Simulator type that should be used {pybullet, webots} ', default=None, type=str,
                     required=True)
 parser.add_argument('--gui', help="Activate gui", action='store_true')
-parser.add_argument('--node', help="Run walking as extra node", action='store_true')
 parser.add_argument('--type', help='Optimization type that should be used {engine, stabilization} ', default=None,
                     type=str, required=True)
 parser.add_argument('--startup', help='Startup trials', default=-1,
@@ -38,85 +34,165 @@ parser.add_argument('--sampler', help='Which sampler {MOTPE, TPE, CMAES, NSGA2, 
                     type=str, required=True)
 parser.add_argument('--repetitions', help='How often each trial is repeated while beeing evaluated', default=1,
                     type=int, required=False)
-
+parser.add_argument('--suggest', help='Suggest a working solution', action='store_true')
+parser.add_argument('--wandb', help='Use wandb', action='store_true')
+parser.add_argument('--forward', help='Only optimize forward direction', action='store_true')
+parser.add_argument('--multivariate', help='Activate multivariate feature of TPE', action='store_true')
 args = parser.parse_args()
 
 seed = np.random.randint(2 ** 32 - 1)
 n_startup_trials = args.startup
 
-num_variables = 4
+multi_objective = args.sampler in ['MOTPE', 'Random']
 
-multi_objective = False
+if args.type == "engine":
+    if args.robot == "op2":
+        objective = OP2WalkEngine(gui=args.gui, sim_type=args.sim,
+                                  repetitions=args.repetitions, multi_objective=multi_objective,
+                                  only_forward=args.forward, wandb=args.wandb)
+    elif args.robot == "wolfgang":
+        objective = WolfgangWalkEngine(gui=args.gui, sim_type=args.sim,
+                                       repetitions=args.repetitions, multi_objective=multi_objective,
+                                       only_forward=args.forward, wandb=args.wandb)
+    elif args.robot == "op3":
+        objective = OP3WalkEngine(gui=args.gui, sim_type=args.sim,
+                                  repetitions=args.repetitions, multi_objective=multi_objective,
+                                  only_forward=args.forward, wandb=args.wandb)
+    elif args.robot == "nao":
+        objective = NaoWalkEngine(gui=args.gui, sim_type=args.sim,
+                                  repetitions=args.repetitions, multi_objective=multi_objective,
+                                  only_forward=args.forward, wandb=args.wandb)
+    elif args.robot == "rfc":
+        objective = RFCWalkEngine(gui=args.gui, sim_type=args.sim,
+                                  repetitions=args.repetitions, multi_objective=multi_objective,
+                                  only_forward=args.forward, wandb=args.wandb)
+    elif args.robot == "chape":
+        objective = ChapeWalkEngine(gui=args.gui, sim_type=args.sim,
+                                    repetitions=args.repetitions, multi_objective=multi_objective,
+                                    only_forward=args.forward, wandb=args.wandb)
+    elif args.robot == "mrl_hsl":
+        objective = MRLHSLWalkEngine(gui=args.gui, sim_type=args.sim,
+                                     repetitions=args.repetitions, multi_objective=multi_objective,
+                                     only_forward=args.forward, wandb=args.wandb)
+    elif args.robot == "nugus":
+        objective = NugusWalkEngine(gui=args.gui, sim_type=args.sim,
+                                    repetitions=args.repetitions, multi_objective=multi_objective,
+                                    only_forward=args.forward, wandb=args.wandb)
+    elif args.robot == "sahrv74":
+        objective = SAHRV74WalkEngine(gui=args.gui, sim_type=args.sim,
+                                      repetitions=args.repetitions, multi_objective=multi_objective,
+                                      only_forward=args.forward, wandb=args.wandb)
+    elif args.robot == "bez":
+        objective = BezWalkEngine(gui=args.gui, sim_type=args.sim,
+                                  repetitions=args.repetitions, multi_objective=multi_objective,
+                                  only_forward=args.forward, wandb=args.wandb)
+    else:
+        print(f"robot type \"{args.robot}\" not known.")
+        exit()
+elif args.type == "stabilization":
+    if args.robot == "wolfgang":
+        objective = WolfgangWalkStabilization(gui=args.gui, sim_type=args.sim,
+                                              repetitions=args.repetitions, multi_objective=multi_objective)
+        # add one trial without stabilitation at the beginning to provide a baseline
+        study.enqueue_trial(
+            {"pitch.p": 0.0, "pitch.i": 0.0, "pitch.d": 0.0, "pitch.i_clamp_min": 0.0, "pitch.i_clamp_max": 0.0,
+             "roll.p": 0.0, "roll.i": 0.0, "roll.d": 0.0, "roll.i_clamp_min": 0.0, "roll.i_clamp_max": 0.0,
+             "pause_duration": 0.0, "imu_pitch_threshold": 0.0, "imu_roll_threshold": 0.0,
+             "imu_pitch_vel_threshold": 0.0, "imu_roll_vel_threshold": 0.0})
+    else:
+        print(f"robot type \"{args.robot}\" not known.")
+else:
+    print(f"Optimization type {args.type} not known.")
+
+num_variables = len(objective.directions)
+
 if args.sampler == "TPE":
-    sampler = TPESampler(n_startup_trials=n_startup_trials, seed=seed, multivariate=False, constant_liar=True)
+    sampler = TPESampler(n_startup_trials=n_startup_trials, seed=seed, multivariate=args.multivariate, constant_liar=True)
 elif args.sampler == "CMAES":
     sampler = CmaEsSampler(n_startup_trials=n_startup_trials, seed=seed)
 elif args.sampler == "MOTPE":
     if n_startup_trials == -1:
         n_startup_trials = num_variables * 11 - 1
-    sampler = TPESampler(n_startup_trials=n_startup_trials, seed=seed, multivariate=False, constant_liar=True)
-    multi_objective = True
+    sampler = TPESampler(n_startup_trials=n_startup_trials, seed=seed, multivariate=args.multivariate, constant_liar=True)
 elif args.sampler == "NSGA2":
     sampler = NSGAIISampler(seed=seed)
 elif args.sampler == "Random":
     sampler = RandomSampler(seed=seed)
-    multi_objective = True
 else:
-    print("sampler not correctly specified")
+    print("sampler not correctly specified. Should be one of {TPE, CMAES, MOTPE, NSGA2, Random}")
     exit(1)
 
 if multi_objective:
-    study = optuna.create_study(study_name=args.name, storage=args.storage, directions=["maximize"] * num_variables,
+    study = optuna.create_study(study_name=args.name, storage=args.storage,
+                                directions=["maximize"] * num_variables,  # + ["minimize"] * num_variables,
                                 sampler=sampler, load_if_exists=True)
 else:
     study = optuna.create_study(study_name=args.name, storage=args.storage, direction="maximize",
                                 sampler=sampler, load_if_exists=True)
 
 study.set_user_attr("sampler", args.sampler)
+study.set_user_attr("multivariate", args.multivariate)
+study.set_user_attr("sim", args.sim)
 study.set_user_attr("robot", args.robot)
 study.set_user_attr("type", args.type)
 study.set_user_attr("repetitions", args.repetitions)
 
-if args.type == "engine":
-    if args.robot == "op2":
-        objective = OP2WalkEngine('worker', gui=args.gui, walk_as_node=args.node, sim_type=args.sim,
-                                  repetitions=args.repetitions, multi_objective=multi_objective)
-    elif args.robot == "wolfgang":
-        objective = WolfgangWalkEngine('worker', gui=args.gui, walk_as_node=args.node, sim_type=args.sim,
-                                       repetitions=args.repetitions, multi_objective=multi_objective)
-    elif args.robot == "op3":
-        objective = OP3WalkEngine('worker', gui=args.gui, walk_as_node=args.node, sim_type=args.sim,
-                                  repetitions=args.repetitions, multi_objective=multi_objective)
-    elif args.robot == "nao":
-        objective = NaoWalkEngine('worker', gui=args.gui, walk_as_node=args.node, sim_type=args.sim,
-                                  repetitions=args.repetitions, multi_objective=multi_objective)
+
+if args.suggest:
+    if args.type == "engine":
+        if len(study.get_trials()) == 0:
+            # old params
+            print("#############\nUSING GIVEN PARAMETERS\n#############")
+            for i in range(100):
+                study.enqueue_trial({"engine.double_support_ratio": 0.034796570144596736,
+                                     "engine.first_step_swing_factor": 1.7800595066924876,
+                                     "engine.foot_distance": 0.19881438707505314,
+                                     "engine.foot_rise": 0.12280877798916165, "engine.freq": 1.8959162718292013,
+                                     "engine.trunk_height": 0.39804158587045746,
+                                     "engine.trunk_phase": -0.08475246510986148,
+                                     "engine.trunk_pitch": -0.16357469075949516,
+                                     "engine.trunk_pitch_p_coef_forward": 2.5292669379106547,
+                                     "engine.trunk_pitch_p_coef_turn": 1.260229361058871,
+                                     "engine.trunk_swing": 0.37717262866576556,
+                                     "engine.trunk_x_offset": 0.006565605317052644,
+                                     "engine.trunk_y_offset": 0.0016112522476573361,
+                                     "engine.trunk_z_movement": 0.008505190203257816,
+                                     "engine.first_step_trunk_phase": -0.5, "engine.foot_apex_phase": 0.5,
+                                     "engine.foot_overshoot_phase": 1, "engine.foot_overshoot_ratio": 0.0,
+                                     "engine.foot_put_down_phase": 1, "engine.foot_z_pause": 0,
+                                     "engine.trunk_pause": 0})
+
     else:
-        print(f"robot type \"{args.robot}\" not known.")
-elif args.type == "stabilization":
-    if args.robot == "wolfgang":
-        objective = WolfgangWalkStabilization('worker', gui=args.gui, walk_as_node=args.node, sim_type=args.sim,
-                                              repetitions=args.repetitions, multi_objective=multi_objective)
+        print("no suggestion specified for this type")
+
+# only use wandb callback if name provided
+if args.wandb:
+    wandb_kwargs = {
+        "project": f"optuna-walk-{args.type}",
+        "tags": [args.sampler, args.robot, args.sim],
+        "resume": "never",
+        "group": args.name,  # use group so that we can run multiple studies in parallel
+    }
+    if args.multivariate:
+        wandb_kwargs["tags"].append("multivariate")
+
+    if multi_objective:
+        if args.forward:
+            metric_name = ["objective.forward"]
+        else:
+            metric_name = ["objective.forward", "objective.backward", "objective.left", "objective.turn"]
+            # "objective.error_forward", "objective.error_backward", "objective.error_left", "objective.error_turn"],
     else:
-        print(f"robot type \"{args.robot}\" not known.")
+        metric_name = ["objective"]
+    wandbc = WeightsAndBiasesCallback(
+        metric_name=metric_name,
+        wandb_kwargs=wandb_kwargs)
+    callbacks = [wandbc]
 else:
-    print(f"Optimization type {args.type} not known.")
-
-if False:
-    if len(study.get_trials()) == 0:
-        # old params
-        for i in range(1):
-            study.enqueue_trial(
-                {"double_support_ratio": 0.187041787093062, "first_step_swing_factor": 0.988265815486162,
-                 "foot_distance": 0.191986968311401, "foot_rise": 0.0805917174531535, "freq": 2.81068228309542,
-                 "trunk_height": 0.364281403417376, "trunk_phase": -0.19951206583248, "trunk_pitch": 0.338845862625267,
-                 "trunk_pitch_p_coef_forward": -1.36707568402799, "trunk_pitch_p_coef_turn": -0.621298812652778,
-                 "trunk_swing": 0.342345300382608, "trunk_x_offset": -0.0178414805249525,
-                 "trunk_y_offset": 0.000997552190718013, "trunk_z_movement": 0.0318583647276103,
-                 "early_termination_at": [0.0, 0.0, 35.0], "first_step_trunk_phase": -0.5, "foot_apex_phase": 0.5,
-                 "foot_overshoot_phase": 1.0, "foot_overshoot_ratio": 0.0, "foot_put_down_phase": 1.0,
-                 "foot_z_pause": 0.0, "trunk_pause": 0.0})
-
-study.optimize(objective.objective, n_trials=args.trials, show_progress_bar=True)
+    callbacks = []
+study.optimize(objective.objective, n_trials=args.trials, show_progress_bar=False, callbacks=callbacks)
 
 # close simulator window
 objective.sim.close()
+
+exit(0)

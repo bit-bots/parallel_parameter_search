@@ -1,5 +1,5 @@
-<?xml version="1.0"?>
-<package>
+<?xml version='1.0' encoding='utf-8'?>
+<package format="2">
   <name>parallel_parameter_search</name>
   <version>1.0.0</version>
   <description>This package allows you to optimize a generic set of parameters for an arbitrary algorithm in a distributed way in the Gazebo simulator.</description>
@@ -7,22 +7,17 @@
   <maintainer email="bestmann@informatik.uni-hamburg.de">Marc Bestmann</maintainer>
   <license>BSD</license>
 
+  <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <buildtool_depend>catkin</buildtool_depend>
+  <depend>rclpy</depend>
+  <depend>std_msgs</depend>
 
-  <build_depend>roscpp</build_depend>
-  <build_depend>rospy</build_depend>
-  <build_depend>std_msgs</build_depend>
-  <build_depend>rosconsole</build_depend>
-
-
-  <run_depend>roscpp</run_depend>
-  <run_depend>rospy</run_depend>
-  <run_depend>std_msgs</run_depend>
-  <run_depend>rosconsole</run_depend>
-
-  <run_depend>bitbots_msgs</run_depend>
+  <exec_depend>bitbots_msgs</exec_depend>
+  <exec_depend>bitbots_quintic_walk</exec_depend>
+  <exec_depend>wolfgang_pybullet_sim</exec_depend>
+  <exec_depend>wolfgang_webots_sim</exec_depend>
 
   <export>
+  <build_type>ament_cmake</build_type>
   </export>
-</package>
+    </package>

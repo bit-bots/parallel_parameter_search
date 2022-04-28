@@ -10,7 +10,8 @@ import math
 
 import roslaunch
 import rospkg
-import rospy
+import rclpy
+from rclpy.node import Node
 import tf
 
 from parallel_parameter_search.abstract_ros_optimization import AbstractRosOptimization
@@ -64,8 +65,8 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         self.launch.launch(self.robot_state_publisher)
         self.launch.launch(self.dynup_node)
 
-        self.dynup_request_pub = rospy.Publisher(self.namespace + '/dynup/goal', DynUpActionGoal, queue_size=1)
-        self.dynup_cancel_pub = rospy.Publisher(self.namespace + '/dynup/cancel', GoalID, queue_size=1)
+        self.dynup_request_pub = self.create_publisher(DynUpActionGoal, self.namespace + '/dynup/goal', 1)
+        self.dynup_cancel_pub = self.create_publisher(GoalID, self.namespace + '/dynup/cancel', 1)
         self.dynamixel_controller_pub = rospy.Publisher(self.namespace + "/DynamixelController/command", JointCommand,
                                                         queue_size=1)
         self.number_of_iterations = 10
@@ -141,9 +142,9 @@ class AbstractDynupOptimization(AbstractRosOptimization):
     def result_cb(self, msg):
         if msg.result.successful:
             self.dynup_complete = True
-            rospy.logerr("Dynup complete.")
+            self.get_logger().error("Dynup complete.")
         else:
-            rospy.logerr("Dynup was cancelled.")
+            self.get_logger().error("Dynup was cancelled.")
 
     def command_cb(self, msg):
         self.dynup_step_done = True
@@ -259,7 +260,7 @@ class AbstractDynupOptimization(AbstractRosOptimization):
         self.max_head_height = 0
         self.min_fused_pitch = 90
 
-        while not rospy.is_shutdown():
+        while rclpy.ok():
             if not self.real_robot:
                 # apply force only while dynup is running and not in waiting time after end
                 if self.get_time() - self.start_time < end_time:
@@ -516,7 +517,7 @@ class AbstractDynupOptimization(AbstractRosOptimization):
 
     def get_time(self):
         if self.real_robot:
-            return rospy.Time.now().to_sec()
+            return self.get_clock().now().to_sec()
         else:
             return self.sim.get_time()
 
@@ -783,7 +784,7 @@ class SigmabanOptimization(AbstractDynupOptimization):
 
 
 def load_robot_param(namespace, rospack, name):
-    rospy.set_param(namespace + '/robot_type_name', name)
+    self.set_parameters([rclpy.parameter.Parameter(namespace + '/robot_type_name', rclpy.Parameter.Type.DOUBLE, name)])
     set_param_to_file(namespace + "/robot_description", name + '_description', '/urdf/robot.urdf', rospack)
     set_param_to_file(namespace + "/robot_description_semantic", name + '_moveit_config',
                       '/config/' + name + '.srdf', rospack)

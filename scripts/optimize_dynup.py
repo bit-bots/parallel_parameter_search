@@ -10,7 +10,8 @@ import optuna
 from optuna.samplers import TPESampler, CmaEsSampler, MOTPESampler, RandomSampler
 import numpy as np
 
-import rospy
+import rclpy
+from rclpy.node import Node
 
 from parallel_parameter_search.dynup_optimization import WolfgangOptimization, SigmabanOptimization, Op2Optimization
 
