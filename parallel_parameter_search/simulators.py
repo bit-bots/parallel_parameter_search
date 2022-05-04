@@ -1,5 +1,6 @@
 import os
 import subprocess
+import signal as sig
 import sys
 import time
 from abc import ABC
