@@ -293,6 +293,7 @@ class WebotsSim(AbstractSim, ABC):
         sys.exit(f"joint {name} not found")
 
     def close(self):
-        self.sim_proc.terminate()
-        self.sim_proc.wait()
-        self.sim_proc.kill()
+        os.killpg(os.getpgid(self.sim_proc.pid), sig.SIGTERM)
+        #self.sim_proc.terminate()
+        #self.sim_proc.wait()
+        #self.sim_proc.kill()
