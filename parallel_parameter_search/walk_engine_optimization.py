@@ -301,8 +301,8 @@ class RFCWalkEngine(AbstractWalkEngine):
 
     def get_arm_pose(self):
         joint_command_msg = JointCommand()
-        joint_command_msg.joint_names = ["LeftElbow", "RightElbow", "LeftShoulderPitch [shoulder]",
-                                         "RightShoulderPitch [shoulder]"]
+        joint_command_msg.joint_names = ["LeftElbow", "RightElbow", "LeftShoulderPitch",
+                                         "RightShoulderPitch"]
         joint_command_msg.positions = [math.radians(-90.0), math.radians(90.0), math.radians(45.0),
                                        math.radians(-45.0)]
         return joint_command_msg
@@ -321,8 +321,8 @@ class ChapeWalkEngine(AbstractWalkEngine):
 
     def get_arm_pose(self):
         joint_command_msg = JointCommand()
-        joint_command_msg.joint_names = ["leftElbowYaw", "rightElbowYaw", "leftShoulderPitch[shoulder]",
-                                         "rightShoulderPitch[shoulder]", "leftShoulderYaw", "rightShoulderYaw"]
+        joint_command_msg.joint_names = ["leftElbowYaw", "rightElbowYaw", "leftShoulderPitch",
+                                         "rightShoulderPitch", "leftShoulderYaw", "rightShoulderYaw"]
         joint_command_msg.positions = [math.radians(-160), math.radians(160), math.radians(75.27),
                                        math.radians(75.58), math.radians(-75.58), math.radians(75.58)]
         return joint_command_msg
@@ -340,7 +340,7 @@ class MRLHSLWalkEngine(AbstractWalkEngine):
 
     def get_arm_pose(self):
         joint_command_msg = JointCommand()
-        joint_command_msg.joint_names = ["Shoulder-L [shoulder]", "Shoulder-R [shoulder]", "UpperArm-L",
+        joint_command_msg.joint_names = ["Shoulder-L", "Shoulder-R", "UpperArm-L",
                                          "UpperArm-R", "LowerArm-L", "LowerArm-R"]
         joint_command_msg.positions = [math.radians(60.0), math.radians(-60.0), math.radians(10.0),
                                        math.radians(-10.0), math.radians(-135.0), math.radians(135.0)]
