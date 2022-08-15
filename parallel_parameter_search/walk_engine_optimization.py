@@ -301,8 +301,8 @@ class RFCWalkEngine(AbstractWalkEngine):
 
     def get_arm_pose(self):
         joint_command_msg = JointCommand()
-        joint_command_msg.joint_names = ["LeftElbow", "RightElbow", "LeftShoulderPitch [shoulder]",
-                                         "RightShoulderPitch [shoulder]"]
+        joint_command_msg.joint_names = ["LeftElbow", "RightElbow", "LeftShoulderPitch",
+                                         "RightShoulderPitch"]
         joint_command_msg.positions = [math.radians(-90.0), math.radians(90.0), math.radians(45.0),
                                        math.radians(-45.0)]
         return joint_command_msg
@@ -321,8 +321,8 @@ class ChapeWalkEngine(AbstractWalkEngine):
 
     def get_arm_pose(self):
         joint_command_msg = JointCommand()
-        joint_command_msg.joint_names = ["leftElbowYaw", "rightElbowYaw", "leftShoulderPitch[shoulder]",
-                                         "rightShoulderPitch[shoulder]", "leftShoulderYaw", "rightShoulderYaw"]
+        joint_command_msg.joint_names = ["leftElbowYaw", "rightElbowYaw", "leftShoulderPitch",
+                                         "rightShoulderPitch", "leftShoulderYaw", "rightShoulderYaw"]
         joint_command_msg.positions = [math.radians(-160), math.radians(160), math.radians(75.27),
                                        math.radians(75.58), math.radians(-75.58), math.radians(75.58)]
         return joint_command_msg
@@ -340,7 +340,7 @@ class MRLHSLWalkEngine(AbstractWalkEngine):
 
     def get_arm_pose(self):
         joint_command_msg = JointCommand()
-        joint_command_msg.joint_names = ["Shoulder-L [shoulder]", "Shoulder-R [shoulder]", "UpperArm-L",
+        joint_command_msg.joint_names = ["Shoulder-L", "Shoulder-R", "UpperArm-L",
                                          "UpperArm-R", "LowerArm-L", "LowerArm-R"]
         joint_command_msg.positions = [math.radians(60.0), math.radians(-60.0), math.radians(10.0),
                                        math.radians(-10.0), math.radians(-135.0), math.radians(135.0)]
@@ -359,8 +359,8 @@ class NugusWalkEngine(AbstractWalkEngine):
 
     def get_arm_pose(self):
         joint_command_msg = JointCommand()
-        joint_command_msg.joint_names = ["left_elbow_pitch", "right_elbow_pitch", "left_shoulder_pitch [shoulder]",
-                                         "right_shoulder_pitch [shoulder]", "left_shoulder_roll", "right_shoulder_roll"]
+        joint_command_msg.joint_names = ["left_elbow_pitch", "right_elbow_pitch", "left_shoulder_pitch",
+                                         "right_shoulder_pitch", "left_shoulder_roll", "right_shoulder_roll"]
         joint_command_msg.positions = [math.radians(-120), math.radians(-120), math.radians(120),
                                        math.radians(120), math.radians(20), math.radians(-20)]
         return joint_command_msg
@@ -378,7 +378,7 @@ class SAHRV74WalkEngine(AbstractWalkEngine):
 
     def get_arm_pose(self):
         joint_command_msg = JointCommand()
-        joint_command_msg.joint_names = ["left_shoulder_pitch [shoulder]", "right_shoulder_pitch [shoulder]",
+        joint_command_msg.joint_names = ["left_shoulder_pitch", "right_shoulder_pitch",
                                          "left_shoulder_roll",
                                          "right_shoulder_roll", "left_elbow", "right_elbow"]
         joint_command_msg.positions = [math.radians(60.0), math.radians(60.0), math.radians(10.0),
@@ -399,8 +399,8 @@ class BezWalkEngine(AbstractWalkEngine):
 
     def get_arm_pose(self):
         joint_command_msg = JointCommand()
-        joint_command_msg.joint_names = ["left_arm_motor_0 [shoulder]",
-                                         "right_arm_motor_0 [shoulder]", "left_arm_motor_1", "right_arm_motor_1"]
+        joint_command_msg.joint_names = ["left_arm_motor_0",
+                                         "right_arm_motor_0", "left_arm_motor_1", "right_arm_motor_1"]
         joint_command_msg.positions = [math.radians(0),
                                        math.radians(0), math.radians(170), math.radians(170)]
         return joint_command_msg

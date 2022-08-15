@@ -91,7 +91,7 @@ class AbstractSim:
 class PybulletSim(AbstractSim):
 
     def __init__(self, node: Node, gui, urdf_path=None, foot_link_names=[], terrain_height=0, field=False,
-                 robot="wolfgang"):
+                 robot="wolfgang", ros_active=False):
         super().__init__(node)
         # load simuation params
         load_parameter_file(node=node, node_name=self.node.get_name(),
@@ -102,9 +102,13 @@ class PybulletSim(AbstractSim):
                                           terrain_height=terrain_height,
                                           field=field, robot=robot)
         self.sim_interface: ROSInterface = ROSInterface(self.node, self.sim, declare_parameters=False)
+        self.ros_active = ros_active
 
     def step_sim(self):
-        self.sim_interface.step()
+        if self.ros_active:
+            self.sim_interface.step()
+        else:
+            self.sim_interface.simulation.step()
 
     def set_gravity(self, on):
         self.sim.set_gravity(on)

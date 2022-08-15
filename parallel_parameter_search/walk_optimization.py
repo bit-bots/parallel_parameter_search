@@ -140,7 +140,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
             self.last_time = current_time
             self.sim.step_sim()
 
-            self.walk.publish_debug()
+            # self.walk.publish_debug()
             # spine py+cpp nodes just to allow introspection from terminal and create debug messages if necessary
             # there is no spin_some method in python, just try to do it a couple of times
             # TODO this could be done in a better way if rclpy had a spin_some method
@@ -255,7 +255,9 @@ class AbstractWalkOptimization(AbstractRosOptimization):
         self.set_cmd_vel(0, 0, 0, stop=True)
         self.complete_walking_step()
         self.sim.set_gravity(True)
-        self.sim.set_self_collision(True)
+        # some robots have issues in their collision model
+        if self.robot_name not in ["nao", "chape"]:
+            self.sim.set_self_collision(True)
         self.reset_position()
 
     def set_cmd_vel(self, x: float, y: float, yaw: float, stop=False):

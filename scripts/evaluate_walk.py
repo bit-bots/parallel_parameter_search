@@ -10,7 +10,7 @@ import numpy as np
 class EvaluateWalk(AbstractWalkOptimization):
 
     def __init__(self, namespace, gui, robot, sim_type="webots", foot_link_names=()):
-        super().__init__(robot, config_name=f"walking_{robot}_simulator")
+        super().__init__(robot, config_name=f"deep_quintic_webots_{robot}")
         if sim_type == 'pybullet':
             urdf_path = self.rospack.get_path(robot + '_description') + '/urdf/robot.urdf'
             self.sim = PybulletSim(self.namespace, gui, urdf_path=urdf_path,
@@ -36,14 +36,16 @@ class EvaluateWalk(AbstractWalkOptimization):
                 self.trunk_pitch_p_coef_forward is None:
             print("Parameters not set correctly")
             exit()
-        self.reset_height_offset = 0.01
-
+        self.reset_height_offset = 0.15
+    
     def get_arm_pose(self):
         joint_command_msg = JointCommand()
-        joint_command_msg.joint_names = ["l_el", "r_el", "l_sho_pitch", "r_sho_pitch", "l_sho_roll", "r_sho_roll"]
-        joint_command_msg.positions = [math.radians(-140), math.radians(140), math.radians(-135),
-                                       math.radians(135), math.radians(-90), math.radians(90)]
+        joint_command_msg.joint_names = ["left_arm_motor_0",
+                                         "right_arm_motor_0", "left_arm_motor_1", "right_arm_motor_1"]
+        joint_command_msg.positions = [math.radians(0),
+                                       math.radians(0), math.radians(170), math.radians(170)]
         return joint_command_msg
+
 
     def evaluate_walk(self):
         Result = make_dataclass("Result",
@@ -72,7 +74,11 @@ class EvaluateWalk(AbstractWalkOptimization):
                     distance_travelled_in_correct_direction = np.dot(direction, np.array(actual_end_pose))
                     # need to use factor as we have acceleration and deccaleration phases
                     actual_speed = distance_travelled_in_correct_direction / 7.5
-                    print(f"speed {actual_speed}")
+                    print(f"actual speed: {actual_speed}")
+                    for i in range(3): 
+                        if speed[i] != 0:                       
+                            print(f"reached speed factor: {actual_speed/speed[i]}")
+                            print(f"factor for config: {speed[i]/actual_speed}")
 
                     real_speed_multipliers = []
                     #if goal_end_pose[0] == 0:
@@ -96,10 +102,10 @@ class EvaluateWalk(AbstractWalkOptimization):
                     maximal_speeds.append(speed)
                     break
 
-        #test_speed([0.0, 0, 0], [0.05, 0, 0], [1,0,0])
-        #test_speed([-0.0, 0, 0], [-0.05, 0, 0], [-1,0,0])
-        test_speed([0, 0.2, 0], [0, 0.025, 0], [0,1,0])
-        #test_speed([0, 0, 0], [0, 0, 0.25], [0,0,1])
+        test_speed([0.0, 0, 0], [0.05, 0, 0], [1,0,0])
+        test_speed([-0.0, 0, 0], [-0.05, 0, 0], [-1,0,0])
+        test_speed([0, 0.0, 0], [0, 0.025, 0], [0,1,0])
+        test_speed([0, 0, 0], [0, 0, 0.25], [0,0,1])
 
         # viewpoints
         # forward 2.5 6.2 2.5 | 0 -0.56 -0.82 3.1443
@@ -119,10 +125,10 @@ class EvaluateWalk(AbstractWalkOptimization):
         # nugus 0.5 -0.7 0.375 2.5
         # bez 0.35 -0.1 0.2 3.25
 
-        while True:
+        while False:
             #test_speed([0.35, 0, 0], [0, 0, 0], [1,0,0])
             #test_speed([-0.1, 0, 0], [0, 0, 0], [-1,0,0])
-            test_speed([0, 0.3, 0], [0, 0, 0], [0,1,0])
+            #test_speed([0, 0.3, 0], [0, 0, 0], [0,1,0])
             #test_speed([0, 0, 2.25], [0, 0, 0], [0,0,1])
             pass
 
@@ -132,7 +138,7 @@ class EvaluateWalk(AbstractWalkOptimization):
         results_df.to_pickle(f"./walk_evaluation_{self.robot}.pkl")
 
 
-walk_evaluation = EvaluateWalk("worker", True, "op3")
+walk_evaluation = EvaluateWalk("worker", True, "bez")
 walk_evaluation.evaluate_walk()
 
 walk_evaluation.sim.close()
