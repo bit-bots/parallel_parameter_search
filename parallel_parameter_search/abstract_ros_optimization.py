@@ -1,5 +1,5 @@
 import rclpy
-from bitbots_moveit_bindings.libbitbots_moveit_bindings import initRos
+#from bitbots_moveit_bindings.libbitbots_moveit_bindings import initRos
 from rclpy.node import Node
 import random
 import os
@@ -12,7 +12,7 @@ class AbstractRosOptimization:
         self.wandb = wandb
         # need to init ROS for python and c++ code
         rclpy.init()
-        initRos()
+        #initRos()
         # initialize node with unique name to avoid clashes when running the same optimization multiple times
         # needs to start with letter
         self.namespace = "anon_" + str(os.getpid()) + "_" + str(random.randint(0, 10000000)) + "_"
