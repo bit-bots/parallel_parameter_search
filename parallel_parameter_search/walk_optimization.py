@@ -41,7 +41,7 @@ class AbstractWalkOptimization(AbstractRosOptimization):
                                                        f"/config/{config_name}.yaml",
                                                        use_wildcard=True)
         # activate IK reset only for wolfgang
-        self.walk_parameters.append(Parameter(name="node.ik_reset", value=ParameterValue(bool_value=self.robot_name == "wolfgang")))
+        self.walk_parameters.append(Parameter(name="node.ik.reset", value=ParameterValue(bool_value=self.robot_name == "wolfgang")))
 
         # create walk as python class to call it later
         self.walk = PyWalk(self.namespace, self.walk_parameters + moveit_parameters)
