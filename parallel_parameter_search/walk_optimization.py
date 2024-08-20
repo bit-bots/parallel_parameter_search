@@ -19,7 +19,7 @@ from bitbots_utils.utils import load_moveit_parameter, get_parameters_from_ros_y
 
 class AbstractWalkOptimization(AbstractRosOptimization):
 
-    def __init__(self, robot_name, wandb=False, config_name="optimization"):
+    def __init__(self, robot_name, wandb=False, config_name="walking_wolfgang_simulator"):
         super().__init__(robot_name, wandb=wandb)
         self.current_speed = None
         self.last_time = 0
