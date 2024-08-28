@@ -164,6 +164,8 @@ class AbstractWalkEngine(AbstractWalkOptimization):
         add('engine.foot_rise', foot_rise[0], foot_rise[1])
         # fix('foot_rise', foot_rise)
 
+        add('engine.foot_pitch_angle', 0, 1.0)
+
         # add('engine.first_step_swing_factor', 0.0, 2)
         fix('engine.first_step_swing_factor', 1)
         fix('engine.first_step_trunk_phase', -0.5)
