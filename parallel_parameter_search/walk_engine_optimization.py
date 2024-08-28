@@ -189,10 +189,10 @@ class AbstractWalkEngine(AbstractWalkOptimization):
         # walk engine should update at same speed as simulation
         param_dict["node.engine_freq"] = 1 / self.sim.get_timestep()
         # don't use loop closure when optimizing parameter
-        param_dict["node.pressure_phase_reset_active"] = False
-        param_dict["node.effort_phase_reset_active"] = False
+        #param_dict["node.pressure_phase_reset_active"] = False
+        #param_dict["node.effort_phase_reset_active"] = False
         # make sure that steps are not limited
-        param_dict["node.imu_active"] = False
+        # param_dict["node.imu_active"] = False
         param_dict["node.max_step_x"] = 100.0
         param_dict["node.max_step_y"] = 100.0
         param_dict["node.max_step_xy"] = 100.0
