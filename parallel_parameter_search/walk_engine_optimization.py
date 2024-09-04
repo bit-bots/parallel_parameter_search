@@ -221,7 +221,7 @@ class WolfgangWalkEngine(AbstractWalkEngine):
         self.reset_height_offset = 0.012
 
     def suggest_walk_params(self, trial):
-        self._suggest_walk_params(trial, trunk_height=(0.39, 0.43), foot_distance=(0.15, 0.25), foot_rise=(0.05, 0.15),
+        self._suggest_walk_params(trial, trunk_height=(0.37, 0.41), foot_distance=(0.15, 0.25), foot_rise=(0.05, 0.15),
                                   trunk_x=0.05, z_movement=0.05)
 
     def get_arm_pose(self):
